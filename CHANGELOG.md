@@ -34,14 +34,22 @@ up the first tag.
   `format`, `delimiter`, `charset`, `type-field`, `max-findings`,
   `allow-warnings`, `layout`, `disable`, `severity` and `count-rules`.
   `--config` names another file and `--no-config` ignores it. Flags overrule the
-  file, except that `--disable` and `--count-rule` add to it.
+  file, except that `--disable` and `--count-rule` add to it. The file must be
+  UTF-8 with LF or CRLF line endings (a leading UTF-8 byte order mark is
+  tolerated, UTF-16 is rejected), and a duplicate key at either level, an
+  unknown setting and an unparsable value are all errors naming the line. A
+  fuzz target holds the reader to that contract, and CI runs a bounded pass of
+  it.
 - `--write-baseline <file>` records the findings a set of files produces now,
   and `--baseline <file>` reports only what is not in that recording. Entries
-  hold no line or column and ignore the numbers inside a message, so they
-  survive edits above them and statistics that shift as a file grows; identical
-  findings collapse into one entry with a count, so one more of the same defect
-  is still reported. The document is sorted and carries no timestamp, so
-  re-recording an unchanged set produces the same bytes.
+  hold no line or column and ignore the unquoted numbers inside a message, so
+  they survive edits above them and statistics that shift as a file grows.
+  Quoted values and the code point of a character finding are part of the
+  match, so swapping one defect for another — a different bad date, control
+  number or homoglyph — is still reported. Identical findings collapse into
+  one entry with a count, so one more of the same defect is reported too. The
+  document is sorted and carries no timestamp, so re-recording an unchanged
+  set produces the same bytes.
 
 ### Changed
 

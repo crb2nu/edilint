@@ -330,7 +330,10 @@ Notes on the schema:
 - The file is read with a restricted YAML reader: a mapping whose values are
   scalars, lists of scalars, or one further mapping of scalars. Anchors,
   multi-line scalars and lists of mappings are errors, not silent
-  misinterpretations. This is what keeps the tool free of dependencies.
+  misinterpretations. So are duplicate keys at either level, a UTF-16 file,
+  invalid UTF-8 and a carriage return without a line feed; a UTF-8 byte order
+  mark at the start is tolerated, and LF and CRLF line endings both work. This
+  is what keeps the tool free of dependencies.
 
 ## Baselines
 
@@ -351,25 +354,29 @@ Commit the baseline. It is sorted and holds no timestamp, so recording the same
 findings twice produces the same bytes and a diff shows only real movement.
 
 **What a baseline matches on.** An entry records the file, the rule identifier,
-the record type and the message — and deliberately no line, column or record
-ordinal. Those move whenever a segment is inserted above them, and a baseline
-that expired on the next edit would be useless.
+the record type, the code point when the rule reports one, and the message —
+and deliberately no line, column or record ordinal. Those move whenever a
+segment is inserted above them, and a baseline that expired on the next edit
+would be useless.
 
-Numbers in the message are ignored when matching, for the same reason: several
-messages quote a statistic over the whole file, such as "9 field(s) here but 10
-in 2 of 3 record(s) of this type", and that changes as soon as an unrelated
-record is added. The names, record types and quoted values are what identify the
-defect, and they are kept. Identical findings collapse into one entry with a
-`count`, so thirty non-printable characters record as one entry of thirty and a
-thirty-first is still reported.
+Unquoted numbers in the message are ignored when matching, for the same reason:
+several messages carry a statistic over the whole file, such as "9 field(s)
+here but 10 in 2 of 3 record(s) of this type", and that changes as soon as an
+unrelated record is added. Quoted values are kept exactly, digits included: a
+quoted bad date or control number is the defect itself, and swapping it for a
+different wrong value is reported as new. Identical findings collapse into one
+entry with a `count`, so thirty non-printable characters record as one entry of
+thirty and a thirty-first is still reported.
 
 Three consequences worth knowing:
 
 - Paths are recorded as they were given, cleaned but still relative, so run
   edilint from the same directory each time.
 - Two findings of the same rule, on the same record type, in the same file,
-  whose messages differ only in their numbers, count as the same finding.
-  Swapping one for the other is not reported; adding one on top of it is.
+  whose messages differ only in their unquoted numbers, count as the same
+  finding. Swapping one for the other is not reported; adding one on top of it
+  is. What the message quotes, and the code point of a character finding, do
+  distinguish: a different bad date, control number or homoglyph is new.
 - Rewording a rule's message in a later release invalidates the entries that
   quoted it, and those findings resurface. Re-record with `--write-baseline`
   after an upgrade whose changelog says messages changed.
