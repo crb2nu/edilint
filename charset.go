@@ -234,7 +234,7 @@ func checkControl(s *source, rep *Report, allowed map[rune]bool, r rune, line, c
 			Rule:     RuleNonPrint,
 			Severity: SeverityWarning,
 			Message: "tab character in a file that is not tab-delimited; it is invisible in review " +
-				"and is silently normalised by some transports",
+				"and is silently normalized by some transports",
 			Line:      line,
 			Column:    col,
 			CodePoint: "U+0009",

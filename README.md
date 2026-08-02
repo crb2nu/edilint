@@ -145,7 +145,7 @@ interchange control number detection across the whole batch.
 | `--allow-warnings` | Exit 0 when only warnings were found. |
 | `--json` | Emit a JSON document instead of diagnostic lines. |
 | `-v`, `--verbose` | Print a line for clean files too. |
-| `--list-rules` | Print the rule catalogue and exit. |
+| `--list-rules` | Print the rule catalog and exit. |
 
 ### Format detection
 
@@ -226,7 +226,7 @@ zeros, so for non-space pad characters only stray space padding is flagged.
 ## Rules
 
 Rule names are stable and appear in both the text and JSON output.
-`edilint --list-rules` prints this catalogue at runtime.
+`edilint --list-rules` prints this catalog at runtime.
 
 ### charset
 
@@ -353,7 +353,7 @@ for _, f := range rep.Findings {
 }
 ```
 
-A nil error from `LintFile` means the input was read and analysed, not that it
+A nil error from `LintFile` means the input was read and analyzed, not that it
 was clean. Check `Report.OK` or inspect `Report.Findings`.
 
 ## License

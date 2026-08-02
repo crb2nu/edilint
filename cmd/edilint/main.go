@@ -288,7 +288,7 @@ Flags:
       --allow-warnings    exit 0 when only warnings were found
       --json              emit a JSON document instead of diagnostic lines
   -v, --verbose           print a line for clean files too
-      --list-rules        print the rule catalogue and exit
+      --list-rules        print the rule catalog and exit
       --version           print the version and exit
   -h, --help              print this help and exit
 

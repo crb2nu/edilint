@@ -27,6 +27,8 @@ real defect before their trading partner did.
 - No proprietary material of any kind. All fixtures are synthetic and fictional.
 - Go, stdlib-first; new dependencies need a written justification in the MR/PR.
 - Plain factual prose in all docs — no marketing adjectives, no AI-tooling jargon.
+- American English spelling everywhere: code, comments, docs, and commit messages
+  (behavior, catalog, normalize, analyze).
 - Every check has: a stable rule ID, table-driven tests (pass + fail fixtures),
   one-line rationale in the rule reference, and a documented false-positive story.
 - Repo conventions (layout, CI, commit format) are whatever v0.1 establishes; read

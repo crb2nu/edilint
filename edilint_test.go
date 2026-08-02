@@ -395,9 +395,9 @@ func TestFormatFindingLine(t *testing.T) {
 	}
 }
 
-func TestRulesCatalogueIsComplete(t *testing.T) {
+func TestRulesCatalogIsComplete(t *testing.T) {
 	// Every rule the engine can emit must be documented, because --list-rules and
-	// the README table are generated from this catalogue.
+	// the README table are generated from this catalog.
 	documented := map[string]bool{}
 	for _, r := range Rules() {
 		documented[r.Name] = true
@@ -482,7 +482,7 @@ func TestFixtureLineEndingsSurviveCheckout(t *testing.T) {
 		}
 		stripped := bytes.ReplaceAll(body, []byte("\r\n"), nil)
 		if !bytes.Contains(stripped, []byte("\n")) {
-			t.Error("fixture should contain a lone LF; line endings were normalised")
+			t.Error("fixture should contain a lone LF; line endings were normalized")
 		}
 		if bytes.HasSuffix(body, []byte("\n")) {
 			t.Error("fixture should end without a terminator")

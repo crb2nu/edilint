@@ -150,7 +150,7 @@ type RuleDoc struct {
 	Summary  string   `json:"summary"`
 }
 
-// Rules returns the catalogue of implemented rules, ordered by class then name.
+// Rules returns the catalog of implemented rules, ordered by class then name.
 func Rules() []RuleDoc {
 	return []RuleDoc{
 		{RuleBOM, ClassCharset, SeverityError, "all (warning for delimited)",
@@ -232,7 +232,7 @@ func Rules() []RuleDoc {
 	}
 }
 
-// WriteRules renders the rule catalogue as an aligned table.
+// WriteRules renders the rule catalog as an aligned table.
 func WriteRules(w io.Writer) error {
 	rules := Rules()
 	width := 0

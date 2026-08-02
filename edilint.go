@@ -7,7 +7,7 @@
 // pipeline, a send script, or a larger integration engine.
 //
 // The entry points are LintFile and Lint. Both return a Report holding zero or
-// more Findings; a nil error means the input was read and analysed, not that it
+// more Findings; a nil error means the input was read and analyzed, not that it
 // was clean.
 package edilint
 
@@ -32,7 +32,7 @@ const (
 	FormatDelimited Format = "delimited"
 	// FormatFixed is a line-oriented fixed-width record file.
 	FormatFixed Format = "fixed"
-	// FormatText is a line-oriented file with no recognised record structure.
+	// FormatText is a line-oriented file with no recognized record structure.
 	// Only the character-hygiene and terminator checks apply.
 	FormatText Format = "text"
 )
@@ -93,7 +93,7 @@ type Options struct {
 	MaxFindings int
 }
 
-// maxFindings normalises the cap: any value at or below zero means unlimited.
+// maxFindings normalizes the cap: any value at or below zero means unlimited.
 func (o Options) maxFindings() int {
 	if o.MaxFindings < 0 {
 		return 0
@@ -132,7 +132,7 @@ func LintFile(path string, opts Options) (*Report, error) {
 	return Lint(path, data, opts), nil
 }
 
-// Lint analyses data and returns a report. name is used only for display.
+// Lint analyzes data and returns a report. name is used only for display.
 func Lint(name string, data []byte, opts Options) *Report {
 	rep := &Report{File: name, Format: FormatText}
 

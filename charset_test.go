@@ -7,7 +7,7 @@ import (
 
 func TestCharsetHygiene(t *testing.T) {
 	// The inputs contain literal suspicious characters; wantCode pins the exact
-	// code point, so the test fails loudly if an editor ever normalises one away.
+	// code point, so the test fails loudly if an editor ever normalizes one away.
 	tests := []struct {
 		name     string
 		input    string
