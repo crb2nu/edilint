@@ -57,7 +57,7 @@ identifiers and amounts are invented.
 |---|---|
 | 0 | No findings. |
 | 1 | At least one finding. |
-| 2 | Usage error, or a file could not be read. |
+| 2 | Usage error, or a file could not be read. Files that *were* readable are still reported before the run exits 2. |
 
 Warnings fail the run by default. Pass `--allow-warnings` to exit 0 unless there
 is an error.
@@ -119,9 +119,12 @@ The JSON document carries a `version` field, currently `2`. It is incremented
 only when an existing field changes meaning or is removed. Version 2 renamed the
 `segment` field to `record`, and the former `record` ordinal to `record_number`.
 
-When `--max-findings` truncates the output, the `findings` array is shortened
-but every `summary` still reports the true totals and carries `"truncated":
-true`. The exit status is unaffected by truncation.
+`findings` is always an array. A clean file emits `[]`, never `null`, so
+iterating it is safe without a guard.
+
+When output is truncated the `findings` array is shortened, but every
+`summary` still reports the true totals and carries `"truncated": true`. The
+exit status is never affected by truncation.
 
 ## Usage
 
@@ -141,11 +144,29 @@ interchange control number detection across the whole batch.
 | `--type-field <n>` | 1-based field used as the record-type discriminator for the field-count check. Default 1. |
 | `--count-rule <rule>` | Repeatable. `recordType:fieldIndex:countedType`. |
 | `--disable <rules>` | Comma-separated rule names or classes, e.g. `--disable charset.nonascii,layout`. |
-| `--max-findings <n>` | Print at most n findings per file. Default unlimited. The exit status always reflects every finding. |
+| `--max-findings <n>` | Print at most n findings per file. The exit status and the summary always reflect every finding, whatever this is set to. |
 | `--allow-warnings` | Exit 0 when only warnings were found. |
 | `--json` | Emit a JSON document instead of diagnostic lines. |
 | `-v`, `--verbose` | Print a line for clean files too. |
 | `--list-rules` | Print the rule catalog and exit. |
+
+### Behavior on very defective files
+
+edilint is meant to be pointed at a directory with a glob, which means it will
+eventually be pointed at something that is not an interchange file at all. Two
+limits keep that from being expensive:
+
+- **Input that is not text is reported once.** If the first 64 KB is more than
+  30% invalid UTF-8 or NUL bytes, edilint says so in a single finding and runs
+  no interchange checks. A `.gz` or `.zip` swept up by a glob costs one line of
+  output, not one line per byte.
+- **At most 10,000 findings per file are kept.** Everything is counted — the
+  summary totals, the exit status and the "and N more" notice are all exact —
+  but only the first 10,000 are retained for display. Raise the ceiling by
+  passing a larger `--max-findings`.
+
+Neither limit changes an exit status. A file with a million defects and a file
+with one both exit 1.
 
 ### Format detection
 
@@ -233,7 +254,7 @@ Rule names are stable and appear in both the text and JSON output.
 | Rule | Severity | Applies to | Detects |
 |---|---|---|---|
 | `charset.bom` | error | all (warning for delimited) | File starts with a byte order mark. An error for X12, HL7v2 and fixed-width, where a BOM before ISA or MSH shifts every fixed position in the file; a warning for delimited, because spreadsheet exports emit one routinely and most CSV readers cope. |
-| `charset.invalid-utf8` | error | all | Byte sequence is not valid UTF-8. |
+| `charset.invalid-utf8` | error | all | Byte sequence is not valid UTF-8. Reported once, without running the interchange checks, when the input is dense enough in invalid UTF-8 and NUL bytes not to be text at all. |
 | `charset.nonprintable` | error | all | Control character in record content that is not a declared separator. Tabs are reported as warnings. |
 | `charset.zero-width` | error | all | Zero-width or bidirectional formatting character that renders as nothing but occupies bytes. |
 | `charset.homoglyph` | error | all | Unicode character that is visually identical to an ASCII one, such as Cyrillic А for A. |
