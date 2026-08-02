@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# Superseded runs on a pull request are pointless; pushes to main are never
+# canceled, so a later release or tagging job can rely on every push completing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     name: lint
@@ -19,6 +25,8 @@ jobs:
         with:
           go-version: stable
 
+      # gofmt and go vet duplicate work golangci-lint also does, but their
+      # failure output names the problem directly, which is worth the seconds.
       - name: gofmt
         run: |
           unformatted=$(gofmt -l .)
@@ -56,5 +64,28 @@ jobs:
       - name: go test
         run: go test -race -cover ./...
 
+      # go test already compiles package main; this step adds link verification
+      # of the real executable, which is a distinct signal on Windows.
       - name: go build
         run: go build ./cmd/edilint
+
+  # go.mod claims a floor of Go 1.23. This job is what keeps that claim honest:
+  # the audience is locked-down healthcare toolchains that cannot fetch a newer
+  # one, so GOTOOLCHAIN=local makes any accidental upward drift a hard failure.
+  minimum-go:
+    name: minimum supported Go
+    runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.23"
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test ./...
