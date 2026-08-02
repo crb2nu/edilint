@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/crb2nu/edilint"
 )
 
 // The CLI tests build their own fixtures so that this package stays independent
@@ -898,8 +900,8 @@ func TestBaselineIsCommittableJSON(t *testing.T) {
 	if err := json.Unmarshal(body, &doc); err != nil {
 		t.Fatalf("baseline is not valid JSON: %v\n%s", err, body)
 	}
-	if doc.Version != 1 {
-		t.Errorf("version = %d, want 1", doc.Version)
+	if doc.Version != edilint.BaselineVersion {
+		t.Errorf("version = %d, want %d", doc.Version, edilint.BaselineVersion)
 	}
 	if len(doc.Findings) != 1 {
 		t.Fatalf("findings = %d, want 1", len(doc.Findings))

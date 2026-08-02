@@ -107,23 +107,45 @@ func TestBaselineSurvivesAStatisticChangingInAMessage(t *testing.T) {
 }
 
 func TestBaselineMessageKeepsWhatIdentifiesTheDefect(t *testing.T) {
-	// Numbers go, names stay. Two defects that differ only in their numbers are
-	// the same defect for baseline purposes; two that differ in a field name or
-	// a record type are not.
-	same := []string{
-		`field 2 declares 4 "DTL" record(s) but the file contains 3`,
-		`field 2 declares 9 "DTL" record(s) but the file contains 11`,
+	// Unquoted numbers go, quoted values and names stay. Two defects that differ
+	// only in a file statistic are the same defect for baseline purposes; two
+	// that differ in a quoted value, a field name or a record type are not.
+	collapse := [][2]string{
+		{
+			`field 2 declares 4 "DTL" record(s) but the file contains 3`,
+			`field 2 declares 9 "DTL" record(s) but the file contains 11`,
+		},
+		{
+			`record type "CLM" has 5 field(s) here but 9 in 2 of 3 record(s) of this type`,
+			`record type "CLM" has 5 field(s) here but 9 in 4 of 6 record(s) of this type`,
+		},
 	}
-	if baselineMessage(same[0]) != baselineMessage(same[1]) {
-		t.Errorf("%q and %q should share a key", same[0], same[1])
+	for _, pair := range collapse {
+		if baselineMessage(pair[0]) != baselineMessage(pair[1]) {
+			t.Errorf("%q and %q should share a key", pair[0], pair[1])
+		}
 	}
 
-	different := []string{
-		`field 2 declares 4 "DTL" record(s) but the file contains 3`,
-		`field 2 declares 4 "HDR" record(s) but the file contains 3`,
+	distinct := [][2]string{
+		{
+			`field 2 declares 4 "DTL" record(s) but the file contains 3`,
+			`field 2 declares 4 "HDR" record(s) but the file contains 3`,
+		},
+		{
+			// The quoted value is the defect, digits and all: a different control
+			// number is a different defect, however similar the prose around it.
+			`IEA02 is "000000009" but the matching ISA13 is "000000001"`,
+			`IEA02 is "000000777" but the matching ISA13 is "000000001"`,
+		},
+		{
+			`GS04 is "20260230": day 30 does not exist in month 02 (expected CCYYMMDD)`,
+			`GS04 is "20261509": month 15 does not exist (expected CCYYMMDD)`,
+		},
 	}
-	if baselineMessage(different[0]) == baselineMessage(different[1]) {
-		t.Errorf("%q and %q must not share a key", different[0], different[1])
+	for _, pair := range distinct {
+		if baselineMessage(pair[0]) == baselineMessage(pair[1]) {
+			t.Errorf("%q and %q must not share a key", pair[0], pair[1])
+		}
 	}
 
 	if got := baselineMessage("record is 48 character(s) long"); got != "record is # character(s) long" {
@@ -131,6 +153,75 @@ func TestBaselineMessageKeepsWhatIdentifiesTheDefect(t *testing.T) {
 	}
 	if got := baselineMessage("no numbers here"); got != "no numbers here" {
 		t.Errorf("a message with no numbers must be left alone, got %q", got)
+	}
+
+	// A quote escaped by %q inside a quoted value does not end the span, and a
+	// lone apostrophe in prose does not open one.
+	if in := `field "a\"7" appears in 3 record(s)`; baselineMessage(in) != `field "a\"7" appears in # record(s)` {
+		t.Errorf("escaped quote handling: baselineMessage(%q) = %q", in, baselineMessage(in))
+	}
+	if in := `the file's 9 records`; baselineMessage(in) != `the file's # records` {
+		t.Errorf("apostrophe handling: baselineMessage(%q) = %q", in, baselineMessage(in))
+	}
+}
+
+func TestBaselineCatchesASwappedQuotedValue(t *testing.T) {
+	// The fixture's IEA02 disagrees with its ISA13, and the message quotes both.
+	// Swapping the trailer's control number for a different wrong one is a
+	// different defect on the same rule and record, and must be reported even
+	// though every digit sits where a digit sat before.
+	const name = "835_envelope_broken.x12"
+	body := readFixture(t, name)
+	baseline := NewBaseline(lintRun(t, name, Options{}))
+
+	swapped := bytes.Replace(body, []byte("IEA*1*000000009~"), []byte("IEA*1*000000777~"), 1)
+	if bytes.Equal(swapped, body) {
+		t.Fatal("the fixture changed; the swap no longer applies")
+	}
+
+	rep := Lint(name, swapped, Options{Baseline: baseline})
+	if firstOf(rep, RuleControlNumber) == nil {
+		t.Errorf("a swapped control number must surface as new, got %v", ruleNames(rep))
+	}
+}
+
+func TestBaselineKeysOnCodePoint(t *testing.T) {
+	// Cyrillic А (U+0410) and Greek Α (U+0391) both imitate ASCII "A", and their
+	// messages fold to the same shape because the code point rides unquoted in
+	// the text. The structured code point is what keeps them apart: swapping one
+	// homoglyph for the other must be reported.
+	before := []byte("DTL|RIVERА|X\n")
+	after := []byte("DTL|RIVERΑ|X\n")
+
+	rr := NewRunReport()
+	rr.Add(Lint("swap.psv", before, Options{}))
+	baseline := NewBaseline(rr)
+
+	if rep := Lint("swap.psv", before, Options{Baseline: baseline}); rep.Summary.Total != 0 {
+		t.Fatalf("the recorded homoglyph should be suppressed, got %v", ruleNames(rep))
+	}
+
+	baseline.Reset()
+	rep := Lint("swap.psv", after, Options{Baseline: baseline})
+	if f := firstOf(rep, RuleHomoglyph); f == nil {
+		t.Errorf("a swapped homoglyph must surface as new, got %v", ruleNames(rep))
+	} else if f.CodePoint != "U+0391" {
+		t.Errorf("the new finding is %s, want U+0391", f.CodePoint)
+	}
+}
+
+func TestBaselineSortBreaksTiesOnCodePoint(t *testing.T) {
+	// Two homoglyph entries can share a file, rule, record and folded message
+	// and differ only in their code point; the sort must still be total, or a
+	// re-recorded baseline could diff on nothing but map order.
+	entries := []BaselineEntry{
+		{File: "a.psv", ID: "EL1005", Record: "DTL", CodePoint: "U+0410", Message: `U+# looks like ASCII "A" but is not`, Count: 1},
+		{File: "a.psv", ID: "EL1005", Record: "DTL", CodePoint: "U+0391", Message: `U+# looks like ASCII "A" but is not`, Count: 1},
+	}
+	b := &Baseline{Version: BaselineVersion, Findings: entries}
+	b.sortEntries()
+	if b.Findings[0].CodePoint != "U+0391" || b.Findings[1].CodePoint != "U+0410" {
+		t.Errorf("entries are not ordered by code point: %+v", b.Findings)
 	}
 }
 
@@ -303,17 +394,18 @@ func TestLoadBaselineRejectsBadDocuments(t *testing.T) {
 		want string
 	}{
 		{"not json", "{", "not a valid edilint baseline"},
-		{"unknown field", `{"version":1,"findings":[],"extra":1}`, "not a valid edilint baseline"},
+		{"unknown field", `{"version":2,"findings":[],"extra":1}`, "not a valid edilint baseline"},
 		{"no version", `{"findings":[]}`, "version 0 is not supported"},
+		{"superseded version", `{"version":1,"findings":[]}`, "version 1 is not supported"},
 		{"future version", `{"version":99,"findings":[]}`, "version 99 is not supported"},
 		{
 			"entry with no id",
-			`{"version":1,"findings":[{"file":"a.x12","message":"m","count":1}]}`,
+			`{"version":2,"findings":[{"file":"a.x12","message":"m","count":1}]}`,
 			"has no rule id",
 		},
 		{
 			"entry with no file",
-			`{"version":1,"findings":[{"id":"EL3006","message":"m","count":1}]}`,
+			`{"version":2,"findings":[{"id":"EL3006","message":"m","count":1}]}`,
 			"has no file",
 		},
 	}
@@ -350,7 +442,7 @@ func TestBaselineHandlesEntriesWithoutACount(t *testing.T) {
 	// A hand-edited baseline may leave the count off. One occurrence is the only
 	// sensible reading, and it must not suppress an unbounded number.
 	path := filepath.Join(t.TempDir(), "baseline.json")
-	body := `{"version":1,"findings":[
+	body := `{"version":2,"findings":[
 	  {"file":"a.psv","id":"EL2002","rule":"terminator.missing-final","message":"m"}
 	]}`
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {

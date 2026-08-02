@@ -12,7 +12,7 @@ import (
 )
 
 // BaselineVersion is the version of the baseline document shape.
-const BaselineVersion = 1
+const BaselineVersion = 2
 
 // A baseline records the findings a set of files produced at one moment, so
 // that a later run can report only what is new. It is the way to adopt edilint
@@ -22,10 +22,27 @@ const BaselineVersion = 1
 // A baseline entry deliberately holds no line, column or record ordinal. Those
 // move whenever a segment is inserted above them, and a baseline that expired
 // on the next edit would be useless. What identifies a finding instead is the
-// file it is in, the rule that produced it, the record type it sits on, and the
-// shape of its message — the names, record types and quoted values that say
-// which defect this is, with the numbers taken out. Two findings that agree on
-// all four are treated as the same finding wherever it has moved to.
+// file it is in, the rule that produced it, the record type it sits on, the
+// code point when the rule reports one, and the shape of its message. Two
+// findings that agree on all five are treated as the same finding wherever it
+// has moved to.
+//
+// The message is reduced to its shape before it is compared: quoted spans are
+// kept verbatim, and every other run of digits becomes "#". Quoted content is
+// the value the rule is complaining about — a bad date, a control number, a
+// field name — and swapping it in means a different defect. Unquoted digits
+// are statistics about the file as it happens to look today, and folding them
+// is what keeps a baseline alive across unrelated edits.
+//
+// The finding's structured fields were each weighed for the key. CodePoint is
+// in: it names the offending character exactly, where the message carries it
+// unquoted ("U+0410") and folds it into "U+#", collapsing distinct homoglyphs.
+// Expected and Actual are out: for some rules they are the defect (the
+// confusable character), but for others they are the file's current statistics
+// — counts.mismatch's Actual is how many records the file holds right now, and
+// terminator.mixed's Expected is whichever terminator currently dominates —
+// and a key that went stale on those would cry wolf after every unrelated
+// edit, which is exactly what the message folding exists to prevent.
 //
 // Identical findings are common, so an entry also carries a count. Thirty
 // non-printable characters in one file record as one entry with a count of 30;
@@ -44,6 +61,9 @@ type BaselineEntry struct {
 	// Record is the segment identifier or record type the finding sits on, if
 	// the rule reports one.
 	Record string `json:"record,omitempty"`
+	// CodePoint is the offending character for character-level findings, e.g.
+	// "U+0430", and is part of the match when the rule reports one.
+	CodePoint string `json:"code_point,omitempty"`
 	// Message is the finding's message, which is part of the match.
 	Message string `json:"message"`
 	// Count is how many identical findings this entry stands for.
@@ -66,38 +86,54 @@ type Baseline struct {
 
 // baselineKey is the identity of a finding across runs.
 type baselineKey struct {
-	file    string
-	id      string
-	record  string
-	message string
+	file      string
+	id        string
+	record    string
+	codePoint string
+	message   string
 }
 
-func keyOf(file, id, record, message string) baselineKey {
+func keyOf(file, id, record, codePoint, message string) baselineKey {
 	return baselineKey{
-		file:    normalizeBaselinePath(file),
-		id:      id,
-		record:  record,
-		message: baselineMessage(message),
+		file:      normalizeBaselinePath(file),
+		id:        id,
+		record:    record,
+		codePoint: codePoint,
+		message:   baselineMessage(message),
 	}
 }
 
 // baselineMessage reduces a message to the part that says which defect this is,
 // rather than what the file happens to look like today. Every run of digits
-// becomes "#".
+// outside a quoted span becomes "#"; quoted spans are kept verbatim.
 //
-// Several messages quote a statistic over the whole file: the field-count rule
+// The catalog quotes the value a rule is complaining about — a bad date, a
+// control number, a field name — and that value is the defect's identity even
+// when it is all digits. Unquoted digits are statistics: the field-count rule
 // says "9 in 2 of 3 record(s) of this type", which changes as soon as an
 // unrelated record is added. Keying on the literal text would make a baseline go
 // stale on an edit that had nothing to do with the defect, and a gate that cries
-// wolf after every edit is one people stop believing. Names, record types and
-// quoted values survive, so two different defects do not collapse into one, and
-// the occurrence count still catches one more of the same defect.
+// wolf after every edit is one people stop believing.
+//
+// The catalog quotes values with %q, which writes double quotes and escapes any
+// inside the value; single-quoted spans are recognized the same way in case a
+// message ever carries one. A quote only opens a span if it closes later in the
+// message, so a stray apostrophe in prose folds like ordinary text.
 func baselineMessage(message string) string {
 	var b strings.Builder
 	b.Grow(len(message))
 	inDigits := false
 	for i := 0; i < len(message); i++ {
-		if c := message[i]; c >= '0' && c <= '9' {
+		c := message[i]
+		if c == '"' || c == '\'' {
+			if end := closingQuote(message, i); end >= 0 {
+				b.WriteString(message[i : end+1])
+				i = end
+				inDigits = false
+				continue
+			}
+		}
+		if c >= '0' && c <= '9' {
 			if !inDigits {
 				b.WriteByte('#')
 				inDigits = true
@@ -105,9 +141,25 @@ func baselineMessage(message string) string {
 			continue
 		}
 		inDigits = false
-		b.WriteByte(message[i])
+		b.WriteByte(c)
 	}
 	return b.String()
+}
+
+// closingQuote returns the index of the quote that closes the span opened at
+// open, or -1 when nothing does. Double-quoted spans skip backslash escapes,
+// which is how %q writes a quote inside the value.
+func closingQuote(s string, open int) int {
+	quote := s[open]
+	for i := open + 1; i < len(s); i++ {
+		switch {
+		case quote == '"' && s[i] == '\\':
+			i++
+		case s[i] == quote:
+			return i
+		}
+	}
+	return -1
 }
 
 // normalizeBaselinePath makes the recorded path independent of how the shell
@@ -132,7 +184,7 @@ func NewBaseline(rr *RunReport) *Baseline {
 
 	for _, rep := range rr.Files {
 		for _, f := range rep.Findings {
-			k := keyOf(f.File, f.ID, f.Record, f.Message)
+			k := keyOf(f.File, f.ID, f.Record, f.CodePoint, f.Message)
 			if counts[k] == 0 {
 				order = append(order, k)
 			}
@@ -143,12 +195,13 @@ func NewBaseline(rr *RunReport) *Baseline {
 	b := &Baseline{Version: BaselineVersion}
 	for _, k := range order {
 		b.Findings = append(b.Findings, BaselineEntry{
-			File:    k.file,
-			ID:      k.id,
-			Rule:    RuleName(k.id),
-			Record:  k.record,
-			Message: k.message,
-			Count:   counts[k],
+			File:      k.file,
+			ID:        k.id,
+			Rule:      RuleName(k.id),
+			Record:    k.record,
+			CodePoint: k.codePoint,
+			Message:   k.message,
+			Count:     counts[k],
 		})
 	}
 	b.sortEntries()
@@ -171,6 +224,9 @@ func (b *Baseline) sortEntries() {
 		if x.Record != y.Record {
 			return x.Record < y.Record
 		}
+		if x.CodePoint != y.CodePoint {
+			return x.CodePoint < y.CodePoint
+		}
 		return x.Message < y.Message
 	})
 }
@@ -183,7 +239,7 @@ func (b *Baseline) index() {
 		if n < 1 {
 			n = 1
 		}
-		b.remaining[keyOf(e.File, e.ID, e.Record, e.Message)] += n
+		b.remaining[keyOf(e.File, e.ID, e.Record, e.CodePoint, e.Message)] += n
 	}
 }
 
@@ -219,7 +275,7 @@ func (b *Baseline) accountsFor(f Finding) bool {
 	if b == nil || len(b.remaining) == 0 {
 		return false
 	}
-	k := keyOf(f.File, f.ID, f.Record, f.Message)
+	k := keyOf(f.File, f.ID, f.Record, f.CodePoint, f.Message)
 	if b.remaining[k] <= 0 {
 		return false
 	}
@@ -240,7 +296,7 @@ func (b *Baseline) Unmatched() []BaselineEntry {
 	}
 	var out []BaselineEntry
 	for _, e := range b.Findings {
-		k := keyOf(e.File, e.ID, e.Record, e.Message)
+		k := keyOf(e.File, e.ID, e.Record, e.CodePoint, e.Message)
 		if n := b.remaining[k]; n > 0 {
 			left := e
 			left.Count = n
