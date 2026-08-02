@@ -1,0 +1,5 @@
+# The fixtures under testdata/ and examples/ encode CR, LF and CRLF terminators
+# deliberately — several checks exist precisely to detect them. Git must never
+# rewrite line endings in this repository, on any platform, or the terminator
+# tests become meaningless on a Windows checkout.
+* -text

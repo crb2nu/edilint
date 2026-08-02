@@ -1,0 +1,78 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+output:
+  formats:
+    text:
+      path: stdout
+      print-issued-lines: true
+      print-linter-name: true
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+linters:
+  default: none
+  enable:
+    # Correctness
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - nilerr
+
+    # Error handling
+    - errcheck
+    - errorlint
+    - errname
+
+    # Security
+    - gosec
+
+    # Style
+    - dogsled
+    - nakedret
+    - nolintlint
+    - predeclared
+    - unconvert
+    - whitespace
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      # Writes to a diagnostic stream are deliberately discarded via `_ =`.
+      check-blank: false
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+
+    nakedret:
+      max-func-lines: 30
+
+  exclusions:
+    presets:
+      - legacy
+      - common-false-positives
+    rules:
+      - path: '.*_test\.go$'
+        linters:
+          - gosec
+          - errcheck
+          - dogsled
+
+      # G304: reading a file whose path came from a command-line argument is the
+      # entire purpose of this tool.
+      - linters:
+          - gosec
+        text: "G304"
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 10

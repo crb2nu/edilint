@@ -1,0 +1,10 @@
+{
+  "name": "remittance-detail",
+  "fields": [
+    {"name": "record_type", "width": 3},
+    {"name": "member_id", "width": 12, "pad": "right"},
+    {"name": "last_name", "width": 16, "pad": "right"},
+    {"name": "paid_amount", "width": 10, "pad": "left", "padChar": "0"},
+    {"name": "paid_date", "width": 8}
+  ]
+}
