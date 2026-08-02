@@ -327,6 +327,11 @@ below or a commercial validator.
 - **[Stedi EDI Inspector](https://www.stedi.com/edi/inspector)** — a free
   browser tool for reading and validating an interchange interactively. Good for
   investigating one file; not scriptable, so it does not gate a pipeline.
+- **[fi-fhir](https://github.com/crb2nu/fi-fhir)** — from the same author. edilint
+  checks files at the gate; fi-fhir parses the same formats (HL7v2, X12, CSV) into
+  semantic events, maps them in a studio UI, and routes them through configurable
+  workflows. Reach for it when linting is not enough and you need the pipeline
+  behind the gate.
 
 The difference edilint offers is form factor rather than depth: a single static
 binary with meaningful exit codes and JSON output, designed to run
