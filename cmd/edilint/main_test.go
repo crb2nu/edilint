@@ -156,8 +156,8 @@ func TestJSONOutput(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &doc); err != nil {
 		t.Fatalf("output is not valid JSON: %v\n%s", err, stdout)
 	}
-	if doc.Version != 1 {
-		t.Errorf("version = %d, want 1", doc.Version)
+	if doc.Version != 2 {
+		t.Errorf("version = %d, want 2", doc.Version)
 	}
 	if len(doc.Files) != 2 || doc.Summary.Files != 2 {
 		t.Fatalf("expected 2 file reports, got %d", len(doc.Files))
@@ -329,31 +329,112 @@ func TestMaxFindingsFlag(t *testing.T) {
 	}
 	noisy := write(t, t.TempDir(), "noisy.psv", b.String())
 
-	_, stdout, _ := exec("--max-findings", "5", noisy)
-	if got := strings.Count(stdout, "charset.nonprintable"); got != 5 {
-		t.Errorf("printed %d findings, want 5", got)
-	}
-	if !strings.Contains(stdout, "output truncated") {
-		t.Errorf("truncation should be announced, got %q", stdout)
-	}
+	t.Run("unlimited by default", func(t *testing.T) {
+		_, stdout, _ := exec(noisy)
+		if got := strings.Count(stdout, "charset.nonprintable"); got != 30 {
+			t.Errorf("printed %d findings, want all 30", got)
+		}
+		if strings.Contains(stdout, "suppressed by --max-findings") {
+			t.Errorf("nothing should be suppressed by default, got %q", stdout)
+		}
+	})
 
-	_, all, _ := exec("--max-findings", "0", noisy)
-	if got := strings.Count(all, "charset.nonprintable"); got != 30 {
-		t.Errorf("printed %d findings with --max-findings 0, want 30", got)
-	}
+	t.Run("capped output", func(t *testing.T) {
+		code, stdout, _ := exec("--max-findings", "5", noisy)
+		if got := strings.Count(stdout, "charset.nonprintable"); got != 5 {
+			t.Errorf("printed %d findings, want 5", got)
+		}
+		if !strings.Contains(stdout, "... and 25 more findings (suppressed by --max-findings)") {
+			t.Errorf("truncation should be announced with the remaining count, got %q", stdout)
+		}
+		// The summary still reports the full set.
+		if !strings.Contains(stdout, "30 findings (30 error, 0 warning)") {
+			t.Errorf("summary should count every finding, got %q", stdout)
+		}
+		if code != exitFindings {
+			t.Errorf("exit = %d, want %d", code, exitFindings)
+		}
+	})
+
+	t.Run("zero means unlimited", func(t *testing.T) {
+		_, stdout, _ := exec("--max-findings", "0", noisy)
+		if got := strings.Count(stdout, "charset.nonprintable"); got != 30 {
+			t.Errorf("printed %d findings with --max-findings 0, want 30", got)
+		}
+	})
+
+	t.Run("a cap never changes the exit status", func(t *testing.T) {
+		// Two errors and one warning, with output capped to a single finding, must
+		// still fail on the warning as well as the error.
+		dir := t.TempDir()
+		warn := write(t, dir, "warn.psv", warnOnlyPSV)
+		broken := write(t, dir, "broken.x12", brokenX12)
+
+		if code, _, _ := exec("--max-findings", "1", warn); code != exitFindings {
+			t.Error("a suppressed warning must still fail the default threshold")
+		}
+		if code, _, _ := exec("--max-findings", "1", "--allow-warnings", warn); code != exitClean {
+			t.Error("a warning-only file should pass with --allow-warnings")
+		}
+		if code, _, _ := exec("--max-findings", "1", "--allow-warnings", broken); code != exitFindings {
+			t.Error("a suppressed error must still fail")
+		}
+	})
+
+	t.Run("json reports true totals with a truncated array", func(t *testing.T) {
+		_, stdout, _ := exec("--json", "--max-findings", "4", noisy)
+		var doc struct {
+			Files []struct {
+				Findings []struct {
+					Rule string `json:"rule"`
+				} `json:"findings"`
+				Summary struct {
+					Total     int  `json:"total"`
+					Errors    int  `json:"errors"`
+					Truncated bool `json:"truncated"`
+				} `json:"summary"`
+			} `json:"files"`
+			Summary struct {
+				Total     int  `json:"total"`
+				Truncated bool `json:"truncated"`
+			} `json:"summary"`
+		}
+		if err := json.Unmarshal([]byte(stdout), &doc); err != nil {
+			t.Fatalf("output is not valid JSON: %v\n%s", err, stdout)
+		}
+		file := doc.Files[0]
+		if len(file.Findings) != 4 {
+			t.Errorf("findings array = %d, want 4", len(file.Findings))
+		}
+		if file.Summary.Total != 30 || file.Summary.Errors != 30 {
+			t.Errorf("file summary = %+v, want the full 30", file.Summary)
+		}
+		if !file.Summary.Truncated || !doc.Summary.Truncated {
+			t.Error(`both summaries should carry "truncated": true`)
+		}
+		if doc.Summary.Total != 30 {
+			t.Errorf("run summary total = %d, want 30", doc.Summary.Total)
+		}
+	})
 }
 
 func TestCharsetFlag(t *testing.T) {
 	lower := cleanISA + cleanGS + "ST*835*0001~\nN1*PE*Vale Medical Group~\nSE*3*0001~\nGE*1*1~\nIEA*1*000000001~\n"
 	path := write(t, t.TempDir(), "lower.x12", lower)
 
-	code, stdout, _ := exec(path)
-	if code != exitFindings || !strings.Contains(stdout, "charset.x12-basic") {
-		t.Errorf("the basic profile should flag lowercase, got %q", stdout)
+	// The default profile is extended, which accepts lowercase.
+	if code, stdout, _ := exec(path); code != exitClean {
+		t.Errorf("the default profile should accept lowercase, got %q", stdout)
 	}
 	if code, _, _ := exec("--charset", "extended", path); code != exitClean {
 		t.Error("the extended profile should accept lowercase")
 	}
+
+	code, stdout, _ := exec("--charset", "basic", path)
+	if code != exitFindings || !strings.Contains(stdout, "charset.x12-basic") {
+		t.Errorf("the basic profile should flag lowercase, got %q", stdout)
+	}
+
 	if code, _, _ := exec("--charset", "off", path); code != exitClean {
 		t.Error("--charset off should disable the character-set rules")
 	}

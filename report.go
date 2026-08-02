@@ -9,7 +9,7 @@ import (
 
 // SchemaVersion is the version of the --json document shape. It is incremented
 // only when an existing field changes meaning or is removed.
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 // RunSummary aggregates every file linted in one invocation.
 type RunSummary struct {
@@ -83,9 +83,8 @@ func (rr *RunReport) WriteText(w io.Writer, verbose bool) error {
 			}
 		}
 		if r.Summary.Truncated {
-			if _, err := fmt.Fprintf(w, "%s: output truncated; %d further finding(s) suppressed "+
-				"(raise --max-findings to see them)\n",
-				r.File, r.Summary.Total-len(r.Findings)); err != nil {
+			if _, err := fmt.Fprintf(w, "... and %d more findings (suppressed by --max-findings)\n",
+				r.Summary.Total-len(r.Findings)); err != nil {
 				return err
 			}
 		}
@@ -119,15 +118,15 @@ func FormatFinding(f Finding, format Format) string {
 	fmt.Fprintf(&b, ": %s: [%s] %s", f.Severity, f.Rule, f.Message)
 
 	var where []string
-	if f.Record > 0 {
-		where = append(where, fmt.Sprintf("record %d", f.Record))
+	if f.RecordNumber > 0 {
+		where = append(where, fmt.Sprintf("record %d", f.RecordNumber))
 	}
-	if f.Segment != "" {
+	if f.Record != "" {
 		label := "type"
 		if format == FormatX12 || format == FormatHL7v2 {
 			label = "segment"
 		}
-		where = append(where, label+" "+f.Segment)
+		where = append(where, label+" "+f.Record)
 	}
 	if len(where) > 0 {
 		fmt.Fprintf(&b, " (%s)", strings.Join(where, ", "))
@@ -154,8 +153,10 @@ type RuleDoc struct {
 // Rules returns the catalogue of implemented rules, ordered by class then name.
 func Rules() []RuleDoc {
 	return []RuleDoc{
-		{RuleBOM, ClassCharset, SeverityError, "all",
-			"File starts with a byte order mark, which parsers read as part of the first field."},
+		{RuleBOM, ClassCharset, SeverityError, "all (warning for delimited)",
+			"File starts with a byte order mark. An error for X12, HL7v2 and fixed-width, where a BOM " +
+				"before ISA or MSH shifts every fixed position in the file; a warning for delimited, " +
+				"because spreadsheet exports emit one routinely and most CSV readers cope."},
 		{RuleInvalidUTF8, ClassCharset, SeverityError, "all",
 			"Byte sequence is not valid UTF-8."},
 		{RuleNonPrint, ClassCharset, SeverityError, "all",
@@ -166,10 +167,13 @@ func Rules() []RuleDoc {
 			"Unicode character that is visually identical to an ASCII one, such as Cyrillic А for A."},
 		{RuleNonASCII, ClassCharset, SeverityWarning, "all",
 			"Non-ASCII character that is not a known lookalike."},
-		{RuleX12Basic, ClassCharset, SeverityWarning, "x12",
-			"Character outside the X12 basic character set but inside the extended set."},
+		{RuleX12Basic, ClassCharset, SeverityWarning, "x12 (requires --charset basic)",
+			"Character outside the X12 basic character set but inside the extended set. Off by " +
+				"default; the default profile is extended."},
 		{RuleX12Extended, ClassCharset, SeverityError, "x12",
-			"Character outside both the X12 basic and extended character sets."},
+			"Character outside the X12 extended character set, which in printable ASCII means the " +
+				"caret or the backtick. A caret is exempt when ISA11 declares it as the repetition " +
+				"separator."},
 
 		{RuleMixedTerminator, ClassTerminator, SeverityError, "hl7v2, delimited, fixed, text",
 			"File mixes CRLF, LF and CR line endings."},

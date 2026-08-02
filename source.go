@@ -109,12 +109,12 @@ func (s *source) buildX12(opts Options, rep *Report) {
 	d, ok := deriveDelims(s.Body, isa)
 	if !ok {
 		rep.add(Finding{
-			Rule:     RuleISALength,
-			Severity: SeverityError,
-			Message:  "ISA segment is truncated; unable to derive element, sub-element and segment separators",
-			Line:     s.LineAt(isa),
-			Segment:  "ISA",
-			Record:   1,
+			Rule:         RuleISALength,
+			Severity:     SeverityError,
+			Message:      "ISA segment is truncated; unable to derive element, sub-element and segment separators",
+			Line:         s.LineAt(isa),
+			Record:       "ISA",
+			RecordNumber: 1,
 		})
 		s.buildLines()
 		s.assignIDs()
@@ -365,8 +365,18 @@ func deriveDelims(body []byte, isa int) (delims, bool) {
 	}
 
 	// ISA11 sits at fixed offset 82 and ISA12 at 84..88 in a well-formed ISA.
+	//
+	// ISA11 changed meaning between releases: from 005010 it is the repetition
+	// separator, but in 004010 it carries the interchange control standards
+	// identifier, conventionally the letter "U". Rather than trusting ISA12 —
+	// which is itself a field that can be wrong — treat ISA11 as a declared
+	// repetition separator only when it is a single non-alphanumeric character.
+	// An alphanumeric ISA11 declares no separator, so that character keeps its
+	// ordinary meaning everywhere else in the interchange.
 	if isa+89 <= len(body) {
-		d.Repetition = body[isa+82]
+		if c := body[isa+82]; !isAlphanumericByte(c) {
+			d.Repetition = c
+		}
 		d.Version = string(body[isa+84 : isa+89])
 	}
 	return d, true

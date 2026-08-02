@@ -76,7 +76,7 @@ func checkX12Envelope(s *source, opts Options, rep *Report) {
 					Rule:     RuleEnvelopeNesting,
 					Severity: SeverityError,
 					Message:  "GS appears outside an ISA interchange",
-					Line:     r.Line, Record: r.Ordinal, Segment: r.ID,
+					Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 				})
 			}
 			if gs.open {
@@ -107,7 +107,7 @@ func checkX12Envelope(s *source, opts Options, rep *Report) {
 					Rule:     RuleEnvelopeNesting,
 					Severity: SeverityError,
 					Message:  "ST appears outside a GS functional group",
-					Line:     r.Line, Record: r.Ordinal, Segment: r.ID,
+					Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 				})
 			}
 			if st.open {
@@ -136,7 +136,7 @@ func checkX12Envelope(s *source, opts Options, rep *Report) {
 					Severity: SeverityError,
 					Message: fmt.Sprintf("segment %s appears outside any interchange; "+
 						"data after IEA is not part of a valid X12 file", r.ID),
-					Line: r.Line, Record: r.Ordinal, Segment: r.ID,
+					Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 				})
 				trailingReported = true
 			}
@@ -162,7 +162,7 @@ func checkISA(s *source, opts Options, rep *Report, r record, f []string, contro
 			Rule:     RuleEnvelopeMissingID,
 			Severity: SeverityError,
 			Message:  "ISA13 interchange control number is empty",
-			Line:     r.Line, Record: r.Ordinal, Segment: r.ID,
+			Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 		})
 	} else {
 		checkDuplicate(rep, r, "ISA13", ctl, seenISA13, "file")
@@ -173,7 +173,7 @@ func checkISA(s *source, opts Options, rep *Report, r record, f []string, contro
 					Severity: SeverityError,
 					Message: fmt.Sprintf("ISA13 %q was already used in %s; a repeated interchange control "+
 						"number is rejected as a duplicate transmission (TA1 025)", ctl, prev),
-					Line: r.Line, Record: r.Ordinal, Segment: r.ID,
+					Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 					Expected: "unique interchange control number",
 					Actual:   ctl,
 				})
@@ -198,7 +198,7 @@ func checkDuplicate(rep *Report, r record, element, value string, seen map[strin
 			Severity: SeverityError,
 			Message: fmt.Sprintf("%s control number %q is already used by record %d in this %s; "+
 				"control numbers must be unique within their scope", element, value, prev, scope),
-			Line: r.Line, Record: r.Ordinal, Segment: r.ID,
+			Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 			Expected: fmt.Sprintf("unique %s within the %s", element, scope),
 			Actual:   value,
 		})
@@ -221,7 +221,7 @@ func compareControl(rep *Report, r record, headerName, headerVal, trailerName, t
 			Severity: SeverityWarning,
 			Message: fmt.Sprintf("%s is %q but %s is %q; the values are numerically equal but not identical, "+
 				"and strict partners compare them as strings", headerName, h, trailerName, t),
-			Line: r.Line, Record: r.Ordinal, Segment: r.ID,
+			Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 			Expected: h, Actual: t,
 		})
 		return
@@ -231,7 +231,7 @@ func compareControl(rep *Report, r record, headerName, headerVal, trailerName, t
 		Severity: SeverityError,
 		Message: fmt.Sprintf("%s is %q but the matching %s is %q; header and trailer control numbers must match",
 			headerName, h, trailerName, t),
-		Line: r.Line, Record: r.Ordinal, Segment: r.ID,
+		Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 		Expected: h, Actual: t,
 	})
 }
@@ -253,7 +253,7 @@ func compareCount(rep *Report, r record, element, declared string, actual int, u
 			Rule:     rule,
 			Severity: SeverityError,
 			Message:  fmt.Sprintf("%s is %q, which is not a number; the declared count cannot be verified", element, declared),
-			Line:     r.Line, Record: r.Ordinal, Segment: r.ID,
+			Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 			Expected: "an integer", Actual: declared,
 		})
 		return
@@ -266,7 +266,7 @@ func compareCount(rep *Report, r record, element, declared string, actual int, u
 		Severity: SeverityError,
 		Message: fmt.Sprintf("%s declares %d %s but the file contains %d",
 			element, n, unit, actual),
-		Line: r.Line, Record: r.Ordinal, Segment: r.ID,
+		Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 		Expected: strconv.Itoa(n), Actual: strconv.Itoa(actual),
 	})
 }
@@ -284,7 +284,7 @@ func checkDate(rep *Report, r record, element, value string, width int) {
 			Rule:     RuleDateTime,
 			Severity: SeverityError,
 			Message:  fmt.Sprintf("%s is %q: %s (expected %s)", element, value, reason, shape),
-			Line:     r.Line, Record: r.Ordinal, Segment: r.ID,
+			Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 			Expected: shape, Actual: value,
 		})
 	}
@@ -335,7 +335,7 @@ func checkTime(rep *Report, r record, element, value string) {
 			Rule:     RuleDateTime,
 			Severity: SeverityError,
 			Message:  fmt.Sprintf("%s is %q: %s (expected HHMM, HHMMSS or HHMMSSDD)", element, value, reason),
-			Line:     r.Line, Record: r.Ordinal, Segment: r.ID,
+			Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 			Expected: "HHMM", Actual: value,
 		})
 	}
@@ -377,7 +377,7 @@ func reportUnclosed(rep *Report, r record, header, trailer string) {
 		Rule:     RuleUnclosed,
 		Severity: SeverityError,
 		Message:  fmt.Sprintf("%s is never closed by a matching %s", header, trailer),
-		Line:     r.Line, Record: r.Ordinal, Segment: r.ID,
+		Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 		Expected: trailer, Actual: "none",
 	})
 }
@@ -387,7 +387,7 @@ func reportUnopened(rep *Report, r record, trailer, header string) {
 		Rule:     RuleUnopened,
 		Severity: SeverityError,
 		Message:  fmt.Sprintf("%s appears without a preceding %s", trailer, header),
-		Line:     r.Line, Record: r.Ordinal, Segment: r.ID,
+		Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 		Expected: header, Actual: "none",
 	})
 }

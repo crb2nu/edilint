@@ -47,11 +47,11 @@ func checkLineEndings(s *source, rep *Report) {
 				Message: fmt.Sprintf("line ends with %s but the file predominantly uses %s (%s); "+
 					"mixed line endings split records inconsistently across platforms",
 					renderWS(r.Term), renderWS(dominant), describeCounts(counts)),
-				Line:     r.Line,
-				Record:   r.Ordinal,
-				Segment:  r.ID,
-				Expected: renderWS(dominant),
-				Actual:   renderWS(r.Term),
+				Line:         r.Line,
+				RecordNumber: r.Ordinal,
+				Record:       r.ID,
+				Expected:     renderWS(dominant),
+				Actual:       renderWS(r.Term),
 			})
 		}
 	}
@@ -63,9 +63,9 @@ func checkLineEndings(s *source, rep *Report) {
 			Severity: SeverityWarning,
 			Message: "last record has no terminator; readers that require a trailing newline will " +
 				"drop or truncate it",
-			Line:    last.Line,
-			Record:  last.Ordinal,
-			Segment: last.ID,
+			Line:         last.Line,
+			RecordNumber: last.Ordinal,
+			Record:       last.ID,
 		})
 	}
 }
@@ -81,11 +81,11 @@ func checkX12Separators(s *source, rep *Report) {
 			Severity: SeverityError,
 			Message: fmt.Sprintf("ISA segment is %d characters including the terminator; X12 fixes it at 106, "+
 				"so every downstream fixed-offset read of the envelope is shifted", d.ISALen),
-			Line:     isaLine,
-			Record:   1,
-			Segment:  "ISA",
-			Expected: "106",
-			Actual:   strconv.Itoa(d.ISALen),
+			Line:         isaLine,
+			RecordNumber: 1,
+			Record:       "ISA",
+			Expected:     "106",
+			Actual:       strconv.Itoa(d.ISALen),
 		})
 	}
 
@@ -97,9 +97,10 @@ func checkX12Separators(s *source, rep *Report) {
 		{"sub-element separator", d.SubElement},
 		{"segment terminator", d.Segment},
 	}
-	// ISA11 is the repetition separator from version 00501 onward; before that it
-	// carries the interchange control standards identifier and is not a separator.
-	if d.Version >= "00501" && d.Repetition != 0 {
+	// Repetition is only set when ISA11 actually declared a separator; see
+	// deriveDelims. A 004010 interchange whose ISA11 is "U" declares none, and
+	// must not be reported for having an alphanumeric separator.
+	if d.Repetition != 0 {
 		named = append(named, struct {
 			name string
 			b    byte
@@ -113,11 +114,11 @@ func checkX12Separators(s *source, rep *Report) {
 				Severity: SeverityError,
 				Message: fmt.Sprintf("%s is %q, an alphanumeric character; it cannot be distinguished "+
 					"from data", n.name, string(rune(n.b))),
-				Line:      isaLine,
-				Record:    1,
-				Segment:   "ISA",
-				CodePoint: fmt.Sprintf("U+%04X", n.b),
-				Actual:    string(rune(n.b)),
+				Line:         isaLine,
+				RecordNumber: 1,
+				Record:       "ISA",
+				CodePoint:    fmt.Sprintf("U+%04X", n.b),
+				Actual:       string(rune(n.b)),
 			})
 		}
 	}
@@ -131,11 +132,11 @@ func checkX12Separators(s *source, rep *Report) {
 				Severity: SeverityError,
 				Message: fmt.Sprintf("%s and %s are both %q; the interchange cannot be tokenised unambiguously",
 					named[i].name, named[j].name, string(rune(named[i].b))),
-				Line:      isaLine,
-				Record:    1,
-				Segment:   "ISA",
-				CodePoint: fmt.Sprintf("U+%04X", named[i].b),
-				Actual:    string(rune(named[i].b)),
+				Line:         isaLine,
+				RecordNumber: 1,
+				Record:       "ISA",
+				CodePoint:    fmt.Sprintf("U+%04X", named[i].b),
+				Actual:       string(rune(named[i].b)),
 			})
 		}
 	}
@@ -153,11 +154,11 @@ func checkX12SegmentTerms(s *source, rep *Report) {
 			Severity: SeverityError,
 			Message: fmt.Sprintf("segment %s is not closed by the declared segment terminator %s; "+
 				"the interchange appears truncated", r.ID, renderWS(string(s.Delims.Segment))),
-			Line:     r.Line,
-			Record:   r.Ordinal,
-			Segment:  r.ID,
-			Expected: renderWS(string(s.Delims.Segment)),
-			Actual:   "end of file",
+			Line:         r.Line,
+			RecordNumber: r.Ordinal,
+			Record:       r.ID,
+			Expected:     renderWS(string(s.Delims.Segment)),
+			Actual:       "end of file",
 		})
 	}
 }
@@ -190,11 +191,11 @@ func checkX12Padding(s *source, rep *Report) {
 			Message: fmt.Sprintf("segment %s is followed by %s where the file predominantly uses %s (%s); "+
 				"inconsistent inter-segment whitespace breaks readers that split on the terminator plus newline",
 				r.ID, renderWS(r.Pad), renderWS(dominant), describeCounts(counts)),
-			Line:     r.Line,
-			Record:   r.Ordinal,
-			Segment:  r.ID,
-			Expected: renderWS(dominant),
-			Actual:   renderWS(r.Pad),
+			Line:         r.Line,
+			RecordNumber: r.Ordinal,
+			Record:       r.ID,
+			Expected:     renderWS(dominant),
+			Actual:       renderWS(r.Pad),
 		})
 	}
 }

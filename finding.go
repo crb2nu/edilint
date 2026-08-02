@@ -99,12 +99,12 @@ type Finding struct {
 	Line int `json:"line,omitempty"`
 	// Column is the 1-based rune column within Line.
 	Column int `json:"column,omitempty"`
-	// Record is the 1-based logical record (or X12 segment) ordinal.
-	Record int `json:"record,omitempty"`
-	// Segment is the X12/HL7v2 segment identifier or, for line-oriented files,
-	// the record type. It is empty when the leading field is data rather than a
-	// record-type discriminator.
-	Segment string `json:"segment,omitempty"`
+	// RecordNumber is the 1-based logical record (or X12 segment) ordinal.
+	RecordNumber int `json:"record_number,omitempty"`
+	// Record identifies the kind of record: the segment identifier for X12 and
+	// HL7v2, the record type otherwise. It is empty when the leading field holds
+	// data rather than a record-type discriminator.
+	Record string `json:"record,omitempty"`
 
 	// CodePoint is set for character findings, e.g. "U+0410".
 	CodePoint string `json:"code_point,omitempty"`
@@ -133,11 +133,15 @@ type Report struct {
 
 // OK reports whether the file is clean at or above the given severity.
 // Passing SeverityWarning means "no findings at all".
+//
+// It reads the summary rather than the findings slice, so that capping output
+// with Options.MaxFindings never changes the answer.
 func (r *Report) OK(failOn Severity) bool {
-	for i := range r.Findings {
-		if r.Findings[i].Severity.Rank() <= failOn.Rank() {
-			return false
-		}
+	if r.Summary.Errors > 0 {
+		return false
+	}
+	if failOn.Rank() >= SeverityWarning.Rank() && r.Summary.Warnings > 0 {
+		return false
 	}
 	return true
 }
@@ -171,8 +175,8 @@ func (r *Report) finalize(disabled []string, maxFindings int) {
 		if a.Line != b.Line {
 			return a.Line < b.Line
 		}
-		if a.Record != b.Record {
-			return a.Record < b.Record
+		if a.RecordNumber != b.RecordNumber {
+			return a.RecordNumber < b.RecordNumber
 		}
 		if a.Column != b.Column {
 			return a.Column < b.Column

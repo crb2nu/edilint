@@ -86,23 +86,19 @@ type Options struct {
 	// dot-delimited prefix ("charset").
 	Disabled []string
 
-	// MaxFindings caps the number of findings retained in a report.
-	// Zero means the built-in default; a negative value means unlimited.
+	// MaxFindings caps the number of findings retained in a report. Zero or
+	// negative means unlimited, which is the default. The cap only affects the
+	// findings a report carries: Report.Summary always reflects the full set, and
+	// so does Report.OK, so truncating output never changes an exit status.
 	MaxFindings int
 }
 
-// DefaultMaxFindings is the finding cap applied when Options.MaxFindings is zero.
-const DefaultMaxFindings = 200
-
+// maxFindings normalises the cap: any value at or below zero means unlimited.
 func (o Options) maxFindings() int {
-	switch {
-	case o.MaxFindings == 0:
-		return DefaultMaxFindings
-	case o.MaxFindings < 0:
+	if o.MaxFindings < 0 {
 		return 0
-	default:
-		return o.MaxFindings
 	}
+	return o.MaxFindings
 }
 
 func (o Options) typeField() int {
@@ -114,7 +110,7 @@ func (o Options) typeField() int {
 
 func (o Options) charset() CharsetProfile {
 	if o.X12Charset == "" {
-		return CharsetBasic
+		return CharsetExtended
 	}
 	return o.X12Charset
 }
@@ -141,19 +137,6 @@ func Lint(name string, data []byte, opts Options) *Report {
 	rep := &Report{File: name, Format: FormatText}
 
 	body, bom := splitBOM(data)
-	if bom != "" {
-		rep.add(Finding{
-			Rule:     RuleBOM,
-			Severity: SeverityError,
-			Message: fmt.Sprintf("file begins with a %s byte order mark; most interchange parsers "+
-				"treat it as part of the first field", bom),
-			Line:      1,
-			Column:    1,
-			CodePoint: "U+FEFF",
-			Expected:  "no byte order mark",
-			Actual:    bom,
-		})
-	}
 
 	format := opts.Format
 	if format == "" {
@@ -163,6 +146,10 @@ func Lint(name string, data []byte, opts Options) *Report {
 		format = Detect(body, opts)
 	}
 	rep.Format = format
+
+	if bom != "" {
+		checkBOM(rep, format, bom)
+	}
 
 	src := newSource(name, body, format, opts, rep)
 
@@ -179,6 +166,34 @@ func Lint(name string, data []byte, opts Options) *Report {
 
 	rep.finalize(opts.Disabled, opts.maxFindings())
 	return rep
+}
+
+// checkBOM reports a leading byte order mark, graded by how much damage it does
+// in the detected format.
+func checkBOM(rep *Report, format Format, bom string) {
+	f := Finding{
+		Rule:      RuleBOM,
+		Line:      1,
+		Column:    1,
+		CodePoint: "U+FEFF",
+		Expected:  "no byte order mark",
+		Actual:    bom,
+	}
+
+	if format == FormatDelimited {
+		// Spreadsheet exports routinely emit a BOM and most CSV readers cope, so
+		// this is a smell rather than a defect.
+		f.Severity = SeverityWarning
+		f.Message = fmt.Sprintf("file begins with a %s byte order mark; readers that do not strip it "+
+			"see it as part of the first field of the first record", bom)
+	} else {
+		// A BOM shifts every byte of a fixed-position read: ISA element offsets,
+		// MSH-1 and MSH-2, and every fixed-width field boundary.
+		f.Severity = SeverityError
+		f.Message = fmt.Sprintf("file begins with a %s byte order mark; it shifts every fixed position "+
+			"in the file and is read as part of the first field", bom)
+	}
+	rep.add(f)
 }
 
 // splitBOM strips a leading byte order mark and names the encoding it implies.

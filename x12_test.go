@@ -278,3 +278,80 @@ func TestGS06ResetsPerInterchange(t *testing.T) {
 	rep := Lint("test", []byte(body("000000001")+body("000000002")), Options{})
 	requireRule(t, rep, RuleDupControl, 0)
 }
+
+// isaWithISA11 builds a 106-character ISA whose ISA11 and ISA12 are given, so
+// the 4010 and 5010 readings of that element can be tested against each other.
+func isaWithISA11(isa11 byte, version string) string {
+	return "ISA*00*          *00*          *ZZ*NORTHGATEHEALTH*ZZ*VALEMEDGROUP   " +
+		"*260115*1430*" + string(isa11) + "*" + version + "*000000001*0*P*:~"
+}
+
+func TestISA11DeclaresARepetitionSeparatorOnlyWhenNonAlphanumeric(t *testing.T) {
+	tests := []struct {
+		name    string
+		isa11   byte
+		version string
+		want    byte
+	}{
+		{"5010 caret is a separator", '^', "00501", '^'},
+		{"5010 pipe is a separator", '|', "00501", '|'},
+		{"4010 U declares no separator", 'U', "00401", 0},
+		{"alphanumeric under 5010 still declares none", 'U', "00501", 0},
+		{"a digit declares none", '7', "00501", 0},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			body := []byte(isaWithISA11(tc.isa11, tc.version) + "\nIEA*0*000000001~\n")
+			d, ok := deriveDelims(body, 0)
+			if !ok {
+				t.Fatal("expected separators to be derivable")
+			}
+			if d.Repetition != tc.want {
+				t.Errorf("repetition separator = %q, want %q", d.Repetition, tc.want)
+			}
+			if d.ISALen != 106 {
+				t.Errorf("ISA length = %d, want 106", d.ISALen)
+			}
+		})
+	}
+}
+
+func TestCaretIsEvaluatedUnlessDeclared(t *testing.T) {
+	// The caret is outside both X12 character sets, so it is only exempt from the
+	// character rules when ISA11 declares it as the repetition separator.
+	body := func(isa11 byte, version string) []byte {
+		return []byte(isaWithISA11(isa11, version) + "\n" +
+			"GS*HP*A*B*20260115*1430*1*X*005010X221A1~\n" +
+			"ST*835*0001~\nN1*PE*VALE^MEDICAL GROUP~\nSE*3*0001~\nGE*1*1~\n" +
+			"IEA*1*000000001~\n")
+	}
+
+	t.Run("declared as the repetition separator, so structural", func(t *testing.T) {
+		rep := Lint("test", body('^', "00501"), Options{})
+		requireRule(t, rep, RuleX12Extended, 0)
+	})
+
+	t.Run("not declared, so evaluated as content", func(t *testing.T) {
+		rep := Lint("test", body('U', "00401"), Options{})
+		requireRule(t, rep, RuleX12Extended, 1)
+		f := firstOf(rep, RuleX12Extended)
+		if f.Actual != "^" {
+			t.Errorf("actual = %q, want the caret", f.Actual)
+		}
+	})
+
+	t.Run("a 4010 U is not reported as an alphanumeric separator", func(t *testing.T) {
+		rep := Lint("test", body('U', "00401"), Options{})
+		requireRule(t, rep, RuleX12Separator, 0)
+	})
+
+	t.Run("an undeclared U keeps its ordinary meaning in content", func(t *testing.T) {
+		// With ISA11 treated as a separator, every "U" in the file would be
+		// silently exempt from the character rules.
+		src := newSource("test", body('U', "00401"), FormatX12, Options{}, &Report{})
+		if structuralCharacters(src)['U'] {
+			t.Error("U must not be treated as a structural character")
+		}
+	})
+}

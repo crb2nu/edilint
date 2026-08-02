@@ -149,7 +149,7 @@ func checkLayout(s *source, opts Options, rep *Report) {
 				Severity: SeverityError,
 				Message: fmt.Sprintf("record is %d character(s) long but layout %s declares %d; %s",
 					got, layoutName(l), want, describeDrift(l, got, want)),
-				Line: r.Line, Record: r.Ordinal, Segment: r.ID,
+				Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 				Expected: strconv.Itoa(want), Actual: strconv.Itoa(got),
 			})
 			// Field offsets are meaningless once the length is wrong.
@@ -205,7 +205,7 @@ func checkPadding(l *Layout, r record, rep *Report) {
 				Severity: SeverityWarning,
 				Message: fmt.Sprintf("field %q (offset %d, width %d): %s",
 					f.Name, start, f.Width, msg),
-				Line: r.Line, Record: r.Ordinal, Segment: r.ID,
+				Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 				Expected: fmt.Sprintf("padded on the %s with %q", f.Pad, string(rune(pad))),
 				Actual:   value,
 			})

@@ -13,20 +13,25 @@ type CharsetProfile string
 const (
 	// CharsetBasic enforces the X12 basic character set: A-Z, 0-9, space and
 	// ! " & ' ( ) * + , - . / : ; ? =
+	// It is the opt-in strict profile: characters that are legal in the extended
+	// set are reported as warnings, aggregated per record.
 	CharsetBasic CharsetProfile = "basic"
 	// CharsetExtended additionally allows a-z and % ~ @ [ ] _ { } \ | < > # $
+	// It is the default, because virtually every 5010 partner accepts it and
+	// mixed-case content is routine.
 	CharsetExtended CharsetProfile = "extended"
 	// CharsetOff disables the X12 character-set rules entirely.
 	CharsetOff CharsetProfile = "off"
 )
 
-// ParseCharsetProfile converts a user-supplied --charset value.
+// ParseCharsetProfile converts a user-supplied --charset value. The empty string
+// selects the default, CharsetExtended.
 func ParseCharsetProfile(s string) (CharsetProfile, error) {
 	switch CharsetProfile(s) {
 	case CharsetBasic, CharsetExtended, CharsetOff:
 		return CharsetProfile(s), nil
 	case "":
-		return CharsetBasic, nil
+		return CharsetExtended, nil
 	default:
 		return "", fmt.Errorf("unknown charset %q (want basic, extended or off)", s)
 	}
@@ -152,12 +157,12 @@ func newCharAggregator() *charAggregator {
 // charset.homoglyph stay per-occurrence so the exact position is available.
 func (a *charAggregator) add(s *source, rule string, sev Severity, r rune, line, col, off int) {
 	f := s.locate(off, Finding{Line: line, Column: col})
-	key := fmt.Sprintf("%s|%d|%d", rule, f.Record, line)
+	key := fmt.Sprintf("%s|%d|%d", rule, f.RecordNumber, line)
 	b, ok := a.buckets[key]
 	if !ok {
 		b = &charBucket{
 			order: a.next, rule: rule, severity: sev,
-			line: line, column: col, record: f.Record, segment: f.Segment,
+			line: line, column: col, record: f.RecordNumber, segment: f.Record,
 			seen: map[rune]bool{},
 		}
 		a.next++
@@ -192,15 +197,15 @@ func (a *charAggregator) emit(rep *Report) {
 				b.count, listChars(b.chars))
 		}
 		rep.add(Finding{
-			Rule:      b.rule,
-			Severity:  b.severity,
-			Message:   msg,
-			Line:      b.line,
-			Column:    b.column,
-			Record:    b.record,
-			Segment:   b.segment,
-			CodePoint: codePoint(b.chars[0]),
-			Actual:    string(b.chars),
+			Rule:         b.rule,
+			Severity:     b.severity,
+			Message:      msg,
+			Line:         b.line,
+			Column:       b.column,
+			RecordNumber: b.record,
+			Record:       b.segment,
+			CodePoint:    codePoint(b.chars[0]),
+			Actual:       string(b.chars),
 		})
 	}
 }
@@ -317,8 +322,8 @@ func checkNonASCII(s *source, rep *Report, agg *charAggregator, r rune, line, co
 // locate fills in the record ordinal and segment identifier for a byte offset.
 func (s *source) locate(off int, f Finding) Finding {
 	if r := s.RecordAt(off); r != nil {
-		f.Record = r.Ordinal
-		f.Segment = r.ID
+		f.RecordNumber = r.Ordinal
+		f.Record = r.ID
 	}
 	return f
 }

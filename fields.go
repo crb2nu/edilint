@@ -85,7 +85,7 @@ func checkFieldCounts(s *source, opts Options, rep *Report) {
 				Message: fmt.Sprintf("record type %q has %d field(s) here but %d in %d of %d record(s) "+
 					"of this type; a shifted field count moves every value after the break",
 					label, g.widths[i], modal, g.counts[modal], len(g.records)),
-				Line: r.Line, Record: r.Ordinal, Segment: r.ID,
+				Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 				Expected: strconv.Itoa(modal), Actual: strconv.Itoa(g.widths[i]),
 			})
 		}

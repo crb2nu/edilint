@@ -18,8 +18,8 @@ func TestParseCountRule(t *testing.T) {
 		{in: "TRL:x:DTL", wantErr: "field index must be a positive integer"},
 		{in: "TRL:0:DTL", wantErr: "field index must be a positive integer"},
 		{in: "TRL:-1:DTL", wantErr: "field index must be a positive integer"},
-		{in: ":2:DTL", wantErr: "empty record prefix"},
-		{in: "TRL:2:", wantErr: "empty record prefix"},
+		{in: ":2:DTL", wantErr: "empty record type"},
+		{in: "TRL:2:", wantErr: "empty record type"},
 	}
 
 	for _, tc := range tests {
@@ -104,10 +104,10 @@ func TestCountRules(t *testing.T) {
 			input:    strings.Replace(clean, "TRL|3\n", "", 1),
 			rule:     "TRL:2:DTL",
 			wantRule: RuleCountNoDeclarer,
-			wantMsg:  `no record starting with "TRL" was found`,
+			wantMsg:  `no "TRL" record was found`,
 		},
 		{
-			name:     "counted prefix is absent",
+			name:     "counted type is absent",
 			input:    clean,
 			rule:     "TRL:2:XYZ",
 			wantRule: RuleCountMismatch,
@@ -181,4 +181,70 @@ func TestMultipleCountRules(t *testing.T) {
 		Disabled:   []string{ClassCharset, ClassTerminator, ClassFields},
 	})
 	requireClean(t, rep)
+}
+
+func TestCountRuleMatchingByFormat(t *testing.T) {
+	rule, err := ParseCountRule("TRL:2:DTL")
+	if err != nil {
+		t.Fatalf("ParseCountRule: %v", err)
+	}
+	opts := func(o Options) Options {
+		o.CountRules = []CountRule{rule}
+		o.Disabled = []string{ClassCharset, ClassTerminator, ClassFields}
+		return o
+	}
+
+	t.Run("delimited matches the first field exactly", func(t *testing.T) {
+		// TRLR and DTLX must not be counted as TRL and DTL.
+		input := "HDR|X\n" +
+			"DTL|a\nDTL|b\n" +
+			"DTLX|c\n" +
+			"TRLR|99\n" +
+			"TRL|2\n"
+		requireClean(t, Lint("test", []byte(input), opts(Options{})))
+	})
+
+	t.Run("delimited: a longer type name is a different type", func(t *testing.T) {
+		// Only TRLR is present, so nothing declares the DTL count.
+		input := "HDR|X\nDTL|a\nDTL|b\nTRLR|2\n"
+		rep := Lint("test", []byte(input), opts(Options{}))
+		requireRule(t, rep, RuleCountNoDeclarer, 1)
+		requireRule(t, rep, RuleCountMismatch, 0)
+	})
+
+	t.Run("delimited: a prefix match would have inflated the count", func(t *testing.T) {
+		// Under prefix matching DTLX would count as a DTL and the trailer's
+		// declared 2 would have been reported as a mismatch against 3.
+		input := "HDR|X\nDTL|a\nDTL|b\nDTLX|c\nTRL|2\n"
+		requireClean(t, Lint("test", []byte(input), opts(Options{})))
+	})
+
+	t.Run("fixed width still matches on a prefix", func(t *testing.T) {
+		layout := &Layout{Fields: []LayoutField{
+			{Name: "record_type", Width: 4},
+			{Name: "value", Width: 4},
+		}}
+		input := "DTL a001\nDTL a002\nTRL 0002\n"
+		requireClean(t, Lint("test", []byte(input), opts(Options{
+			Format: FormatFixed, Layout: layout,
+		})))
+	})
+
+	t.Run("x12 still matches on a prefix", func(t *testing.T) {
+		body := readFixture(t, "835_clean.x12")
+		// Field 1 is the segment ID, so SE01 is field 2.
+		clpRule, err := ParseCountRule("SE:2:CLP")
+		if err != nil {
+			t.Fatalf("ParseCountRule: %v", err)
+		}
+		rep := Lint("test", body, Options{CountRules: []CountRule{clpRule}})
+		// SE01 declares 27 segments; the fixture holds 2 CLP segments.
+		f := firstOf(rep, RuleCountMismatch)
+		if f == nil {
+			t.Fatalf("expected a count mismatch, got %v", ruleNames(rep))
+		}
+		if f.Expected != "27" || f.Actual != "2" {
+			t.Errorf("expected/actual = %q/%q, want 27/2", f.Expected, f.Actual)
+		}
+	})
 }

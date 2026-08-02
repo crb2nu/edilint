@@ -184,8 +184,9 @@ func TestX12CharacterSetProfiles(t *testing.T) {
 		wantBasic    int
 		wantExtended int
 	}{
-		{"basic flags lowercase and the backtick", CharsetBasic, 1, 1},
+		{"the default allows lowercase", "", 0, 1},
 		{"extended allows lowercase", CharsetExtended, 0, 1},
+		{"basic flags lowercase and the backtick", CharsetBasic, 1, 1},
 		{"off disables both rules", CharsetOff, 0, 0},
 	}
 
@@ -221,5 +222,72 @@ func TestX12CharacterSetMembership(t *testing.T) {
 		if inX12Extended(r) {
 			t.Errorf("%q should be outside the X12 extended set", string(r))
 		}
+	}
+}
+
+func TestBOMSeverityDependsOnFormat(t *testing.T) {
+	const bom = "\ufeff"
+
+	tests := []struct {
+		name  string
+		input string
+		opts  Options
+		want  Severity
+	}{
+		{
+			name: "x12",
+			input: bom + "ISA*00*          *00*          *ZZ*NORTHGATEHEALTH*ZZ*VALEMEDGROUP   " +
+				"*260115*1430*^*00501*000000001*0*P*:~\nIEA*0*000000001~\n",
+			want: SeverityError,
+		},
+		{
+			name:  "hl7v2",
+			input: bom + "MSH|^~\\&|A|B|C|D|20260115143000||ADT^A01|M1|P|2.5.1\r",
+			want:  SeverityError,
+		},
+		{
+			name:  "fixed width",
+			input: bom + "DTL0000144000\nDTL0000096500\n",
+			opts: Options{Format: FormatFixed, Layout: &Layout{Fields: []LayoutField{
+				{Name: "record_type", Width: 3},
+				{Name: "amount", Width: 10},
+			}}},
+			want: SeverityError,
+		},
+		{
+			name:  "delimited",
+			input: bom + "member_id,last_name,plan\nNGH900000001,RIVERA,PPO-GOLD\n",
+			want:  SeverityWarning,
+		},
+		{
+			name:  "text",
+			input: bom + "the quick brown fox\njumped over the lazy dog\n",
+			want:  SeverityError,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rep := Lint("test", []byte(tc.input), tc.opts)
+			f := firstOf(rep, RuleBOM)
+			if f == nil {
+				t.Fatalf("expected a BOM finding, got %v", ruleNames(rep))
+			}
+			if f.Severity != tc.want {
+				t.Errorf("severity = %s, want %s (format %s)", f.Severity, tc.want, rep.Format)
+			}
+			if f.CodePoint != "U+FEFF" || f.Line != 1 || f.Column != 1 {
+				t.Errorf("unexpected position: %+v", f)
+			}
+		})
+	}
+}
+
+func TestBOMInDelimitedFileDoesNotFailWithAllowWarnings(t *testing.T) {
+	// The point of grading the BOM by format: a spreadsheet-exported CSV should
+	// still be shippable when the operator has accepted warnings.
+	rep := Lint("test", []byte("\ufeffa,b,c\n1,2,3\n"), Options{})
+	if !rep.OK(SeverityError) {
+		t.Errorf("a BOM'd CSV should carry no errors, got %v", ruleNames(rep))
 	}
 }

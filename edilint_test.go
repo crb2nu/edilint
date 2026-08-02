@@ -136,8 +136,8 @@ func TestParseCharsetProfile(t *testing.T) {
 			t.Errorf("ParseCharsetProfile(%q): %v", name, err)
 		}
 	}
-	if got, _ := ParseCharsetProfile(""); got != CharsetBasic {
-		t.Errorf(`ParseCharsetProfile("") = %s, want basic`, got)
+	if got, _ := ParseCharsetProfile(""); got != CharsetExtended {
+		t.Errorf(`ParseCharsetProfile("") = %s, want extended`, got)
 	}
 	if _, err := ParseCharsetProfile("strict"); err == nil {
 		t.Error("expected an error for an unknown charset profile")
@@ -216,23 +216,51 @@ func TestMaxFindings(t *testing.T) {
 	}
 	body := []byte(b.String())
 
-	full := Lint("test", body, Options{MaxFindings: -1})
-	if full.Summary.Total != 40 {
-		t.Fatalf("total = %d, want 40", full.Summary.Total)
-	}
-	if full.Summary.Truncated {
-		t.Error("an unlimited run must not be marked truncated")
+	// The zero value means unlimited.
+	for _, limit := range []int{0, -1} {
+		full := Lint("test", body, Options{MaxFindings: limit})
+		if len(full.Findings) != 40 {
+			t.Errorf("MaxFindings %d: findings = %d, want all 40", limit, len(full.Findings))
+		}
+		if full.Summary.Total != 40 {
+			t.Errorf("MaxFindings %d: total = %d, want 40", limit, full.Summary.Total)
+		}
+		if full.Summary.Truncated {
+			t.Errorf("MaxFindings %d: an unlimited run must not be marked truncated", limit)
+		}
 	}
 
 	capped := Lint("test", body, Options{MaxFindings: 10})
 	if len(capped.Findings) != 10 {
 		t.Errorf("findings = %d, want 10", len(capped.Findings))
 	}
-	if capped.Summary.Total != 40 {
-		t.Errorf("summary total = %d, want the full count 40", capped.Summary.Total)
+	if capped.Summary.Total != 40 || capped.Summary.Errors != 40 {
+		t.Errorf("summary = %+v, want the full count of 40", capped.Summary)
 	}
 	if !capped.Summary.Truncated {
 		t.Error("a capped run must be marked truncated")
+	}
+	// Truncation must not be able to turn a failing report into a passing one.
+	if capped.OK(SeverityWarning) || capped.OK(SeverityError) {
+		t.Error("a capped report must still report as failing")
+	}
+}
+
+func TestOKIgnoresTruncation(t *testing.T) {
+	// A file whose only finding is a warning, with output capped to nothing
+	// visible, must still fail the default threshold and pass the error one.
+	rep := Lint("test", []byte("A|1\nB|2\nC|3"), Options{
+		Disabled:    []string{ClassCharset, ClassFields},
+		MaxFindings: 1,
+	})
+	if rep.Summary.Warnings != 1 || rep.Summary.Errors != 0 {
+		t.Fatalf("summary = %+v, want exactly one warning", rep.Summary)
+	}
+	if rep.OK(SeverityWarning) {
+		t.Error("a warning should fail the default threshold")
+	}
+	if !rep.OK(SeverityError) {
+		t.Error("a warning should pass the error-only threshold")
 	}
 }
 
@@ -346,7 +374,7 @@ func TestRunReportTextIsQuietWhenClean(t *testing.T) {
 
 func TestFormatFindingLine(t *testing.T) {
 	f := Finding{
-		File: "claims.x12", Line: 12, Column: 5, Record: 7, Segment: "CLP",
+		File: "claims.x12", Line: 12, Column: 5, RecordNumber: 7, Record: "CLP",
 		Severity: SeverityError, Rule: RuleHomoglyph, Message: "looks like ASCII",
 	}
 	got := FormatFinding(f, FormatX12)
@@ -467,4 +495,43 @@ func TestFixtureLineEndingsSurviveCheckout(t *testing.T) {
 			t.Error("fixture should have one segment running straight into the next")
 		}
 	})
+}
+
+func TestFindingJSONFieldNames(t *testing.T) {
+	// The JSON shape is a contract with calling scripts, so the field names are
+	// pinned here rather than left to the struct tags.
+	rep := lintFixture(t, "eligibility_broken.psv", Options{})
+	f := firstOf(rep, RuleFieldOutlier)
+	if f == nil {
+		t.Fatalf("expected a field-count finding, got %v", ruleNames(rep))
+	}
+
+	body, err := json.Marshal(f)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if got, ok := decoded["record"].(string); !ok || got != "DTL" {
+		t.Errorf(`"record" = %v, want the record type "DTL"`, decoded["record"])
+	}
+	if got, ok := decoded["record_number"].(float64); !ok || int(got) != 3 {
+		t.Errorf(`"record_number" = %v, want the ordinal 3`, decoded["record_number"])
+	}
+	if _, ok := decoded["segment"]; ok {
+		t.Error(`"segment" was renamed to "record" and must no longer appear`)
+	}
+
+	// For X12 the same field carries the segment identifier.
+	x12 := lintFixture(t, "835_envelope_broken.x12", Options{})
+	sf := firstOf(x12, RuleSegmentCount)
+	if sf == nil {
+		t.Fatalf("expected a segment-count finding, got %v", ruleNames(x12))
+	}
+	if sf.Record != "SE" {
+		t.Errorf("Record = %q, want the segment identifier SE", sf.Record)
+	}
 }

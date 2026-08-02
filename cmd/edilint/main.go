@@ -235,13 +235,11 @@ func parseArgs(args []string) (config, error) {
 			}
 
 		case "--max-findings":
+			// Zero and the unset default both mean unlimited.
 			n, convErr := strconv.Atoi(val)
-			switch {
-			case convErr != nil || n < 0:
+			if convErr != nil || n < 0 {
 				err = fmt.Errorf("--max-findings must be a non-negative integer, got %q", val)
-			case n == 0:
-				cfg.opts.MaxFindings = -1 // unlimited
-			default:
+			} else {
 				cfg.opts.MaxFindings = n
 			}
 
@@ -285,7 +283,8 @@ Flags:
                           how many DTL records exist". Field 1 is the record type.
       --disable <rules>   comma-separated rule names or classes, e.g.
                           --disable charset.nonascii,layout
-      --max-findings <n>  cap findings printed per file (default 200, 0 = all)
+      --max-findings <n>  print at most n findings per file (default unlimited).
+                          The exit status always reflects every finding.
       --allow-warnings    exit 0 when only warnings were found
       --json              emit a JSON document instead of diagnostic lines
   -v, --verbose           print a line for clean files too

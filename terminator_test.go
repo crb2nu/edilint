@@ -120,8 +120,8 @@ func TestX12InterSegmentPadding(t *testing.T) {
 		if f.Expected != "LF" || f.Actual != "nothing" {
 			t.Errorf("expected/actual = %q/%q, want LF/nothing", f.Expected, f.Actual)
 		}
-		if f.Segment != "ST" {
-			t.Errorf("segment = %q, want ST", f.Segment)
+		if f.Record != "ST" {
+			t.Errorf("segment = %q, want ST", f.Record)
 		}
 	})
 }
