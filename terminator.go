@@ -130,7 +130,7 @@ func checkX12Separators(s *source, rep *Report) {
 			rep.add(Finding{
 				Rule:     RuleX12Separator,
 				Severity: SeverityError,
-				Message: fmt.Sprintf("%s and %s are both %q; the interchange cannot be tokenised unambiguously",
+				Message: fmt.Sprintf("%s and %s are both %q; the interchange cannot be tokenized unambiguously",
 					named[i].name, named[j].name, string(rune(named[i].b))),
 				Line:         isaLine,
 				RecordNumber: 1,

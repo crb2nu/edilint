@@ -84,7 +84,7 @@ func TestX12SeparatorDeclaration(t *testing.T) {
 			name: "element separator repeated as the segment terminator",
 			// Segment terminator at ISA position 105 is "*", the element separator.
 			input:   "ISA*00*          *00*          *ZZ*NORTHGATEHEALTH*ZZ*VALEMEDGROUP   *260115*1430*^*00501*000000001*0*P*:*",
-			wantMsg: "cannot be tokenised unambiguously",
+			wantMsg: "cannot be tokenized unambiguously",
 		},
 		{
 			name:    "alphanumeric sub-element separator",

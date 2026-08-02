@@ -54,7 +54,7 @@ func TestLayoutValidate(t *testing.T) {
 		{
 			name:    "multi-character pad",
 			layout:  Layout{Fields: []LayoutField{{Name: "a", Width: 3, PadChar: "ab"}}},
-			wantErr: "single character",
+			wantErr: "single ASCII character",
 		},
 	}
 
