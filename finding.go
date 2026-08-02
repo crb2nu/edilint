@@ -163,6 +163,10 @@ type Report struct {
 	disabled []string
 	// severities overrides the severity a check assigned, keyed by rule name.
 	severities map[string]Severity
+	// baseline suppresses findings that were already recorded, at the same point
+	// as disabled, so that the summary, the exit status and the retention
+	// ceiling all see the same set of findings the operator does.
+	baseline *Baseline
 	// retain is the hard ceiling on findings kept in memory. Zero means no
 	// ceiling, which is only appropriate for a caller that built the report
 	// itself. Lint always sets a finite value.
@@ -211,7 +215,8 @@ func (r *Report) OK(failOn Severity) bool {
 }
 
 // add records a finding: it fills in the derived fields, drops the finding if
-// its rule is disabled, counts it, and retains it if there is room.
+// its rule is disabled or a baseline already accounts for it, counts it, and
+// retains it if there is room.
 //
 // Counting and retention are separate on purpose. Every accepted finding moves
 // the summary, which is what OK and the truncation notice read, but only the
@@ -234,6 +239,9 @@ func (r *Report) add(f Finding) {
 		return
 	}
 	f.File = r.File
+	if r.baseline.accountsFor(f) {
+		return
+	}
 
 	r.Summary.Total++
 	switch f.Severity {

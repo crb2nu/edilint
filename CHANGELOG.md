@@ -35,6 +35,13 @@ up the first tag.
   `allow-warnings`, `layout`, `disable`, `severity` and `count-rules`.
   `--config` names another file and `--no-config` ignores it. Flags overrule the
   file, except that `--disable` and `--count-rule` add to it.
+- `--write-baseline <file>` records the findings a set of files produces now,
+  and `--baseline <file>` reports only what is not in that recording. Entries
+  hold no line or column and ignore the numbers inside a message, so they
+  survive edits above them and statistics that shift as a file grows; identical
+  findings collapse into one entry with a count, so one more of the same defect
+  is still reported. The document is sorted and carries no timestamp, so
+  re-recording an unchanged set produces the same bytes.
 
 ### Changed
 

@@ -92,6 +92,13 @@ type Options struct {
 	// including rules that otherwise grade themselves by format.
 	Severities map[string]Severity
 
+	// Baseline suppresses findings that were already recorded, so that a run
+	// reports only what is new. When non-nil it is read and written by every
+	// Lint call: each matched finding consumes one recorded occurrence. Callers
+	// linting a batch pass the same value to every call. It is not safe for
+	// concurrent use.
+	Baseline *Baseline
+
 	// MaxFindings caps the number of findings retained in a report. Zero or
 	// negative means unlimited, which is the default. The cap only affects the
 	// findings a report carries: Report.Summary always reflects the full set, and
@@ -145,6 +152,7 @@ func Lint(name string, data []byte, opts Options) *Report {
 		Format:     FormatText,
 		disabled:   opts.Disabled,
 		severities: normalizeSeverities(opts.Severities),
+		baseline:   opts.Baseline,
 		retain:     retentionFor(opts),
 	}
 

@@ -816,6 +816,172 @@ func TestDisableRejectsAnUnknownRule(t *testing.T) {
 	}
 }
 
+func TestBaselineRoundTripFromTheCLI(t *testing.T) {
+	// The documented adoption path, end to end.
+	dir := t.TempDir()
+	target := write(t, dir, "legacy.x12", brokenX12)
+	baseline := filepath.Join(dir, "baseline.json")
+
+	// The file fails on its own.
+	if code, _, _ := exec(target); code != exitFindings {
+		t.Fatal("the fixture should report findings before it is baselined")
+	}
+
+	code, stdout, stderr := exec("--write-baseline", baseline, target)
+	if code != exitClean {
+		t.Fatalf("recording exit = %d, want %d (%s)", code, exitClean, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("recording should not print findings to stdout, got %q", stdout)
+	}
+	if !strings.Contains(stderr, "recorded 1 finding(s)") {
+		t.Errorf("recording should say what it wrote, got %q", stderr)
+	}
+
+	// Re-running against the baseline is clean and silent.
+	code, stdout, stderr = exec("--baseline", baseline, target)
+	if code != exitClean {
+		t.Fatalf("baselined exit = %d, want %d (%s)", code, exitClean, stdout)
+	}
+	if stdout != "" {
+		t.Errorf("a fully baselined run should print nothing, got %q", stdout)
+	}
+	if stderr != "" {
+		t.Errorf("a fully baselined run should be silent on stderr, got %q", stderr)
+	}
+
+	// A new defect on top of the recorded one is reported, and only it.
+	planted := strings.Replace(brokenX12, "BPR*I*", "BPR*I\x0b*", 1)
+	if planted == brokenX12 {
+		t.Fatal("the planted defect did not apply")
+	}
+	write(t, dir, "legacy.x12", planted)
+
+	code, stdout, _ = exec("--baseline", baseline, target)
+	if code != exitFindings {
+		t.Fatalf("exit = %d, want %d", code, exitFindings)
+	}
+	if !strings.Contains(stdout, "1 finding") {
+		t.Errorf("exactly one new finding should be reported, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "charset.nonprintable") {
+		t.Errorf("the new finding should be the planted one, got %q", stdout)
+	}
+	if strings.Contains(stdout, "envelope.segment-count") {
+		t.Errorf("the recorded finding should stay suppressed, got %q", stdout)
+	}
+}
+
+func TestBaselineIsCommittableJSON(t *testing.T) {
+	dir := t.TempDir()
+	target := write(t, dir, "legacy.x12", brokenX12)
+	baseline := filepath.Join(dir, "baseline.json")
+
+	if code, _, stderr := exec("--write-baseline", baseline, target); code != exitClean {
+		t.Fatalf("exit = %d (%s)", code, stderr)
+	}
+	body, err := os.ReadFile(baseline)
+	if err != nil {
+		t.Fatalf("read baseline: %v", err)
+	}
+
+	var doc struct {
+		Version  int `json:"version"`
+		Findings []struct {
+			File    string `json:"file"`
+			ID      string `json:"id"`
+			Rule    string `json:"rule"`
+			Message string `json:"message"`
+			Count   int    `json:"count"`
+		} `json:"findings"`
+	}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		t.Fatalf("baseline is not valid JSON: %v\n%s", err, body)
+	}
+	if doc.Version != 1 {
+		t.Errorf("version = %d, want 1", doc.Version)
+	}
+	if len(doc.Findings) != 1 {
+		t.Fatalf("findings = %d, want 1", len(doc.Findings))
+	}
+	entry := doc.Findings[0]
+	if entry.ID != "EL3006" || entry.Rule != "envelope.segment-count" || entry.Count != 1 {
+		t.Errorf("entry = %+v", entry)
+	}
+	if entry.Message == "" {
+		t.Error("the entry should carry its message, so the file can be reviewed")
+	}
+	// No line or column, which is what lets the entry survive an edit above it.
+	if strings.Contains(string(body), `"line"`) {
+		t.Errorf("a baseline entry must not record a line number:\n%s", body)
+	}
+}
+
+func TestBaselineFlagErrors(t *testing.T) {
+	dir := t.TempDir()
+	clean := write(t, dir, "clean.x12", cleanX12)
+	missing := filepath.Join(dir, "absent.json")
+
+	code, _, stderr := exec("--baseline", missing, clean)
+	if code != exitUsage {
+		t.Errorf("a missing baseline exit = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr, "--write-baseline") {
+		t.Errorf("stderr should say how to record one, got %q", stderr)
+	}
+
+	code, _, stderr = exec("--baseline", missing, "--write-baseline", missing, clean)
+	if code != exitUsage {
+		t.Errorf("using both baseline flags exit = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr, "cannot be used together") {
+		t.Errorf("stderr should explain the conflict, got %q", stderr)
+	}
+}
+
+func TestWriteBaselineRefusesAfterAnUnreadableInput(t *testing.T) {
+	// Recording from an incomplete run would bake a gap into the baseline.
+	dir := t.TempDir()
+	target := write(t, dir, "legacy.x12", brokenX12)
+	baseline := filepath.Join(dir, "baseline.json")
+
+	code, _, stderr := exec("--write-baseline", baseline, target, filepath.Join(dir, "gone.x12"))
+	if code != exitUsage {
+		t.Fatalf("exit = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr, "no baseline was written") {
+		t.Errorf("stderr should say the file was not written, got %q", stderr)
+	}
+	if _, err := os.Stat(baseline); err == nil {
+		t.Error("no baseline file should have been created")
+	}
+}
+
+func TestStaleBaselineEntriesAreReportedWhenVerbose(t *testing.T) {
+	dir := t.TempDir()
+	target := write(t, dir, "legacy.x12", brokenX12)
+	baseline := filepath.Join(dir, "baseline.json")
+
+	if code, _, stderr := exec("--write-baseline", baseline, target); code != exitClean {
+		t.Fatalf("exit = %d (%s)", code, stderr)
+	}
+	// Fix the defect the baseline recorded.
+	write(t, dir, "legacy.x12", cleanX12)
+
+	code, _, stderr := exec("-v", "--baseline", baseline, target)
+	if code != exitClean {
+		t.Fatalf("exit = %d, want %d (%s)", code, exitClean, stderr)
+	}
+	if !strings.Contains(stderr, "no longer occur") {
+		t.Errorf("a stale baseline should be mentioned when verbose, got %q", stderr)
+	}
+
+	// A stale entry is not an error, and says nothing without --verbose.
+	if _, _, quiet := exec("--baseline", baseline, target); quiet != "" {
+		t.Errorf("a quiet run should not mention stale entries, got %q", quiet)
+	}
+}
+
 func TestConfigFileSuppliesOptions(t *testing.T) {
 	dir := t.TempDir()
 	bad := write(t, dir, "bad.psv", badCountPSV)

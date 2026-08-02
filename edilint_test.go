@@ -507,8 +507,8 @@ func TestRulesCatalogIsComplete(t *testing.T) {
 		rep := lintFixture(t, name, Options{CountRules: []CountRule{{Declaring: "TRL", Field: 2, Counted: "DTL"}}})
 		for _, f := range rep.Findings {
 			emitted[f.Rule] = true
-			// The identifier is what a suppression and a configuration file
-			// key on, so no finding may leave the engine without one.
+			// The identifier is what a suppression, a baseline and, later, a
+			// SARIF report key on, so no finding may leave the engine without one.
 			if f.ID == "" {
 				t.Errorf("rule %s emitted a finding with no identifier", f.Rule)
 			}

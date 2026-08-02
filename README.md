@@ -38,7 +38,7 @@ $ echo $?
 ```
 
 Each finding carries a stable rule identifier and the rule's name, so a line can
-be grepped or suppressed by either.
+be grepped, suppressed or baselined by either.
 
 And a fixed-width file checked against a layout:
 
@@ -159,10 +159,12 @@ interchange control number detection across the whole batch.
 | `--disable <rules>` | Comma-separated rule identifiers, names or classes, e.g. `--disable EL1006,layout`. |
 | `--config <file>` | Configuration file. Defaults to `.edilint.yml` in the working directory, if there is one. |
 | `--no-config` | Ignore any `.edilint.yml` in the working directory. |
+| `--baseline <file>` | Report only findings absent from this baseline. |
+| `--write-baseline <file>` | Record this run's findings as a baseline and exit 0. |
 | `--max-findings <n>` | Print at most n findings per file. The exit status and the summary always reflect every finding, whatever this is set to. |
 | `--allow-warnings` | Exit 0 when only warnings were found. |
 | `--json` | Emit a JSON document instead of diagnostic lines. |
-| `-v`, `--verbose` | Print a line for clean files too, and name the configuration file in use. |
+| `-v`, `--verbose` | Print a line for clean files too, name the configuration file in use, and report stale baseline entries. |
 | `--list-rules` | Print the rule catalog and exit. |
 
 ### Behavior on very defective files
@@ -329,6 +331,53 @@ Notes on the schema:
   scalars, lists of scalars, or one further mapping of scalars. Anchors,
   multi-line scalars and lists of mappings are errors, not silent
   misinterpretations. This is what keeps the tool free of dependencies.
+
+## Baselines
+
+A baseline is how edilint gets adopted on files that already have defects.
+Record what a set of files reports today, and every later run gates on what is
+new:
+
+```sh
+edilint --write-baseline .edilint-baseline.json outbound/*.x12
+edilint --baseline .edilint-baseline.json outbound/*.x12
+```
+
+The first command writes the file and exits 0 whatever it found: recording is
+bookkeeping, not a gate. The second reports nothing, exits 0, and keeps doing so
+until a new defect appears.
+
+Commit the baseline. It is sorted and holds no timestamp, so recording the same
+findings twice produces the same bytes and a diff shows only real movement.
+
+**What a baseline matches on.** An entry records the file, the rule identifier,
+the record type and the message — and deliberately no line, column or record
+ordinal. Those move whenever a segment is inserted above them, and a baseline
+that expired on the next edit would be useless.
+
+Numbers in the message are ignored when matching, for the same reason: several
+messages quote a statistic over the whole file, such as "9 field(s) here but 10
+in 2 of 3 record(s) of this type", and that changes as soon as an unrelated
+record is added. The names, record types and quoted values are what identify the
+defect, and they are kept. Identical findings collapse into one entry with a
+`count`, so thirty non-printable characters record as one entry of thirty and a
+thirty-first is still reported.
+
+Three consequences worth knowing:
+
+- Paths are recorded as they were given, cleaned but still relative, so run
+  edilint from the same directory each time.
+- Two findings of the same rule, on the same record type, in the same file,
+  whose messages differ only in their numbers, count as the same finding.
+  Swapping one for the other is not reported; adding one on top of it is.
+- Rewording a rule's message in a later release invalidates the entries that
+  quoted it, and those findings resurface. Re-record with `--write-baseline`
+  after an upgrade whose changelog says messages changed.
+
+`--baseline` and `--write-baseline` cannot be combined, and `--write-baseline`
+refuses to write anything if an input could not be read, so a baseline never
+bakes in a gap. Run with `-v` to be told when recorded findings no longer occur,
+which is the signal to re-record.
 
 ## Rules
 

@@ -11,8 +11,8 @@ var ruleIDForm = regexp.MustCompile(`^EL[1-9][0-9]{3}$`)
 
 func TestRuleIdentifiersAreWellFormed(t *testing.T) {
 	// Identifiers are a permanent public contract: they appear in findings, in
-	// suppressions and in configuration files. Every property that makes them
-	// usable is pinned here rather than left to review.
+	// suppressions, in baselines and in configuration files. Every property that
+	// makes them usable is pinned here rather than left to review.
 	seenID := map[string]string{}
 	seenName := map[string]bool{}
 	previous := ""

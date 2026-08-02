@@ -47,6 +47,8 @@ type config struct {
 	layoutPath    string
 	configPath    string
 	noConfig      bool
+	baselinePath  string
+	writeBaseline string
 	jsonOut       bool
 	verbose       bool
 	allowWarnings bool
@@ -116,6 +118,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 
+	var baseline *edilint.Baseline
+	if cfg.baselinePath != "" {
+		loaded, err := edilint.LoadBaseline(cfg.baselinePath)
+		if err != nil {
+			diagf(stderr, "edilint: %v\n", err)
+			return exitUsage
+		}
+		baseline = loaded
+		set.opts.Baseline = baseline
+	}
+
 	// Sharing this map across files enables duplicate ISA13 detection for a batch.
 	set.opts.SeenISA13 = map[string]string{}
 
@@ -135,6 +148,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		rr.Add(rep)
 	}
 
+	if cfg.writeBaseline != "" {
+		return recordBaseline(cfg, rr, unreadable, len(paths), stderr)
+	}
+
 	if cfg.jsonOut {
 		if err := rr.WriteJSON(stdout); err != nil {
 			diagf(stderr, "edilint: %v\n", err)
@@ -143,6 +160,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	} else if err := rr.WriteText(stdout, cfg.verbose); err != nil {
 		diagf(stderr, "edilint: %v\n", err)
 		return exitUsage
+	}
+
+	if cfg.verbose {
+		reportStaleBaseline(baseline, cfg.baselinePath, stderr)
 	}
 
 	if unreadable > 0 {
@@ -226,6 +247,51 @@ func loadConfig(cfg config) (*edilint.Config, error) {
 	return edilint.LoadConfig(path)
 }
 
+// recordBaseline writes the findings of this run to the --write-baseline file.
+//
+// Recording is bookkeeping, not a gate, so it exits 0 whatever it found. Only a
+// failure to read an input or to write the file is an error.
+func recordBaseline(cfg config, rr *edilint.RunReport, unreadable, total int, stderr io.Writer) int {
+	if unreadable > 0 {
+		diagf(stderr, "edilint: %d of %d input(s) could not be read; no baseline was written\n",
+			unreadable, total)
+		return exitUsage
+	}
+
+	baseline := edilint.NewBaseline(rr)
+	if err := baseline.WriteFile(cfg.writeBaseline); err != nil {
+		diagf(stderr, "edilint: %v\n", err)
+		return exitUsage
+	}
+
+	diagf(stderr, "edilint: recorded %d finding(s) from %d file(s) in %s\n",
+		baseline.Total(), rr.Summary.Files, cfg.writeBaseline)
+	if rr.Summary.Truncated {
+		diagf(stderr, "edilint: some findings were not retained, so the baseline is incomplete; "+
+			"raise --max-findings and record again\n")
+	}
+	return exitClean
+}
+
+// reportStaleBaseline names the recorded findings this run never met. They are
+// defects that were fixed, or files that were not linted, and they never change
+// an exit status: a baseline going stale is good news.
+func reportStaleBaseline(baseline *edilint.Baseline, path string, stderr io.Writer) {
+	if baseline == nil {
+		return
+	}
+	stale := baseline.Unmatched()
+	if len(stale) == 0 {
+		return
+	}
+	n := 0
+	for _, e := range stale {
+		n += e.Count
+	}
+	diagf(stderr, "edilint: %d baseline finding(s) in %s no longer occur; "+
+		"re-record with --write-baseline to drop them\n", n, path)
+}
+
 // dedupe drops repeated paths while preserving order. Overlapping shell globs
 // routinely name the same file twice, and linting it twice would both inflate
 // the summary and misreport its own interchange control number as a duplicate
@@ -250,7 +316,7 @@ var valueFlags = map[string]bool{
 	"-d": true, "--delimiter": true,
 	"--layout": true, "--charset": true, "--type-field": true,
 	"--count-rule": true, "--disable": true, "--max-findings": true,
-	"--config": true,
+	"--config": true, "--baseline": true, "--write-baseline": true,
 }
 
 // boolFlags lists the flags that take no value.
@@ -344,6 +410,12 @@ func parseArgs(args []string) (config, error) {
 		case "--config":
 			cfg.configPath = val
 
+		case "--baseline":
+			cfg.baselinePath = val
+
+		case "--write-baseline":
+			cfg.writeBaseline = val
+
 		case "--charset":
 			cfg.opts.X12Charset, err = edilint.ParseCharsetProfile(val)
 			cfg.set["charset"] = true
@@ -388,6 +460,10 @@ func parseArgs(args []string) (config, error) {
 		}
 	}
 
+	if cfg.baselinePath != "" && cfg.writeBaseline != "" {
+		return cfg, fmt.Errorf("--baseline and --write-baseline cannot be used together: " +
+			"record a baseline first, then run against it")
+	}
 	if cfg.noConfig && cfg.configPath != "" {
 		return cfg, fmt.Errorf("--config and --no-config cannot be used together")
 	}
@@ -422,6 +498,9 @@ Flags:
                           e.g. --disable EL1006,layout
       --config <file>     configuration file (default .edilint.yml here, if any)
       --no-config         ignore any .edilint.yml in the working directory
+      --baseline <file>   report only findings absent from this baseline
+      --write-baseline <file>
+                          record this run's findings as a baseline and exit 0
       --max-findings <n>  print at most n findings per file (default unlimited).
                           The exit status always reflects every finding.
       --allow-warnings    exit 0 when only warnings were found
@@ -440,6 +519,11 @@ Examples:
 
   # Check fixed-width records against a layout.
   edilint --format fixed --layout layouts/remit.json remit.txt
+
+  # Adopt edilint on files that already have defects: record them, then gate
+  # on anything new.
+  edilint --write-baseline .edilint-baseline.json outbound/*.x12
+  edilint --baseline .edilint-baseline.json outbound/*.x12
 
   # Machine-readable output for a CI annotation step.
   edilint --json outbound/*.x12 | jq '.files[].findings[]'
