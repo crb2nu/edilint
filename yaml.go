@@ -1,8 +1,10 @@
 package edilint
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 // A restricted YAML reader.
@@ -16,8 +18,17 @@ import (
 //
 // It is deliberately strict. Anything outside the subset — an anchor, a
 // multi-line scalar, a list of mappings, a tab in the indentation — is an error
-// naming the line, rather than something quietly misread. A configuration file
-// that is silently misunderstood is worse than one that is rejected.
+// naming the line, rather than something quietly misread. The same rule covers
+// the file's encoding: a UTF-16 file, invalid UTF-8, a carriage return without
+// a line feed and a duplicate key at any level are all errors, because each is
+// a file that a person and this reader would understand differently. The one
+// tolerated irregularity is a UTF-8 byte order mark at the start, which some
+// Windows editors prepend and which changes nothing about what the file says.
+// A configuration file that is silently misunderstood is worse than one that
+// is rejected.
+//
+// Every error names the line it is about. FuzzParseYAML holds the reader to
+// that, and to never panicking, on arbitrary input.
 
 type yamlKind int
 
@@ -83,8 +94,8 @@ func parseYAML(data []byte) (*yamlDoc, error) {
 		if !ok {
 			return nil, fmt.Errorf("line %d: expected \"key: value\", got %q", ln.num, ln.text)
 		}
-		if _, dup := doc.values[key]; dup {
-			return nil, fmt.Errorf("line %d: duplicate key %q", ln.num, key)
+		if prev, dup := doc.values[key]; dup {
+			return nil, fmt.Errorf("line %d: duplicate key %q (first set on line %d)", ln.num, key, prev.line)
 		}
 		i++
 
@@ -165,11 +176,16 @@ func parseYAMLBlock(block []yamlLine) (yamlValue, error) {
 	}
 
 	val := yamlValue{kind: yamlMapping}
+	seen := map[string]int{}
 	for _, ln := range block {
 		key, rest, ok := splitYAMLKey(ln.text)
 		if !ok {
 			return yamlValue{}, fmt.Errorf("line %d: expected \"key: value\", got %q", ln.num, ln.text)
 		}
+		if first, dup := seen[key]; dup {
+			return yamlValue{}, fmt.Errorf("line %d: duplicate key %q (first set on line %d)", ln.num, key, first)
+		}
+		seen[key] = ln.num
 		if rest == "" {
 			return yamlValue{}, fmt.Errorf("line %d: %q has no value; nested structures are not supported",
 				ln.num, key)
@@ -183,12 +199,28 @@ func parseYAMLBlock(block []yamlLine) (yamlValue, error) {
 	return val, nil
 }
 
-// scanYAML turns raw bytes into significant lines, rejecting tab indentation.
+// scanYAML turns raw bytes into significant lines. It owns the checks that are
+// about the file rather than its structure: the encoding must be UTF-8, line
+// endings must be LF or CRLF, and indentation must be spaces.
 func scanYAML(data []byte) ([]yamlLine, error) {
+	if bytes.HasPrefix(data, []byte{0xFF, 0xFE}) || bytes.HasPrefix(data, []byte{0xFE, 0xFF}) {
+		return nil, fmt.Errorf("line 1: the file starts with a UTF-16 byte order mark; edilint reads UTF-8")
+	}
+	// A UTF-8 byte order mark is what some Windows editors prepend. It means
+	// the same document, so it is dropped rather than rejected.
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
+
 	var out []yamlLine
 	for i, raw := range strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n") {
 		num := i + 1
-		raw = strings.TrimRight(strings.TrimSuffix(raw, "\r"), " \t")
+		if strings.ContainsRune(raw, '\r') {
+			return nil, fmt.Errorf("line %d: carriage return without a line feed; "+
+				"the file must use LF or CRLF line endings", num)
+		}
+		if !utf8.ValidString(raw) {
+			return nil, fmt.Errorf("line %d: invalid UTF-8; the file must be UTF-8 text", num)
+		}
+		raw = strings.TrimRight(raw, " \t")
 
 		indent := 0
 		for indent < len(raw) && (raw[indent] == ' ' || raw[indent] == '\t') {
@@ -268,19 +300,15 @@ func splitYAMLKey(s string) (key, rest string, ok bool) {
 	return "", "", false
 }
 
-// parseFlowSequence reads "[a, b, c]".
+// parseFlowSequence reads "[a, b, c]". The closing bracket must end the value:
+// anything after it would be content the reader was about to drop, which is an
+// error instead.
 func parseFlowSequence(s string, line int) ([]yamlItem, error) {
-	if !strings.HasSuffix(s, "]") {
-		return nil, fmt.Errorf("line %d: list %q is missing its closing bracket", line, s)
-	}
-	inner := strings.TrimSpace(s[1 : len(s)-1])
-	if inner == "" {
-		return nil, nil
-	}
-
 	var items []yamlItem
 	var field strings.Builder
 	var quote byte
+	sawComma := false
+
 	flush := func() error {
 		text := strings.TrimSpace(field.String())
 		field.Reset()
@@ -295,13 +323,13 @@ func parseFlowSequence(s string, line int) ([]yamlItem, error) {
 		return nil
 	}
 
-	for i := 0; i < len(inner); i++ {
-		c := inner[i]
+	for i := 1; i < len(s); i++ {
+		c := s[i]
 		switch {
-		case quote == '"' && c == '\\' && i+1 < len(inner):
+		case quote == '"' && c == '\\' && i+1 < len(s):
 			field.WriteByte(c)
 			i++
-			field.WriteByte(inner[i])
+			field.WriteByte(s[i])
 		case quote != 0:
 			if c == quote {
 				quote = 0
@@ -311,10 +339,22 @@ func parseFlowSequence(s string, line int) ([]yamlItem, error) {
 			quote = c
 			field.WriteByte(c)
 		case c == ',':
+			sawComma = true
 			if err := flush(); err != nil {
 				return nil, err
 			}
-		case c == '[' || c == ']' || c == '{' || c == '}':
+		case c == ']':
+			if rest := strings.TrimSpace(s[i+1:]); rest != "" {
+				return nil, fmt.Errorf("line %d: unexpected %q after the closing bracket of %q",
+					line, rest, s[:i+1])
+			}
+			if sawComma || strings.TrimSpace(field.String()) != "" {
+				if err := flush(); err != nil {
+					return nil, err
+				}
+			}
+			return items, nil
+		case c == '[' || c == '{' || c == '}':
 			return nil, fmt.Errorf("line %d: nested lists are not supported", line)
 		default:
 			field.WriteByte(c)
@@ -323,40 +363,54 @@ func parseFlowSequence(s string, line int) ([]yamlItem, error) {
 	if quote != 0 {
 		return nil, fmt.Errorf("line %d: unterminated quote in list %q", line, s)
 	}
-	if err := flush(); err != nil {
-		return nil, err
-	}
-	return items, nil
+	return nil, fmt.Errorf("line %d: list %q is missing its closing bracket", line, s)
 }
 
 // unquoteYAML removes quoting from a scalar. Double quotes honor the \\, \",
 // \n, \r and \t escapes; single quotes are literal except for a doubled quote.
+//
+// It scans for the quote that closes the one that opened the scalar, rather
+// than trusting the last character to be it: `"a" b` has a closing quote and
+// then content the reader was about to drop, and a lone `"` has none at all.
+// Both are errors, not approximations.
 func unquoteYAML(s string, line int) (string, error) {
-	if len(s) < 2 {
+	if s == "" || (s[0] != '\'' && s[0] != '"') {
 		return s, nil
 	}
-	switch s[0] {
-	case '\'':
-		if s[len(s)-1] != '\'' {
-			return "", fmt.Errorf("line %d: unterminated quote in %s", line, s)
-		}
-		return strings.ReplaceAll(s[1:len(s)-1], "''", "'"), nil
-	case '"':
-		if s[len(s)-1] != '"' {
-			return "", fmt.Errorf("line %d: unterminated quote in %s", line, s)
-		}
-		var b strings.Builder
-		body := s[1 : len(s)-1]
-		for i := 0; i < len(body); i++ {
-			if body[i] != '\\' {
-				b.WriteByte(body[i])
+
+	var b strings.Builder
+	if s[0] == '\'' {
+		for i := 1; i < len(s); i++ {
+			if s[i] != '\'' {
+				b.WriteByte(s[i])
 				continue
 			}
-			i++
-			if i >= len(body) {
-				return "", fmt.Errorf("line %d: trailing backslash in %s", line, s)
+			if i+1 < len(s) && s[i+1] == '\'' {
+				b.WriteByte('\'')
+				i++
+				continue
 			}
-			switch body[i] {
+			if i+1 != len(s) {
+				return "", fmt.Errorf("line %d: unexpected %q after the closing quote in %s", line, s[i+1:], s)
+			}
+			return b.String(), nil
+		}
+		return "", fmt.Errorf("line %d: unterminated quote in %s", line, s)
+	}
+
+	for i := 1; i < len(s); i++ {
+		switch c := s[i]; c {
+		case '"':
+			if i+1 != len(s) {
+				return "", fmt.Errorf("line %d: unexpected %q after the closing quote in %s", line, s[i+1:], s)
+			}
+			return b.String(), nil
+		case '\\':
+			i++
+			if i == len(s) {
+				return "", fmt.Errorf("line %d: unterminated quote in %s", line, s)
+			}
+			switch s[i] {
 			case '\\':
 				b.WriteByte('\\')
 			case '"':
@@ -370,11 +424,11 @@ func unquoteYAML(s string, line int) (string, error) {
 			case '0':
 				b.WriteByte(0)
 			default:
-				return "", fmt.Errorf("line %d: unsupported escape %q in %s", line, "\\"+string(body[i]), s)
+				return "", fmt.Errorf("line %d: unsupported escape %q in %s", line, "\\"+string(s[i]), s)
 			}
+		default:
+			b.WriteByte(c)
 		}
-		return b.String(), nil
-	default:
-		return s, nil
 	}
+	return "", fmt.Errorf("line %d: unterminated quote in %s", line, s)
 }

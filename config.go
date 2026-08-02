@@ -141,10 +141,6 @@ func LoadConfig(path string) (*Config, error) {
 		c.present[key] = true
 	}
 
-	if c.Version != 0 && c.Version != ConfigVersion {
-		return nil, fmt.Errorf("%s: config version %d is not supported (this build understands version %d)",
-			path, c.Version, ConfigVersion)
-	}
 	if c.Layout != "" && !filepath.IsAbs(c.Layout) {
 		// A relative layout path is relative to the configuration file, which is
 		// what makes a committed .edilint.yml work from any working directory.
@@ -160,6 +156,10 @@ func (c *Config) set(key string, val yamlValue) error {
 		n, err := val.intValue(key, 1)
 		if err != nil {
 			return err
+		}
+		if n != ConfigVersion {
+			return fmt.Errorf("line %d: config version %d is not supported (this build understands version %d)",
+				val.line, n, ConfigVersion)
 		}
 		c.Version = n
 

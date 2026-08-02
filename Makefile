@@ -1,4 +1,4 @@
-.PHONY: help build install test test-race cover lint fmt fmt-check vet tidy clean ci
+.PHONY: help build install test test-race fuzz cover lint fmt fmt-check vet tidy clean ci
 
 # Keep this pinned to the version .github/workflows/ci.yml uses, so `make lint`
 # and CI cannot disagree.
@@ -20,6 +20,9 @@ test: ## Run the tests
 
 test-race: ## Run the tests with the race detector, as CI does
 	go test -race -cover ./...
+
+fuzz: ## Run the bounded YAML fuzz pass, as CI does
+	go test -run '^$$' -fuzz '^FuzzParseYAML$$' -fuzztime 10s .
 
 cover: ## Write and open an HTML coverage report
 	go test -coverprofile=coverage.out ./...
@@ -49,5 +52,5 @@ tidy: ## Tidy go.mod
 clean: ## Remove build and coverage output
 	rm -rf bin coverage.out coverage.html
 
-ci: fmt-check vet lint test-race ## Run everything CI runs
+ci: fmt-check vet lint test-race fuzz ## Run everything CI runs
 	@echo "All checks passed."

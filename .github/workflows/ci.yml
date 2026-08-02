@@ -69,6 +69,24 @@ jobs:
       - name: go build
         run: go build ./cmd/edilint
 
+  # A bounded fuzz pass over the restricted YAML reader, which is the one
+  # component that parses arbitrary user bytes with hand-written code. Ten
+  # seconds finds the classic scanner mistakes (index arithmetic, quote
+  # tracking) without holding the pipeline hostage; the seed corpus alone
+  # already runs in every plain `go test`.
+  fuzz:
+    name: fuzz (bounded)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      - name: go test -fuzz
+        run: go test -run '^$' -fuzz '^FuzzParseYAML$' -fuzztime 10s .
+
   # go.mod claims a floor of Go 1.23. This job is what keeps that claim honest:
   # the audience is locked-down healthcare toolchains that cannot fetch a newer
   # one, so GOTOOLCHAIN=local makes any accidental upward drift a hard failure.

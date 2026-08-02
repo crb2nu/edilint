@@ -163,7 +163,8 @@ func TestLoadConfigRejectsBadSettings(t *testing.T) {
 		body string
 		want string
 	}{
-		{"unknown setting", "verbosity: high\n", `unknown setting "verbosity"`},
+		{"unknown setting", "verbosity: high\n",
+			`unknown setting "verbosity" (known settings: allow-warnings, charset, count-rules`},
 		{"unknown rule in disable", "disable:\n  - EL9999\n", `unknown rule "EL9999"`},
 		{"misspelled class", "disable:\n  - charsets\n", `unknown rule "charsets"`},
 		{"unknown severity", "severity:\n  EL2002: fatal\n", `unknown severity "fatal"`},
@@ -176,7 +177,7 @@ func TestLoadConfigRejectsBadSettings(t *testing.T) {
 		{"negative max-findings", "max-findings: -1\n", `"max-findings" must be at least 0`},
 		{"non-numeric max-findings", "max-findings: lots\n", "must be a whole number"},
 		{"non-boolean allow-warnings", "allow-warnings: maybe\n", "must be true or false"},
-		{"future version", "version: 2\n", "config version 2 is not supported"},
+		{"future version", "version: 2\n", "line 1: config version 2 is not supported"},
 		{"scalar where a list belongs", "disable: EL1006\n", `"disable" takes a list`},
 		{"list where a scalar belongs", "charset:\n  - basic\n", `"charset" takes a single value`},
 		{"list where a mapping belongs", "severity:\n  - EL2002\n", `"severity" takes indented`},
@@ -226,6 +227,19 @@ func TestFindConfig(t *testing.T) {
 	}
 	if got := FindConfig(dir); got != yaml {
 		t.Errorf("FindConfig = %q, want %q", got, yaml)
+	}
+}
+
+func TestConfigAcceptsExplicitlyEmptyValues(t *testing.T) {
+	// "disable:" with nothing under it is a placeholder someone will fill in
+	// later, not a mistake.
+	path := writeConfig(t, ".edilint.yml", "disable:\nseverity:\ncount-rules:\n")
+	conf, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if len(conf.Disable) != 0 || len(conf.Severity) != 0 || len(conf.CountRules) != 0 {
+		t.Errorf("empty settings must configure nothing, got %+v", conf)
 	}
 }
 

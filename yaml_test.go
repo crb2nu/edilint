@@ -101,6 +101,32 @@ func TestParseYAMLHandlesCRLF(t *testing.T) {
 	}
 }
 
+func TestParseYAMLStripsAUTF8ByteOrderMark(t *testing.T) {
+	// Some Windows editors prepend one. It changes nothing about what the file
+	// says, so it is dropped — and line 1 is still line 1.
+	doc, err := parseYAML([]byte("\xef\xbb\xbfcharset: basic\n"))
+	if err != nil {
+		t.Fatalf("parseYAML: %v", err)
+	}
+	val := doc.values["charset"]
+	if val.scalar != "basic" || val.line != 1 {
+		t.Errorf("charset = %q on line %d, want basic on line 1", val.scalar, val.line)
+	}
+}
+
+func TestParseYAMLTrailingWhitespaceIsInsignificant(t *testing.T) {
+	doc, err := parseYAML([]byte("charset: basic   \nquoted: 'a '  \n"))
+	if err != nil {
+		t.Fatalf("parseYAML: %v", err)
+	}
+	if got := doc.values["charset"].scalar; got != "basic" {
+		t.Errorf("trailing spaces must not reach the value, got %q", got)
+	}
+	if got := doc.values["quoted"].scalar; got != "a " {
+		t.Errorf("a space inside quotes is part of the value, got %q", got)
+	}
+}
+
 func TestParseYAMLRejectsWhatItCannotRead(t *testing.T) {
 	// A configuration file that is silently misread is worse than one that is
 	// rejected, so everything outside the subset has to be an error.
@@ -114,17 +140,29 @@ func TestParseYAMLRejectsWhatItCannotRead(t *testing.T) {
 		{"list of mappings", "rules:\n  - name: a\n    id: b\n", "inconsistent indentation"},
 		{"top-level list", "- EL1006\n", "must be a mapping"},
 		{"no colon", "charset extended\n", `expected "key: value"`},
-		{"duplicate key", "charset: basic\ncharset: off\n", "duplicate key"},
+		{"duplicate key", "charset: basic\ncharset: off\n", `duplicate key "charset" (first set on line 1)`},
+		{"duplicate nested key", "severity:\n  EL2002: info\n  EL2002: warning\n",
+			`duplicate key "EL2002" (first set on line 2)`},
 		{"stray indentation", "  charset: basic\n", "unexpected indentation"},
 		{"inline mapping", "severity: {EL2002: info}\n", "inline mappings are not supported"},
 		{"unterminated flow", "disable: [EL1006\n", "missing its closing bracket"},
 		{"nested flow", "disable: [[a]]\n", "nested lists are not supported"},
 		{"empty flow entry", "disable: [a, , b]\n", "empty entry"},
+		{"content after a flow list", "disable: [a] junk\n", "after the closing bracket"},
 		{"empty list entry", "disable:\n  -\n  - EL1006\n", "empty list entry"},
 		{"unterminated quote", `charset: "basic` + "\n", "unterminated quote"},
+		{"lone quote", "charset: \"\n", "unterminated quote"},
+		{"escaped closing quote", `charset: "basic\"` + "\n", "unterminated quote"},
+		{"single quote closed by its own escape", "charset: '''\n", "unterminated quote"},
+		{"content after the closing quote", `charset: "basic" oops` + "\n", "after the closing quote"},
 		{"unknown escape", `charset: "a\qb"` + "\n", "unsupported escape"},
 		{"directive", "%YAML 1.2\ncharset: basic\n", "directives are not supported"},
 		{"key with no value in a block", "severity:\n  EL2002:\n", "nested structures are not supported"},
+		{"UTF-16 little-endian BOM", "\xff\xfec\x00h\x00", "UTF-16"},
+		{"UTF-16 big-endian BOM", "\xfe\xff\x00c\x00h", "UTF-16"},
+		{"invalid UTF-8", "charset: b\xffasic\n", "invalid UTF-8"},
+		{"bare carriage return", "a: b\rc: d\n", "carriage return"},
+		{"classic Mac line endings", "a: b\rc: d\r", "carriage return"},
 	}
 
 	for _, tc := range tests {
