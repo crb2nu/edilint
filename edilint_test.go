@@ -195,6 +195,14 @@ func TestDisableRules(t *testing.T) {
 		}
 	})
 
+	t.Run("by identifier", func(t *testing.T) {
+		rep := Lint("test", body, Options{Disabled: []string{RuleID(RuleHomoglyph)}})
+		requireRule(t, rep, RuleHomoglyph, 0)
+		if len(rep.Findings) == 0 {
+			t.Error("other rules should still fire")
+		}
+	})
+
 	t.Run("a class prefix does not match a longer name", func(t *testing.T) {
 		// "charset.x12" must not suppress "charset.x12-basic".
 		if ruleDisabled(RuleX12Basic, []string{"charset.x12"}) {
@@ -205,6 +213,81 @@ func TestDisableRules(t *testing.T) {
 		}
 		if !ruleDisabled(RuleX12Basic, []string{RuleX12Basic}) {
 			t.Error("an exact name should suppress its rule")
+		}
+	})
+
+	t.Run("identifiers match whatever their case", func(t *testing.T) {
+		for _, selector := range []string{"EL1007", "el1007", "  EL1007  "} {
+			if !ruleDisabled(RuleX12Basic, []string{selector}) {
+				t.Errorf("%q should suppress %s", selector, RuleX12Basic)
+			}
+		}
+		if ruleDisabled(RuleX12Basic, []string{"EL1"}) {
+			t.Error("a partial identifier must not suppress anything; classes exist for that")
+		}
+	})
+
+	t.Run("an unknown selector suppresses nothing", func(t *testing.T) {
+		// The library tolerates a rule it does not know; the command line and the
+		// configuration file are where a typo is rejected.
+		rep := Lint("test", body, Options{Disabled: []string{"EL9999", "charse"}})
+		if len(rep.Findings) != len(full.Findings) {
+			t.Errorf("findings = %d, want the unfiltered %d", len(rep.Findings), len(full.Findings))
+		}
+	})
+}
+
+func TestSeverityOverrides(t *testing.T) {
+	body := readFixture(t, "835_charset.x12")
+
+	t.Run("downgrading a rule to info keeps it out of the exit status", func(t *testing.T) {
+		rep := Lint("test", body, Options{
+			Severities: map[string]Severity{RuleHomoglyph: SeverityInfo},
+			Disabled:   []string{RuleX12Extended, ClassCounts},
+		})
+		f := firstOf(rep, RuleHomoglyph)
+		if f == nil {
+			t.Fatalf("the rule should still fire, got %v", ruleNames(rep))
+		}
+		if f.Severity != SeverityInfo {
+			t.Errorf("severity = %s, want %s", f.Severity, SeverityInfo)
+		}
+		if rep.Summary.Infos != 1 || rep.Summary.Errors != 0 {
+			t.Errorf("summary = %+v, want a single informational finding", rep.Summary)
+		}
+		if !rep.OK(SeverityWarning) {
+			t.Error("an informational finding must not fail the default threshold")
+		}
+		if rep.OK(SeverityInfo) {
+			t.Error("a caller asking to fail on info should fail")
+		}
+	})
+
+	t.Run("an override is keyed by identifier as well as by name", func(t *testing.T) {
+		rep := Lint("test", body, Options{
+			Severities: map[string]Severity{"el1005": SeverityWarning},
+		})
+		f := firstOf(rep, RuleHomoglyph)
+		if f == nil {
+			t.Fatalf("expected a homoglyph finding, got %v", ruleNames(rep))
+		}
+		if f.Severity != SeverityWarning {
+			t.Errorf("severity = %s, want %s", f.Severity, SeverityWarning)
+		}
+	})
+
+	t.Run("an override reaches a rule that grades itself by format", func(t *testing.T) {
+		// charset.bom is an error for X12 and a warning for delimited; an override
+		// replaces whichever the check chose.
+		rep := Lint("test", readFixture(t, "bom_mixed.csv"), Options{
+			Severities: map[string]Severity{RuleBOM: SeverityError},
+		})
+		f := firstOf(rep, RuleBOM)
+		if f == nil {
+			t.Fatalf("expected a byte order mark finding, got %v", ruleNames(rep))
+		}
+		if f.Severity != SeverityError {
+			t.Errorf("severity = %s, want the override %s", f.Severity, SeverityError)
 		}
 	})
 }
@@ -375,12 +458,19 @@ func TestRunReportTextIsQuietWhenClean(t *testing.T) {
 func TestFormatFindingLine(t *testing.T) {
 	f := Finding{
 		File: "claims.x12", Line: 12, Column: 5, RecordNumber: 7, Record: "CLP",
-		Severity: SeverityError, Rule: RuleHomoglyph, Message: "looks like ASCII",
+		ID: "EL1005", Severity: SeverityError, Rule: RuleHomoglyph, Message: "looks like ASCII",
 	}
 	got := FormatFinding(f, FormatX12)
-	want := "claims.x12:12:5: error: [charset.homoglyph] looks like ASCII (record 7, segment CLP)"
+	want := "claims.x12:12:5: error: [EL1005 charset.homoglyph] looks like ASCII (record 7, segment CLP)"
 	if got != want {
 		t.Errorf("got  %q\nwant %q", got, want)
+	}
+
+	// A finding built without an identifier still renders, naming the rule alone.
+	noID := f
+	noID.ID = ""
+	if got := FormatFinding(noID, FormatX12); !strings.Contains(got, "[charset.homoglyph]") {
+		t.Errorf("a finding with no identifier should print the rule alone, got %q", got)
 	}
 
 	// Line-oriented formats call the identifier a record type, not a segment.
@@ -389,8 +479,11 @@ func TestFormatFindingLine(t *testing.T) {
 	}
 
 	// A finding with no position still renders.
-	bare := Finding{File: "a.txt", Severity: SeverityWarning, Rule: "counts.no-declaring-record", Message: "m"}
-	if got := FormatFinding(bare, FormatText); got != "a.txt: warning: [counts.no-declaring-record] m" {
+	bare := Finding{
+		File: "a.txt", ID: "EL4004", Severity: SeverityWarning,
+		Rule: RuleCountNoDeclarer, Message: "m",
+	}
+	if got := FormatFinding(bare, FormatText); got != "a.txt: warning: [EL4004 counts.no-declaring-record] m" {
 		t.Errorf("bare rendering = %q", got)
 	}
 }
@@ -410,17 +503,15 @@ func TestRulesCatalogIsComplete(t *testing.T) {
 	}
 
 	emitted := map[string]bool{}
-	fixtures := []string{
-		"835_clean.x12", "835_envelope_broken.x12", "835_duplicate_control.x12",
-		"835_bad_datetime.x12", "835_charset.x12", "835_padding.x12",
-		"hl7v2_clean.hl7", "hl7v2_dirty.hl7", "bom_mixed.csv",
-		"eligibility_clean.psv", "eligibility_broken.psv",
-	}
-	rule, _ := ParseCountRule("TRL:2:DTL")
-	for _, name := range fixtures {
-		rep := lintFixture(t, name, Options{CountRules: []CountRule{rule}})
+	for _, name := range catalogFixtures {
+		rep := lintFixture(t, name, Options{CountRules: []CountRule{{Declaring: "TRL", Field: 2, Counted: "DTL"}}})
 		for _, f := range rep.Findings {
 			emitted[f.Rule] = true
+			// The identifier is what a suppression and a configuration file
+			// key on, so no finding may leave the engine without one.
+			if f.ID == "" {
+				t.Errorf("rule %s emitted a finding with no identifier", f.Rule)
+			}
 		}
 	}
 	for name := range emitted {
@@ -428,6 +519,15 @@ func TestRulesCatalogIsComplete(t *testing.T) {
 			t.Errorf("rule %s is emitted but missing from Rules()", name)
 		}
 	}
+}
+
+// catalogFixtures are the fixtures that between them exercise most of the
+// catalog. Several tests walk them.
+var catalogFixtures = []string{
+	"835_clean.x12", "835_envelope_broken.x12", "835_duplicate_control.x12",
+	"835_bad_datetime.x12", "835_charset.x12", "835_padding.x12",
+	"hl7v2_clean.hl7", "hl7v2_dirty.hl7", "bom_mixed.csv",
+	"eligibility_clean.psv", "eligibility_broken.psv",
 }
 
 func TestWriteRules(t *testing.T) {
@@ -441,11 +541,19 @@ func TestWriteRules(t *testing.T) {
 			t.Errorf("rule listing is missing %s", want)
 		}
 	}
+
+	// Every line carries the identifier alongside the name, which is the column
+	// --list-rules exists to show.
+	for _, r := range Rules() {
+		if !strings.Contains(out, r.ID+"  "+r.Name) {
+			t.Errorf("rule listing does not pair %s with %s", r.ID, r.Name)
+		}
+	}
 }
 
 func TestREADMEDocumentsEveryRule(t *testing.T) {
 	// The rule tables in the README are the user-facing contract, so a new rule
-	// must not ship without an entry.
+	// must not ship without an entry naming both its identifier and its name.
 	body, err := os.ReadFile("README.md")
 	if err != nil {
 		t.Fatalf("read README: %v", err)
@@ -454,6 +562,9 @@ func TestREADMEDocumentsEveryRule(t *testing.T) {
 	for _, r := range Rules() {
 		if !strings.Contains(doc, "`"+r.Name+"`") {
 			t.Errorf("rule %s is not documented in README.md", r.Name)
+		}
+		if !strings.Contains(doc, "`"+r.ID+"`") {
+			t.Errorf("rule identifier %s (%s) is not documented in README.md", r.ID, r.Name)
 		}
 	}
 }

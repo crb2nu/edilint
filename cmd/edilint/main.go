@@ -38,23 +38,37 @@ func diagf(w io.Writer, format string, args ...any) {
 	_, _ = fmt.Fprintf(w, format, args...)
 }
 
-// config is the parsed command line.
+// config is the parsed command line. Flag values live in opts and in the fields
+// beside it; set records which of them the command line actually named, so that
+// a configuration file can supply the rest without overwriting anything.
 type config struct {
 	files         []string
 	opts          edilint.Options
 	layoutPath    string
+	configPath    string
+	noConfig      bool
 	jsonOut       bool
 	verbose       bool
 	allowWarnings bool
 	listRules     bool
 	showVersion   bool
 	showHelp      bool
+	set           map[string]bool
+}
+
+// settings are the options for one run, after the configuration file and the
+// command line have been layered.
+type settings struct {
+	opts          edilint.Options
+	layoutPath    string
+	allowWarnings bool
+	configPath    string
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
-	cfg, err := parseArgs(args)
-	if err != nil {
-		diagf(stderr, "edilint: %v\n", err)
+	cfg, parseErr := parseArgs(args)
+	if parseErr != nil {
+		diagf(stderr, "edilint: %v\n", parseErr)
 		diagf(stderr, "Try 'edilint --help' for usage.\n")
 		return exitUsage
 	}
@@ -74,35 +88,45 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitClean
 	}
 
+	set, err := resolve(cfg)
+	if err != nil {
+		diagf(stderr, "edilint: %v\n", err)
+		return exitUsage
+	}
+	if set.configPath != "" && cfg.verbose {
+		diagf(stderr, "edilint: using config %s\n", set.configPath)
+	}
+
 	if len(cfg.files) == 0 {
 		diagf(stderr, "edilint: no input files\n")
 		diagf(stderr, "Try 'edilint --help' for usage.\n")
 		return exitUsage
 	}
 
-	if cfg.layoutPath != "" {
-		layout, err := edilint.LoadLayout(cfg.layoutPath)
+	if set.layoutPath != "" {
+		layout, err := edilint.LoadLayout(set.layoutPath)
 		if err != nil {
 			diagf(stderr, "edilint: %v\n", err)
 			return exitUsage
 		}
-		cfg.opts.Layout = layout
+		set.opts.Layout = layout
 	}
-	if cfg.opts.Format == edilint.FormatFixed && cfg.opts.Layout == nil {
+	if set.opts.Format == edilint.FormatFixed && set.opts.Layout == nil {
 		diagf(stderr, "edilint: --format fixed requires --layout\n")
 		return exitUsage
 	}
 
 	// Sharing this map across files enables duplicate ISA13 detection for a batch.
-	cfg.opts.SeenISA13 = map[string]string{}
+	set.opts.SeenISA13 = map[string]string{}
 
 	// An unreadable file does not discard the work already done. Every readable
 	// file is still reported, and the run exits 2 at the end, so a glob that
 	// races with a file being moved still tells the operator what it found.
 	rr := edilint.NewRunReport()
+	paths := dedupe(cfg.files)
 	unreadable := 0
-	for _, path := range dedupe(cfg.files) {
-		rep, err := edilint.LintFile(path, cfg.opts)
+	for _, path := range paths {
+		rep, err := edilint.LintFile(path, set.opts)
 		if err != nil {
 			diagf(stderr, "edilint: %v\n", err)
 			unreadable++
@@ -122,19 +146,84 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if unreadable > 0 {
-		diagf(stderr, "edilint: %d of %d input(s) could not be read\n",
-			unreadable, len(dedupe(cfg.files)))
+		diagf(stderr, "edilint: %d of %d input(s) could not be read\n", unreadable, len(paths))
 		return exitUsage
 	}
 
 	failOn := edilint.SeverityWarning
-	if cfg.allowWarnings {
+	if set.allowWarnings {
 		failOn = edilint.SeverityError
 	}
 	if !rr.OK(failOn) {
 		return exitFindings
 	}
 	return exitClean
+}
+
+// resolve layers the configuration file under the command line.
+func resolve(cfg config) (settings, error) {
+	set := settings{
+		opts:          edilint.Options{Format: edilint.FormatAuto},
+		layoutPath:    cfg.layoutPath,
+		allowWarnings: cfg.allowWarnings,
+	}
+
+	conf, err := loadConfig(cfg)
+	if err != nil {
+		return set, err
+	}
+	if conf != nil {
+		set.configPath = conf.Path
+		conf.Apply(&set.opts)
+		if conf.Has("allow-warnings") && conf.AllowWarnings {
+			set.allowWarnings = true
+		}
+		if conf.Layout != "" && cfg.layoutPath == "" {
+			set.layoutPath = conf.Layout
+		}
+	}
+
+	// The command line now overwrites whatever the file said, except for the two
+	// cumulative settings, which the file has already contributed to.
+	if cfg.set["format"] {
+		set.opts.Format = cfg.opts.Format
+	}
+	if cfg.set["delimiter"] {
+		set.opts.Delimiter = cfg.opts.Delimiter
+	}
+	if cfg.set["charset"] {
+		set.opts.X12Charset = cfg.opts.X12Charset
+	}
+	if cfg.set["type-field"] {
+		set.opts.TypeField = cfg.opts.TypeField
+	}
+	if cfg.set["max-findings"] {
+		set.opts.MaxFindings = cfg.opts.MaxFindings
+	}
+	set.opts.Disabled = append(set.opts.Disabled, cfg.opts.Disabled...)
+	set.opts.CountRules = append(set.opts.CountRules, cfg.opts.CountRules...)
+
+	// A misspelled rule that silently suppresses nothing is the worst outcome a
+	// suppression can have, so the command line rejects one.
+	if err := edilint.ValidateSelectors(cfg.opts.Disabled); err != nil {
+		return set, fmt.Errorf("--disable: %w", err)
+	}
+	return set, nil
+}
+
+// loadConfig returns the configuration file in force, or nil when there is none.
+func loadConfig(cfg config) (*edilint.Config, error) {
+	if cfg.noConfig {
+		return nil, nil
+	}
+	path := cfg.configPath
+	if path == "" {
+		// An explicit --config must exist; a discovered one is optional.
+		if path = edilint.FindConfig("."); path == "" {
+			return nil, nil
+		}
+	}
+	return edilint.LoadConfig(path)
 }
 
 // dedupe drops repeated paths while preserving order. Overlapping shell globs
@@ -161,12 +250,14 @@ var valueFlags = map[string]bool{
 	"-d": true, "--delimiter": true,
 	"--layout": true, "--charset": true, "--type-field": true,
 	"--count-rule": true, "--disable": true, "--max-findings": true,
+	"--config": true,
 }
 
 // boolFlags lists the flags that take no value.
 var boolFlags = map[string]bool{
 	"-h": true, "--help": true, "--version": true, "--list-rules": true,
 	"--json": true, "-v": true, "--verbose": true, "--allow-warnings": true,
+	"--no-config": true,
 }
 
 // knownFlags is every recognized flag name.
@@ -184,7 +275,7 @@ var knownFlags = func() map[string]bool {
 // parseArgs accepts flags in any position, in both "--flag value" and
 // "--flag=value" form, and stops flag processing at "--".
 func parseArgs(args []string) (config, error) {
-	var cfg config
+	cfg := config{set: map[string]bool{}}
 	cfg.opts.Format = edilint.FormatAuto
 
 	for i := 0; i < len(args); i++ {
@@ -234,20 +325,28 @@ func parseArgs(args []string) (config, error) {
 			cfg.verbose = true
 		case "--allow-warnings":
 			cfg.allowWarnings = true
+		case "--no-config":
+			cfg.noConfig = true
 
 		case "-f", "--format":
 			cfg.opts.Format, err = edilint.ParseFormat(val)
+			cfg.set["format"] = true
 
 		case "-d", "--delimiter":
 			if _, err = edilint.ParseDelimiter(val); err == nil {
 				cfg.opts.Delimiter = val
+				cfg.set["delimiter"] = true
 			}
 
 		case "--layout":
 			cfg.layoutPath = val
 
+		case "--config":
+			cfg.configPath = val
+
 		case "--charset":
 			cfg.opts.X12Charset, err = edilint.ParseCharsetProfile(val)
+			cfg.set["charset"] = true
 
 		case "--type-field":
 			n, convErr := strconv.Atoi(val)
@@ -255,6 +354,7 @@ func parseArgs(args []string) (config, error) {
 				err = fmt.Errorf("--type-field must be a positive integer (1-based), got %q", val)
 			} else {
 				cfg.opts.TypeField = n
+				cfg.set["type-field"] = true
 			}
 
 		case "--count-rule":
@@ -277,6 +377,7 @@ func parseArgs(args []string) (config, error) {
 				err = fmt.Errorf("--max-findings must be a non-negative integer, got %q", val)
 			} else {
 				cfg.opts.MaxFindings = n
+				cfg.set["max-findings"] = true
 			}
 
 		default:
@@ -287,8 +388,8 @@ func parseArgs(args []string) (config, error) {
 		}
 	}
 
-	if cfg.opts.Format == edilint.FormatFixed && cfg.layoutPath == "" {
-		return cfg, fmt.Errorf("--format fixed requires --layout")
+	if cfg.noConfig && cfg.configPath != "" {
+		return cfg, fmt.Errorf("--config and --no-config cannot be used together")
 	}
 	return cfg, nil
 }
@@ -317,8 +418,10 @@ Flags:
       --count-rule <rule> repeatable; recordPrefix:fieldIndex:countedPrefix,
                           e.g. TRL:2:DTL means "field 2 of TRL records declares
                           how many DTL records exist". Field 1 is the record type.
-      --disable <rules>   comma-separated rule names or classes, e.g.
-                          --disable charset.nonascii,layout
+      --disable <rules>   comma-separated rule identifiers, names or classes,
+                          e.g. --disable EL1006,layout
+      --config <file>     configuration file (default .edilint.yml here, if any)
+      --no-config         ignore any .edilint.yml in the working directory
       --max-findings <n>  print at most n findings per file (default unlimited).
                           The exit status always reflects every finding.
       --allow-warnings    exit 0 when only warnings were found

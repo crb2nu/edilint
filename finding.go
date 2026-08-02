@@ -1,6 +1,7 @@
 package edilint
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -15,6 +16,10 @@ const (
 	// SeverityWarning marks a suspicious pattern that is legal but frequently
 	// indicates a generation bug.
 	SeverityWarning Severity = "warning"
+	// SeverityInfo marks a finding that is recorded but never fails a run. No
+	// rule ships with this severity; it exists so that a configuration file can
+	// downgrade a rule it wants to see without gating on.
+	SeverityInfo Severity = "info"
 )
 
 // Rank returns a sortable weight for a severity, lowest value being most severe.
@@ -24,8 +29,24 @@ func (s Severity) Rank() int {
 		return 0
 	case SeverityWarning:
 		return 1
-	default:
+	case SeverityInfo:
 		return 2
+	default:
+		return 3
+	}
+}
+
+// ParseSeverity converts a configured severity name into a Severity.
+func ParseSeverity(s string) (Severity, error) {
+	switch Severity(strings.ToLower(strings.TrimSpace(s))) {
+	case SeverityError:
+		return SeverityError, nil
+	case SeverityWarning:
+		return SeverityWarning, nil
+	case SeverityInfo:
+		return SeverityInfo, nil
+	default:
+		return "", fmt.Errorf("unknown severity %q (want error, warning or info)", s)
 	}
 }
 
@@ -84,11 +105,14 @@ const (
 
 // Finding is a single defect located in an input file.
 type Finding struct {
+	// ID is the stable rule identifier, e.g. "EL1005". It is filled in from the
+	// rule catalog, so a check only has to set Rule.
+	ID string `json:"id"`
 	// Rule is the stable dotted rule name, e.g. "charset.homoglyph".
 	Rule string `json:"rule"`
 	// Class is the leading component of Rule, e.g. "charset".
 	Class string `json:"class"`
-	// Severity is "error" or "warning".
+	// Severity is "error", "warning" or "info".
 	Severity Severity `json:"severity"`
 	// Message is a one-line human-readable description.
 	Message string `json:"message"`
@@ -118,6 +142,7 @@ type Summary struct {
 	Total    int            `json:"total"`
 	Errors   int            `json:"errors"`
 	Warnings int            `json:"warnings"`
+	Infos    int            `json:"infos"`
 	ByRule   map[string]int `json:"by_rule,omitempty"`
 	// Truncated is true when MaxFindings dropped findings from the report.
 	Truncated bool `json:"truncated,omitempty"`
@@ -136,6 +161,8 @@ type Report struct {
 	// disabled suppresses rules at accumulation time, so a suppressed rule costs
 	// nothing to produce.
 	disabled []string
+	// severities overrides the severity a check assigned, keyed by rule name.
+	severities map[string]Severity
 	// retain is the hard ceiling on findings kept in memory. Zero means no
 	// ceiling, which is only appropriate for a caller that built the report
 	// itself. Lint always sets a finite value.
@@ -161,15 +188,23 @@ func retentionFor(opts Options) int {
 }
 
 // OK reports whether the file is clean at or above the given severity.
-// Passing SeverityWarning means "no findings at all".
+// Passing SeverityWarning means "no error and no warning".
+//
+// Informational findings never fail a run through the command line, whose
+// strictest threshold is SeverityWarning. They fail only a caller that asks for
+// SeverityInfo explicitly.
 //
 // It reads the summary rather than the findings slice, so that capping output
 // with Options.MaxFindings never changes the answer.
 func (r *Report) OK(failOn Severity) bool {
+	rank := failOn.Rank()
 	if r.Summary.Errors > 0 {
 		return false
 	}
-	if failOn.Rank() >= SeverityWarning.Rank() && r.Summary.Warnings > 0 {
+	if rank >= SeverityWarning.Rank() && r.Summary.Warnings > 0 {
+		return false
+	}
+	if rank >= SeverityInfo.Rank() && r.Summary.Infos > 0 {
 		return false
 	}
 	return true
@@ -183,11 +218,17 @@ func (r *Report) OK(failOn Severity) bool {
 // first r.retain of them are kept, which is what bounds memory on a
 // pathological input.
 func (r *Report) add(f Finding) {
-	if i := strings.IndexByte(f.Rule, '.'); i > 0 {
+	if doc, ok := ruleIndex.byName[f.Rule]; ok {
+		f.ID = doc.ID
+		f.Class = doc.Class
+	} else if i := strings.IndexByte(f.Rule, '.'); i > 0 {
 		f.Class = f.Rule[:i]
 	}
 	if f.Severity == "" {
 		f.Severity = SeverityError
+	}
+	if sev, ok := r.severities[f.Rule]; ok {
+		f.Severity = sev
 	}
 	if ruleDisabled(f.Rule, r.disabled) {
 		return
@@ -200,6 +241,8 @@ func (r *Report) add(f Finding) {
 		r.Summary.Errors++
 	case SeverityWarning:
 		r.Summary.Warnings++
+	case SeverityInfo:
+		r.Summary.Infos++
 	}
 	if r.Summary.ByRule == nil {
 		r.Summary.ByRule = map[string]int{}
@@ -245,20 +288,4 @@ func (r *Report) finalize(maxFindings int) {
 	if r.Findings == nil {
 		r.Findings = []Finding{}
 	}
-}
-
-// ruleDisabled reports whether rule is suppressed by any entry in disabled.
-// An entry matches either the full rule name or a dot-delimited prefix of it,
-// so "charset" disables every charset.* rule.
-func ruleDisabled(rule string, disabled []string) bool {
-	for _, d := range disabled {
-		d = strings.TrimSpace(d)
-		if d == "" {
-			continue
-		}
-		if d == rule || strings.HasPrefix(rule, d+".") {
-			return true
-		}
-	}
-	return false
 }

@@ -1,0 +1,26 @@
+# An edilint configuration file.
+#
+# Copy this to .edilint.yml beside the files you send. edilint reads that name
+# from the working directory automatically; pass --config to point at another
+# file, or --no-config to ignore it.
+#
+# Run it against the files in this directory with:
+#   edilint --config examples/edilint.yml examples/eligibility.psv
+
+version: 1
+
+# The trailer of an eligibility extract declares how many detail records the
+# file should hold. Stating it here means every run checks it, whether or not
+# whoever typed the command remembered the flag.
+count-rules:
+  - TRL:2:DTL
+
+# This partner sends member names with accented characters, which are legal in
+# the extract format and are not going to change.
+disable:
+  - EL1006          # charset.nonascii
+
+# Inconsistent whitespace between X12 segments is worth seeing in the log but
+# is not worth failing a send over.
+severity:
+  EL2004: info      # terminator.x12-padding

@@ -16,11 +16,25 @@ up the first tag.
 - X12 EDI, HL7v2, delimited and fixed-width linting across six check classes:
   character hygiene, terminator consistency, X12 envelope integrity, declared
   record counts, field-count consistency and fixed-width layout conformance.
-- `--json` output, documented and versioned, currently schema version 2.
+- `--json` output, documented and versioned, currently schema version 3.
 - Exit statuses suitable for gating a send script: 0 clean, 1 findings, 2 the
   tool could not do its job.
 - `--count-rule`, `--layout`, `--charset`, `--disable`, `--max-findings` and
   `--type-field` for tuning a run to a partner's conventions.
+- Stable rule identifiers of the form `EL####`, grouped by check class:
+  `EL1xxx` character hygiene, `EL2xxx` terminators, `EL3xxx` X12 envelope,
+  `EL4xxx` counts, `EL5xxx` fixed-width layouts. `EL6xxx` and `EL7xxx` are
+  reserved for HL7v2 batch and EDIFACT envelope structure. Every finding carries
+  its identifier in both the text and the JSON output, and `--list-rules` prints
+  it as the first column.
+- `--disable` accepts an identifier as well as a rule name or a class.
+- A third severity, `info`, for findings that are printed but never fail a run.
+  No rule ships with it; it is what a configuration file downgrades a rule to.
+- `.edilint.yml` configuration file, read from the working directory, holding
+  `format`, `delimiter`, `charset`, `type-field`, `max-findings`,
+  `allow-warnings`, `layout`, `disable`, `severity` and `count-rules`.
+  `--config` names another file and `--no-config` ignores it. Flags overrule the
+  file, except that `--disable` and `--count-rule` add to it.
 
 ### Changed
 
@@ -30,6 +44,14 @@ up the first tag.
   the exit status and the summary never depend on it.
 - A file that cannot be read no longer discards the findings already computed
   for the files that could. The run still exits 2.
+- Diagnostic lines now name the rule identifier alongside the rule name:
+  `error: [EL3006 envelope.segment-count] ...`. Both are greppable.
+- The JSON schema is version 3. Findings gained `id`, summaries gained `infos`,
+  and `severity` widened to include `info`. The documented policy for the
+  version field now covers additions as well as removals and changes of
+  meaning, since a consumer pinned to a version can meet any of them.
+- A `--disable` entry that names no rule, identifier or class is a usage error
+  rather than a silent no-op.
 
 ### Fixed
 

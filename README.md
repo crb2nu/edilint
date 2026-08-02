@@ -28,8 +28,8 @@ trailer disagrees with its contents:
 
 ```sh
 $ edilint --count-rule TRL:2:DTL examples/eligibility.psv
-examples/eligibility.psv:3: error: [fields.count-outlier] record type "DTL" has 8 field(s) here but 9 in 2 of 3 record(s) of this type; a shifted field count moves every value after the break (record 3, type DTL)
-examples/eligibility.psv:5: error: [counts.mismatch] count rule TRL:2:DTL: field 2 declares 4 "DTL" record(s) but the file contains 3 (record 5, type TRL)
+examples/eligibility.psv:3: error: [EL4101 fields.count-outlier] record type "DTL" has 8 field(s) here but 9 in 2 of 3 record(s) of this type; a shifted field count moves every value after the break (record 3, type DTL)
+examples/eligibility.psv:5: error: [EL4001 counts.mismatch] count rule TRL:2:DTL: field 2 declares 4 "DTL" record(s) but the file contains 3 (record 5, type TRL)
 
 1 file checked, 2 findings (2 error, 0 warning)
 
@@ -37,13 +37,16 @@ $ echo $?
 1
 ```
 
+Each finding carries a stable rule identifier and the rule's name, so a line can
+be grepped or suppressed by either.
+
 And a fixed-width file checked against a layout:
 
 ```sh
 $ edilint --format fixed --layout examples/remit-layout.json examples/remit.txt
-examples/remit.txt:2: warning: [layout.padding] field "last_name" (offset 15, width 16): value is right-aligned but the layout declares padding on the right (left-aligned) (record 2, type DTL)
-examples/remit.txt:3: warning: [layout.padding] field "paid_amount" (offset 31, width 10): value is padded with spaces but the layout declares "0" (record 3, type DTL)
-examples/remit.txt:4: error: [layout.length] record is 48 character(s) long but layout "remittance-detail" declares 49; field "paid_date" (offset 41, width 8) is truncated (record 4, type DTL)
+examples/remit.txt:2: warning: [EL5002 layout.padding] field "last_name" (offset 15, width 16): value is right-aligned but the layout declares padding on the right (left-aligned) (record 2, type DTL)
+examples/remit.txt:3: warning: [EL5002 layout.padding] field "paid_amount" (offset 31, width 10): value is padded with spaces but the layout declares "0" (record 3, type DTL)
+examples/remit.txt:4: error: [EL5001 layout.length] record is 48 character(s) long but layout "remittance-detail" declares 49; field "paid_date" (offset 41, width 8) is truncated (record 4, type DTL)
 
 1 file checked, 3 findings (1 error, 2 warning)
 ```
@@ -60,7 +63,8 @@ identifiers and amounts are invented.
 | 2 | Usage error, or a file could not be read. Files that *were* readable are still reported before the run exits 2. |
 
 Warnings fail the run by default. Pass `--allow-warnings` to exit 0 unless there
-is an error.
+is an error. Findings re-graded to `info` in a configuration file are printed
+but never fail a run.
 
 ## Use in CI
 
@@ -108,16 +112,25 @@ Each finding carries:
 
 | Field | Meaning |
 |---|---|
-| `rule`, `class`, `severity`, `message` | What was found. |
+| `id` | The stable rule identifier, e.g. `EL3006`. |
+| `rule`, `class`, `severity`, `message` | What was found. `severity` is `error`, `warning` or `info`. |
 | `file`, `line`, `column` | Where, in the usual editor coordinates. |
 | `record` | The segment identifier for X12 and HL7v2, the record type otherwise. Absent when the leading field holds data rather than a record type. |
 | `record_number` | The 1-based record or segment ordinal. |
 | `code_point` | The offending character, for the character rules. |
 | `expected`, `actual` | The two sides of a count, length or padding mismatch. |
 
-The JSON document carries a `version` field, currently `2`. It is incremented
-only when an existing field changes meaning or is removed. Version 2 renamed the
-`segment` field to `record`, and the former `record` ordinal to `record_number`.
+Each `summary` object carries `total`, `errors`, `warnings` and `infos`.
+
+The JSON document carries a `version` field, currently `3`. It is incremented
+whenever a consumer written against the previous version could meet something it
+has not seen before: a field added, removed, renamed, given a new meaning, or
+given a value outside its documented set.
+
+| Version | Change |
+|---|---|
+| 3 | Findings gained `id`. Summaries gained `infos`. `severity` widened to include `info`. |
+| 2 | The finding field `segment` was renamed to `record`, and the former `record` ordinal to `record_number`. |
 
 `findings` is always an array. A clean file emits `[]`, never `null`, so
 iterating it is safe without a guard.
@@ -143,11 +156,13 @@ interchange control number detection across the whole batch.
 | `--charset <name>` | X12 character set: `extended` (default), `basic`, `off`. |
 | `--type-field <n>` | 1-based field used as the record-type discriminator for the field-count check. Default 1. |
 | `--count-rule <rule>` | Repeatable. `recordType:fieldIndex:countedType`. |
-| `--disable <rules>` | Comma-separated rule names or classes, e.g. `--disable charset.nonascii,layout`. |
+| `--disable <rules>` | Comma-separated rule identifiers, names or classes, e.g. `--disable EL1006,layout`. |
+| `--config <file>` | Configuration file. Defaults to `.edilint.yml` in the working directory, if there is one. |
+| `--no-config` | Ignore any `.edilint.yml` in the working directory. |
 | `--max-findings <n>` | Print at most n findings per file. The exit status and the summary always reflect every finding, whatever this is set to. |
 | `--allow-warnings` | Exit 0 when only warnings were found. |
 | `--json` | Emit a JSON document instead of diagnostic lines. |
-| `-v`, `--verbose` | Print a line for clean files too. |
+| `-v`, `--verbose` | Print a line for clean files too, and name the configuration file in use. |
 | `--list-rules` | Print the rule catalog and exit. |
 
 ### Behavior on very defective files
@@ -240,76 +255,167 @@ zeros, so for non-space pad characters only stray space padding is flagged.
 
 ### Suppressing rules
 
-`--disable` accepts a full rule name or any dot-delimited prefix, so
-`--disable charset` suppresses every `charset.*` rule while
-`--disable charset.nonascii` suppresses only that one.
+`--disable` accepts a rule identifier, a full rule name, or any dot-delimited
+prefix of a name. These three all suppress the same rule:
+
+```sh
+edilint --disable EL1006 claims.x12
+edilint --disable charset.nonascii claims.x12
+edilint --disable charset claims.x12       # and the rest of the class with it
+```
+
+Identifiers are matched whatever their case, and only in full: `EL1` suppresses
+nothing. Use the class name to suppress a class.
+
+An entry that names no rule, no identifier and no class is a usage error rather
+than a silent no-op, because a misspelled suppression that quietly suppresses
+nothing is the worst outcome a suppression can have.
+
+## Configuration file
+
+Settings that belong to a directory of files rather than to one command line go
+in `.edilint.yml`. edilint reads that file, or `.edilint.yaml`, from the working
+directory. It does not search parent directories: pass `--config` to name a file
+anywhere else, and `--no-config` to ignore the one that is there.
+
+```yaml
+# .edilint.yml
+version: 1
+
+# Analysis settings. Each is optional and each has a flag that overrules it.
+format: auto              # auto, x12, hl7v2, delimited, fixed, text
+delimiter: "|"            # accepts \t, \0, \xNN as the flag does
+charset: extended         # extended, basic, off
+type-field: 1
+max-findings: 0
+allow-warnings: false
+layout: layouts/remit.json
+
+# Rules to turn off, by identifier, name or class.
+disable:
+  - EL1006                # charset.nonascii
+  - layout
+
+# Rules to re-grade. A rule set to info is printed but never fails a run.
+severity:
+  EL2004: info            # terminator.x12-padding
+  envelope.segment-count: warning
+
+# Declared-count assertions, in the --count-rule form.
+count-rules:
+  - TRL:2:DTL
+```
+
+A working example is in [`examples/edilint.yml`](examples/edilint.yml):
+
+```sh
+edilint --config examples/edilint.yml examples/eligibility.psv
+```
+
+Notes on the schema:
+
+- Every setting is optional, and an empty file is valid.
+- An unknown setting, an unknown rule and an unparsable value are all errors
+  naming the line, so a typo is reported rather than ignored.
+- A flag overrules the file, with two exceptions: `--disable` and `--count-rule`
+  add to what the file asked for rather than replacing it. Two sources both
+  asking for quiet should both be heard.
+- `layout` is resolved relative to the configuration file's own directory, so a
+  committed `.edilint.yml` works from any working directory.
+- There is no way to switch a rule back on. Rules are on by default and the file
+  lists what to turn off; an allowlist as well would need precedence rules
+  nobody remembers.
+- The file is read with a restricted YAML reader: a mapping whose values are
+  scalars, lists of scalars, or one further mapping of scalars. Anchors,
+  multi-line scalars and lists of mappings are errors, not silent
+  misinterpretations. This is what keeps the tool free of dependencies.
 
 ## Rules
 
-Rule names are stable and appear in both the text and JSON output.
-`edilint --list-rules` prints this catalog at runtime.
+Rule identifiers and names are both stable and both appear in the text and JSON
+output. `edilint --list-rules` prints this catalog at runtime.
+
+An identifier's leading digit is its check class, so it says which part of the
+tool produced a finding before you look anything up:
+
+| Block | Class |
+|---|---|
+| `EL1xxx` | Character set and character hygiene |
+| `EL2xxx` | Record and segment terminators |
+| `EL3xxx` | X12 envelope structure |
+| `EL4xxx` | Declared record counts and field-count consistency |
+| `EL5xxx` | Fixed-width layouts |
+| `EL6xxx` | HL7v2 batch structure (reserved, not implemented yet) |
+| `EL7xxx` | EDIFACT envelope structure (reserved, not implemented yet) |
+
+Identifiers are permanent. A withdrawn rule keeps its number rather than passing
+it to something else, so a suppression written today cannot silently come to
+mean something different later.
+
+The severity column is the severity a check normally assigns. A few rules grade
+themselves by format, and a configuration file can override any of them.
 
 ### charset
 
-| Rule | Severity | Applies to | Detects |
-|---|---|---|---|
-| `charset.bom` | error | all (warning for delimited) | File starts with a byte order mark. An error for X12, HL7v2 and fixed-width, where a BOM before ISA or MSH shifts every fixed position in the file; a warning for delimited, because spreadsheet exports emit one routinely and most CSV readers cope. |
-| `charset.invalid-utf8` | error | all | Byte sequence is not valid UTF-8. Reported once, without running the interchange checks, when the input is dense enough in invalid UTF-8 and NUL bytes not to be text at all. |
-| `charset.nonprintable` | error | all | Control character in record content that is not a declared separator. Tabs are reported as warnings. |
-| `charset.zero-width` | error | all | Zero-width or bidirectional formatting character that renders as nothing but occupies bytes. |
-| `charset.homoglyph` | error | all | Unicode character that is visually identical to an ASCII one, such as Cyrillic А for A. |
-| `charset.nonascii` | warning | all | Non-ASCII character that is not a known lookalike. |
-| `charset.x12-basic` | warning | x12 (requires `--charset basic`) | Character outside the X12 basic character set but inside the extended set. Off by default; the default profile is extended. |
-| `charset.x12-extended` | error | x12 | Character outside the X12 extended character set, which in printable ASCII means the caret or the backtick. A caret is exempt when ISA11 declares it as the repetition separator. |
+| ID | Rule | Severity | Applies to | Detects |
+|---|---|---|---|---|
+| `EL1001` | `charset.bom` | error | all (warning for delimited) | File starts with a byte order mark. An error for X12, HL7v2 and fixed-width, where a BOM before ISA or MSH shifts every fixed position in the file; a warning for delimited, because spreadsheet exports emit one routinely and most CSV readers cope. |
+| `EL1002` | `charset.invalid-utf8` | error | all | Byte sequence is not valid UTF-8. Reported once, without running the interchange checks, when the input is dense enough in invalid UTF-8 and NUL bytes not to be text at all. |
+| `EL1003` | `charset.nonprintable` | error | all | Control character in record content that is not a declared separator. Tabs are reported as warnings. |
+| `EL1004` | `charset.zero-width` | error | all | Zero-width or bidirectional formatting character that renders as nothing but occupies bytes. |
+| `EL1005` | `charset.homoglyph` | error | all | Unicode character that is visually identical to an ASCII one, such as Cyrillic А for A. |
+| `EL1006` | `charset.nonascii` | warning | all | Non-ASCII character that is not a known lookalike. |
+| `EL1007` | `charset.x12-basic` | warning | x12 (requires `--charset basic`) | Character outside the X12 basic character set but inside the extended set. Off by default; the default profile is extended. |
+| `EL1008` | `charset.x12-extended` | error | x12 | Character outside the X12 extended character set, which in printable ASCII means the caret or the backtick. A caret is exempt when ISA11 declares it as the repetition separator. |
 
 ### terminator
 
-| Rule | Severity | Applies to | Detects |
-|---|---|---|---|
-| `terminator.mixed` | error | hl7v2, delimited, fixed, text | File mixes CRLF, LF and CR line endings. |
-| `terminator.missing-final` | warning | hl7v2, delimited, fixed, text | Last record has no terminator. |
-| `terminator.x12-segment` | error | x12 | Segment is not closed by the segment terminator the ISA declared. |
-| `terminator.x12-padding` | warning | x12 | Whitespace between segment terminators is applied inconsistently. |
-| `terminator.x12-separator` | error | x12 | Declared separators collide with each other or are alphanumeric. |
+| ID | Rule | Severity | Applies to | Detects |
+|---|---|---|---|---|
+| `EL2001` | `terminator.mixed` | error | hl7v2, delimited, fixed, text | File mixes CRLF, LF and CR line endings. |
+| `EL2002` | `terminator.missing-final` | warning | hl7v2, delimited, fixed, text | Last record has no terminator. |
+| `EL2003` | `terminator.x12-segment` | error | x12 | Segment is not closed by the segment terminator the ISA declared. |
+| `EL2004` | `terminator.x12-padding` | warning | x12 | Whitespace between segment terminators is applied inconsistently. |
+| `EL2005` | `terminator.x12-separator` | error | x12 | Declared separators collide with each other or are alphanumeric. |
 
 ### envelope
 
-| Rule | Severity | Applies to | Detects |
-|---|---|---|---|
-| `envelope.isa-length` | error | x12 | ISA segment is not the fixed 106 characters, or is absent. |
-| `envelope.nesting` | error | x12 | GS appears outside an ISA, or ST outside a GS. |
-| `envelope.unclosed` | error | x12 | ISA, GS or ST has no matching IEA, GE or SE. |
-| `envelope.unopened` | error | x12 | IEA, GE or SE appears without its header. |
-| `envelope.control-number` | error | x12 | Header and trailer control numbers differ (ISA13/IEA02, GS06/GE02, ST02/SE02). A leading-zero-only difference is reported as a warning. |
-| `envelope.segment-count` | error | x12 | SE01 does not match the recounted segments from ST through SE inclusive. |
-| `envelope.group-count` | error | x12 | GE01 does not match the recounted transaction sets in the group. |
-| `envelope.interchange-count` | error | x12 | IEA01 does not match the recounted functional groups in the interchange. |
-| `envelope.duplicate-control-number` | error | x12 | Duplicate ISA13 within the file or across the files in one run, duplicate GS06 within an interchange, or duplicate ST02 within a functional group. |
-| `envelope.datetime` | error | x12 | ISA09/GS04 dates or ISA10/GS05 times are not valid YYMMDD, CCYYMMDD or HHMM[SS[DD]] values. |
-| `envelope.missing-control-id` | error | x12 | ISA13 interchange control number is empty. |
-| `envelope.trailing-data` | error | x12 | Segments appear outside any interchange. |
+| ID | Rule | Severity | Applies to | Detects |
+|---|---|---|---|---|
+| `EL3001` | `envelope.isa-length` | error | x12 | ISA segment is not the fixed 106 characters, or is absent. |
+| `EL3002` | `envelope.nesting` | error | x12 | GS appears outside an ISA, or ST outside a GS. |
+| `EL3003` | `envelope.unclosed` | error | x12 | ISA, GS or ST has no matching IEA, GE or SE. |
+| `EL3004` | `envelope.unopened` | error | x12 | IEA, GE or SE appears without its header. |
+| `EL3005` | `envelope.control-number` | error | x12 | Header and trailer control numbers differ (ISA13/IEA02, GS06/GE02, ST02/SE02). A leading-zero-only difference is reported as a warning. |
+| `EL3006` | `envelope.segment-count` | error | x12 | SE01 does not match the recounted segments from ST through SE inclusive. |
+| `EL3007` | `envelope.group-count` | error | x12 | GE01 does not match the recounted transaction sets in the group. |
+| `EL3008` | `envelope.interchange-count` | error | x12 | IEA01 does not match the recounted functional groups in the interchange. |
+| `EL3009` | `envelope.duplicate-control-number` | error | x12 | Duplicate ISA13 within the file or across the files in one run, duplicate GS06 within an interchange, or duplicate ST02 within a functional group. |
+| `EL3010` | `envelope.datetime` | error | x12 | ISA09/GS04 dates or ISA10/GS05 times are not valid YYMMDD, CCYYMMDD or HHMM[SS[DD]] values. |
+| `EL3011` | `envelope.missing-control-id` | error | x12 | ISA13 interchange control number is empty. |
+| `EL3012` | `envelope.trailing-data` | error | x12 | Segments appear outside any interchange. |
 
 ### counts
 
-| Rule | Severity | Applies to | Detects |
-|---|---|---|---|
-| `counts.mismatch` | error | all (requires --count-rule) | A declared record count does not match the recounted total. |
-| `counts.unparsable` | error | all (requires --count-rule) | The field a count rule points at is not an integer. |
-| `counts.missing-field` | error | all (requires --count-rule) | The declaring record has fewer fields than the count rule reads. |
-| `counts.no-declaring-record` | warning | all (requires --count-rule) | No record matched the count rule's declaring record type, so nothing was verified. |
+| ID | Rule | Severity | Applies to | Detects |
+|---|---|---|---|---|
+| `EL4001` | `counts.mismatch` | error | all (requires --count-rule) | A declared record count does not match the recounted total. |
+| `EL4002` | `counts.unparsable` | error | all (requires --count-rule) | The field a count rule points at is not an integer. |
+| `EL4003` | `counts.missing-field` | error | all (requires --count-rule) | The declaring record has fewer fields than the count rule reads. |
+| `EL4004` | `counts.no-declaring-record` | warning | all (requires --count-rule) | No record matched the count rule's declaring record type, so nothing was verified. |
 
 ### fields
 
-| Rule | Severity | Applies to | Detects |
-|---|---|---|---|
-| `fields.count-outlier` | error | delimited, hl7v2 (warning) | A record carries a different number of fields from others of the same record type. |
+| ID | Rule | Severity | Applies to | Detects |
+|---|---|---|---|---|
+| `EL4101` | `fields.count-outlier` | error | delimited, hl7v2 (warning) | A record carries a different number of fields from others of the same record type. |
 
 ### layout
 
-| Rule | Severity | Applies to | Detects |
-|---|---|---|---|
-| `layout.length` | error | fixed (requires --layout) | Record length does not match the sum of the layout's field widths. |
-| `layout.padding` | warning | fixed (requires --layout) | A field's padding is unambiguously on the side opposite the one the layout declares. |
+| ID | Rule | Severity | Applies to | Detects |
+|---|---|---|---|---|
+| `EL5001` | `layout.length` | error | fixed (requires --layout) | Record length does not match the sum of the layout's field widths. |
+| `EL5002` | `layout.padding` | warning | fixed (requires --layout) | A field's padding is unambiguously on the side opposite the one the layout declares. |
 
 ## Scope
 
