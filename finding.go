@@ -124,11 +124,40 @@ type Summary struct {
 }
 
 // Report is the result of linting one input.
+//
+// Findings holds the findings that were retained for display; Summary always
+// describes the complete set, including any that were counted but not kept.
 type Report struct {
 	File     string    `json:"file"`
 	Format   Format    `json:"format"`
 	Findings []Finding `json:"findings"`
 	Summary  Summary   `json:"summary"`
+
+	// disabled suppresses rules at accumulation time, so a suppressed rule costs
+	// nothing to produce.
+	disabled []string
+	// retain is the hard ceiling on findings kept in memory. Zero means no
+	// ceiling, which is only appropriate for a caller that built the report
+	// itself. Lint always sets a finite value.
+	retain int
+}
+
+// MaxRetainedFindings is the number of findings Lint keeps in memory for one
+// file when the caller does not ask for more.
+//
+// A defect-dense input — a compressed archive caught by a shell glob, say —
+// can contain one finding per byte. Retaining them all turns a few megabytes of
+// input into gigabytes of heap, so accumulation stops here while the summary
+// counters keep running. Options.MaxFindings raises the ceiling when it asks
+// for more than this many.
+const MaxRetainedFindings = 10000
+
+// retentionFor returns the hard accumulation ceiling for a lint run.
+func retentionFor(opts Options) int {
+	if n := opts.maxFindings(); n > MaxRetainedFindings {
+		return n
+	}
+	return MaxRetainedFindings
 }
 
 // OK reports whether the file is clean at or above the given severity.
@@ -146,7 +175,13 @@ func (r *Report) OK(failOn Severity) bool {
 	return true
 }
 
-// add appends a finding, filling in Class from the rule name.
+// add records a finding: it fills in the derived fields, drops the finding if
+// its rule is disabled, counts it, and retains it if there is room.
+//
+// Counting and retention are separate on purpose. Every accepted finding moves
+// the summary, which is what OK and the truncation notice read, but only the
+// first r.retain of them are kept, which is what bounds memory on a
+// pathological input.
 func (r *Report) add(f Finding) {
 	if i := strings.IndexByte(f.Rule, '.'); i > 0 {
 		f.Class = f.Rule[:i]
@@ -154,22 +189,32 @@ func (r *Report) add(f Finding) {
 	if f.Severity == "" {
 		f.Severity = SeverityError
 	}
+	if ruleDisabled(f.Rule, r.disabled) {
+		return
+	}
 	f.File = r.File
+
+	r.Summary.Total++
+	switch f.Severity {
+	case SeverityError:
+		r.Summary.Errors++
+	case SeverityWarning:
+		r.Summary.Warnings++
+	}
+	if r.Summary.ByRule == nil {
+		r.Summary.ByRule = map[string]int{}
+	}
+	r.Summary.ByRule[f.Rule]++
+
+	if r.retain > 0 && len(r.Findings) >= r.retain {
+		return
+	}
 	r.Findings = append(r.Findings, f)
 }
 
-// finalize filters disabled rules, orders findings deterministically, applies the
-// finding cap and computes the summary.
-func (r *Report) finalize(disabled []string, maxFindings int) {
-	kept := r.Findings[:0]
-	for _, f := range r.Findings {
-		if ruleDisabled(f.Rule, disabled) {
-			continue
-		}
-		kept = append(kept, f)
-	}
-	r.Findings = kept
-
+// finalize orders the retained findings, applies the display cap and records
+// whether anything was left out.
+func (r *Report) finalize(maxFindings int) {
 	sort.SliceStable(r.Findings, func(i, j int) bool {
 		a, b := r.Findings[i], r.Findings[j]
 		if a.Line != b.Line {
@@ -190,24 +235,15 @@ func (r *Report) finalize(disabled []string, maxFindings int) {
 		return a.Message < b.Message
 	})
 
-	r.Summary = Summary{ByRule: map[string]int{}}
-	for i := range r.Findings {
-		switch r.Findings[i].Severity {
-		case SeverityError:
-			r.Summary.Errors++
-		case SeverityWarning:
-			r.Summary.Warnings++
-		}
-		r.Summary.ByRule[r.Findings[i].Rule]++
-	}
-	r.Summary.Total = len(r.Findings)
-
 	if maxFindings > 0 && len(r.Findings) > maxFindings {
 		r.Findings = r.Findings[:maxFindings]
-		r.Summary.Truncated = true
 	}
-	if len(r.Summary.ByRule) == 0 {
-		r.Summary.ByRule = nil
+	r.Summary.Truncated = len(r.Findings) < r.Summary.Total
+
+	// A clean file must still marshal as an empty array. A nil slice becomes
+	// JSON null, which the documented jq pipeline cannot iterate.
+	if r.Findings == nil {
+		r.Findings = []Finding{}
 	}
 }
 

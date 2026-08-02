@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"unicode/utf8"
 )
 
 // Format identifies the structural family of an input file.
@@ -69,7 +70,7 @@ type Options struct {
 	Layout *Layout
 
 	// X12Charset selects the X12 character-set profile enforced against X12
-	// content. The zero value means CharsetBasic.
+	// content. The zero value means CharsetExtended.
 	X12Charset CharsetProfile
 
 	// SeenISA13 enables cross-file duplicate interchange control number
@@ -134,7 +135,12 @@ func LintFile(path string, opts Options) (*Report, error) {
 
 // Lint analyzes data and returns a report. name is used only for display.
 func Lint(name string, data []byte, opts Options) *Report {
-	rep := &Report{File: name, Format: FormatText}
+	rep := &Report{
+		File:     name,
+		Format:   FormatText,
+		disabled: opts.Disabled,
+		retain:   retentionFor(opts),
+	}
 
 	body, bom := splitBOM(data)
 
@@ -151,6 +157,36 @@ func Lint(name string, data []byte, opts Options) *Report {
 		checkBOM(rep, format, bom)
 	}
 
+	// A binary input would otherwise produce one finding per byte. Say so once
+	// and stop: that is both a better diagnostic and the only way to keep the
+	// run proportional to the input.
+	if share, binary := looksBinary(body); binary {
+		rep.add(Finding{
+			Rule:     RuleInvalidUTF8,
+			Severity: SeverityError,
+			Message: fmt.Sprintf("file does not look like text: %.0f%% of the first %s is invalid UTF-8 "+
+				"or NUL. It was probably picked up by a glob; no interchange checks were run.",
+				share*100, describeSample(body)),
+			Line: 1,
+		})
+		rep.finalize(opts.maxFindings())
+		return rep
+	}
+
+	// Options.Layout is exported and reachable from a caller-built value, so it
+	// cannot be assumed valid the way the CLI's LoadLayout guarantees.
+	if opts.Layout != nil {
+		if err := opts.Layout.Validate(); err != nil {
+			rep.add(Finding{
+				Rule:     RuleLayoutLength,
+				Severity: SeverityError,
+				Message:  fmt.Sprintf("layout is unusable, so no fixed-width checks were run: %v", err),
+				Line:     1,
+			})
+			opts.Layout = nil
+		}
+	}
+
 	src := newSource(name, body, format, opts, rep)
 
 	checkCharset(src, rep)
@@ -164,7 +200,7 @@ func Lint(name string, data []byte, opts Options) *Report {
 		checkLayout(src, opts, rep)
 	}
 
-	rep.finalize(opts.Disabled, opts.maxFindings())
+	rep.finalize(opts.maxFindings())
 	return rep
 }
 
@@ -208,4 +244,49 @@ func splitBOM(data []byte) ([]byte, string) {
 	default:
 		return data, ""
 	}
+}
+
+// binarySampleBytes is how much of an input is examined when deciding whether it
+// is text at all.
+const binarySampleBytes = 64 << 10
+
+// binaryThreshold is the share of the sample that must be invalid UTF-8 or NUL
+// before the input is treated as binary. Text that merely uses a non-UTF-8
+// encoding, such as Latin-1 with a few accented names, stays far below this.
+const binaryThreshold = 0.30
+
+// looksBinary reports whether the input is dense enough in invalid UTF-8 and NUL
+// bytes that treating it as an interchange file would be meaningless. It returns
+// the observed share so the finding can quote it.
+func looksBinary(body []byte) (float64, bool) {
+	sample := body
+	if len(sample) > binarySampleBytes {
+		sample = sample[:binarySampleBytes]
+	}
+	if len(sample) == 0 {
+		return 0, false
+	}
+
+	bad := 0
+	for off := 0; off < len(sample); {
+		r, size := utf8.DecodeRune(sample[off:])
+		switch {
+		case r == utf8.RuneError && size == 1:
+			bad++
+		case r == 0:
+			bad += size
+		}
+		off += size
+	}
+
+	share := float64(bad) / float64(len(sample))
+	return share, share > binaryThreshold
+}
+
+// describeSample names the region looksBinary examined.
+func describeSample(body []byte) string {
+	if len(body) > binarySampleBytes {
+		return fmt.Sprintf("%d KB", binarySampleBytes>>10)
+	}
+	return "file"
 }
