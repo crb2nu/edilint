@@ -59,6 +59,8 @@ const (
 	ClassCounts     = "counts"
 	ClassFields     = "fields"
 	ClassLayout     = "layout"
+	ClassHL7Batch   = "hl7batch"
+	ClassEdifact    = "edifact"
 )
 
 // Rule names. These are part of the tool's public contract: they appear in JSON
@@ -78,6 +80,7 @@ const (
 	RuleX12Segment      = "terminator.x12-segment"
 	RuleX12Padding      = "terminator.x12-padding"
 	RuleX12Separator    = "terminator.x12-separator"
+	RuleEdifactSegment  = "terminator.edifact-segment"
 
 	RuleISALength         = "envelope.isa-length"
 	RuleUnclosed          = "envelope.unclosed"
@@ -101,6 +104,23 @@ const (
 
 	RuleLayoutLength  = "layout.length"
 	RuleLayoutPadding = "layout.padding"
+
+	RuleBatchUnclosed     = "hl7batch.unclosed"
+	RuleBatchUnopened     = "hl7batch.unopened"
+	RuleBatchMessageCount = "hl7batch.message-count"
+	RuleBatchFileCount    = "hl7batch.batch-count"
+	RuleBatchSeparator    = "hl7batch.separator"
+	RuleBatchStrayMessage = "hl7batch.stray-message"
+
+	RuleEdifactUnclosed         = "edifact.unclosed"
+	RuleEdifactUnopened         = "edifact.unopened"
+	RuleEdifactSegmentCount     = "edifact.segment-count"
+	RuleEdifactGroupCount       = "edifact.group-count"
+	RuleEdifactInterchangeCount = "edifact.interchange-count"
+	RuleEdifactControlRef       = "edifact.control-reference"
+	RuleEdifactServiceString    = "edifact.service-string"
+	RuleEdifactNesting          = "edifact.nesting"
+	RuleEdifactTrailing         = "edifact.trailing-data"
 )
 
 // Finding is a single defect located in an input file.

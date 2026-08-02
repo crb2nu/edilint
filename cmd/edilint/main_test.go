@@ -72,7 +72,7 @@ func TestExitCodes(t *testing.T) {
 		{"unreadable file", []string{filepath.Join(dir, "absent.x12")}, exitUsage},
 		{"unknown flag", []string{"--nope", clean}, exitUsage},
 		{"flag missing its value", []string{"--format"}, exitUsage},
-		{"invalid format", []string{"--format", "edifact", clean}, exitUsage},
+		{"invalid format", []string{"--format", "edi", clean}, exitUsage},
 		{"invalid count rule", []string{"--count-rule", "TRL:x:DTL", clean}, exitUsage},
 		{"fixed without a layout", []string{"--format", "fixed", clean}, exitUsage},
 		{"boolean flag given a value", []string{"--json=yes", clean}, exitUsage},

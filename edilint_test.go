@@ -19,6 +19,9 @@ func TestDetectFormat(t *testing.T) {
 	}{
 		{name: "x12 interchange", file: "835_clean.x12", want: FormatX12},
 		{name: "hl7v2 message", file: "hl7v2_clean.hl7", want: FormatHL7v2},
+		{name: "hl7v2 batch file", file: "hl7v2_batch_clean.hl7", want: FormatHL7v2},
+		{name: "edifact interchange", file: "edifact_clean.edi", want: FormatEdifact},
+		{name: "edifact without UNA", file: "edifact_broken.edi", want: FormatEdifact},
 		{name: "pipe delimited", file: "eligibility_clean.psv", want: FormatDelimited},
 		{name: "csv", file: "bom_mixed.csv", want: FormatDelimited},
 		{
@@ -81,7 +84,7 @@ func TestFormatOverrideBeatsDetection(t *testing.T) {
 }
 
 func TestParseFormat(t *testing.T) {
-	for _, name := range []string{"auto", "x12", "hl7v2", "delimited", "fixed", "text"} {
+	for _, name := range []string{"auto", "x12", "hl7v2", "edifact", "delimited", "fixed", "text"} {
 		if _, err := ParseFormat(name); err != nil {
 			t.Errorf("ParseFormat(%q): %v", name, err)
 		}
@@ -89,7 +92,7 @@ func TestParseFormat(t *testing.T) {
 	if got, err := ParseFormat(""); err != nil || got != FormatAuto {
 		t.Errorf(`ParseFormat("") = %s, %v; want auto, nil`, got, err)
 	}
-	if _, err := ParseFormat("edifact"); err == nil {
+	if _, err := ParseFormat("edi"); err == nil {
 		t.Error("expected an error for an unknown format")
 	}
 }

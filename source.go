@@ -45,6 +45,8 @@ type source struct {
 	FieldSep byte
 	// Delims is populated for FormatX12.
 	Delims delims
+	// Edifact is populated for FormatEdifact.
+	Edifact edifactDelims
 	// ISAOffset is the byte offset of the leading ISA, -1 when absent.
 	ISAOffset int
 	// Layout is the fixed-width layout in force, if any.
@@ -72,6 +74,8 @@ func newSource(name string, body []byte, format Format, opts Options, rep *Repor
 	switch format {
 	case FormatX12:
 		s.buildX12(opts, rep)
+	case FormatEdifact:
+		s.buildEdifact(rep)
 	case FormatHL7v2:
 		s.buildLines()
 		s.FieldSep = hl7FieldSep(s.Records)
@@ -248,7 +252,10 @@ func (s *source) assignIDs() {
 
 func (s *source) recordID(text string) string {
 	switch s.Format {
-	case FormatHL7v2:
+	case FormatHL7v2, FormatEdifact:
+		// Segment tags are exactly three characters in both formats, and in
+		// EDIFACT the tag may be followed by a component separator (UNA) as well
+		// as an element separator, so the leading field is not the tag.
 		if len(text) >= 3 {
 			return text[:3]
 		}
@@ -277,10 +284,14 @@ func (s *source) recordID(text string) string {
 }
 
 // Fields splits a record into its fields. Field 1 is the record type.
-// Fixed-width records are split according to the layout when one is present.
+// Fixed-width records are split according to the layout when one is present;
+// EDIFACT elements are split honoring the release character.
 func (s *source) Fields(r record) []string {
 	if s.Format == FormatFixed && s.Layout != nil {
 		return s.Layout.split(r.Text)
+	}
+	if s.Format == FormatEdifact && s.Edifact.Declared {
+		return edifactSplit(r.Text, s.Edifact.Element, s.Edifact.Release)
 	}
 	if s.FieldSep == 0 {
 		return []string{r.Text}

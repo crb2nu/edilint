@@ -16,6 +16,8 @@ func Detect(body []byte, opts Options) Format {
 		bytes.HasPrefix(head, []byte("FHS")),
 		bytes.HasPrefix(head, []byte("BHS")):
 		return FormatHL7v2
+	case looksEdifact(head):
+		return FormatEdifact
 	}
 
 	if opts.Layout != nil {
@@ -28,6 +30,20 @@ func Detect(body []byte, opts Options) Format {
 		return FormatDelimited
 	}
 	return FormatText
+}
+
+// looksEdifact reports whether head opens an EDIFACT interchange: a UNA service
+// string advice or a UNB header. The tag must be followed by a separator rather
+// than a letter, so that a delimited file whose first field happens to start
+// with "UNA" or "UNB" is not misread as EDIFACT.
+func looksEdifact(head []byte) bool {
+	if len(head) < 4 {
+		return false
+	}
+	if !bytes.HasPrefix(head, []byte("UNA")) && !bytes.HasPrefix(head, []byte("UNB")) {
+		return false
+	}
+	return !isAlphanumericByte(head[3])
 }
 
 // leadingSpace returns the offset of the first byte that is not ASCII whitespace.
