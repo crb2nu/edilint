@@ -85,7 +85,7 @@ jobs:
         with:
           go-version: stable
       - run: go install github.com/crb2nu/edilint/cmd/edilint@latest
-      - run: edilint --charset extended outbound/*.x12
+      - run: edilint outbound/*.x12
 ```
 
 GitLab CI:
@@ -95,7 +95,7 @@ edilint:
   image: golang:1.26
   script:
     - go install github.com/crb2nu/edilint/cmd/edilint@latest
-    - edilint --charset extended outbound/*.x12
+    - edilint outbound/*.x12
 ```
 
 For machine consumption, `--json` writes one document describing every file:
@@ -104,8 +104,24 @@ For machine consumption, `--json` writes one document describing every file:
 edilint --json outbound/*.x12 | jq -r '.files[].findings[] | "\(.file):\(.line) \(.rule)"'
 ```
 
-The JSON document carries a `version` field. It is incremented only when an
-existing field changes meaning or is removed.
+Each finding carries:
+
+| Field | Meaning |
+|---|---|
+| `rule`, `class`, `severity`, `message` | What was found. |
+| `file`, `line`, `column` | Where, in the usual editor coordinates. |
+| `record` | The segment identifier for X12 and HL7v2, the record type otherwise. Absent when the leading field holds data rather than a record type. |
+| `record_number` | The 1-based record or segment ordinal. |
+| `code_point` | The offending character, for the character rules. |
+| `expected`, `actual` | The two sides of a count, length or padding mismatch. |
+
+The JSON document carries a `version` field, currently `2`. It is incremented
+only when an existing field changes meaning or is removed. Version 2 renamed the
+`segment` field to `record`, and the former `record` ordinal to `record_number`.
+
+When `--max-findings` truncates the output, the `findings` array is shortened
+but every `summary` still reports the true totals and carries `"truncated":
+true`. The exit status is unaffected by truncation.
 
 ## Usage
 
@@ -121,11 +137,11 @@ interchange control number detection across the whole batch.
 | `-f`, `--format <name>` | `auto` (default), `x12`, `hl7v2`, `delimited`, `fixed`, `text`. |
 | `-d`, `--delimiter <char>` | Field delimiter for delimited files. Accepts `\t`, `\0`, `\xNN`. |
 | `--layout <file>` | Fixed-width layout JSON. Required for `--format fixed`. |
-| `--charset <name>` | X12 character set: `basic` (default), `extended`, `off`. |
+| `--charset <name>` | X12 character set: `extended` (default), `basic`, `off`. |
 | `--type-field <n>` | 1-based field used as the record-type discriminator for the field-count check. Default 1. |
-| `--count-rule <rule>` | Repeatable. `recordPrefix:fieldIndex:countedPrefix`. |
+| `--count-rule <rule>` | Repeatable. `recordType:fieldIndex:countedType`. |
 | `--disable <rules>` | Comma-separated rule names or classes, e.g. `--disable charset.nonascii,layout`. |
-| `--max-findings <n>` | Cap findings printed per file. Default 200, `0` for all. |
+| `--max-findings <n>` | Print at most n findings per file. Default unlimited. The exit status always reflects every finding. |
 | `--allow-warnings` | Exit 0 when only warnings were found. |
 | `--json` | Emit a JSON document instead of diagnostic lines. |
 | `-v`, `--verbose` | Print a line for clean files too. |
@@ -141,10 +157,42 @@ checks. `--format` overrides detection.
 
 ### Count rules
 
-`--count-rule TRL:2:DTL` means "field 2 of records starting with `TRL` declares
-how many records starting with `DTL` exist". Field indexes are 1-based and field
-1 is the record type. The flag is repeatable, and it works on X12 segments and
-fixed-width records as well as delimited ones.
+`--count-rule TRL:2:DTL` means "field 2 of `TRL` records declares how many `DTL`
+records exist". Field indexes are 1-based and field 1 is the record type, so for
+X12 the first element of a segment is field 2. The flag is repeatable, and it
+works on X12 segments and fixed-width records as well as delimited ones.
+
+How a record is matched depends on the format:
+
+| Format | Matching |
+|---|---|
+| delimited | The first field must **equal** the given value. `TRL` does not match `TRLR`. |
+| X12, fixed-width, HL7v2 | The record must **start with** the given value, since there is no first field to compare. |
+
+The difference matters when record types share a prefix. In a delimited file
+with both `TRL` and `TRLR` records, `--count-rule TRL:2:DTL` reads only the
+`TRL` record. In a fixed-width file the same rule would match both, so give the
+full record type as it appears at the start of the record.
+
+### X12 character sets
+
+`--charset extended` is the default: A-Z, a-z, 0-9, space, and
+`! " & ' ( ) * + , - . / : ; ? = % ~ @ [ ] _ { } \ | < > # $`. In printable
+ASCII only the caret and the backtick fall outside it, and a caret is exempt
+when ISA11 declares it as the repetition separator.
+
+`--charset basic` is the stricter, opt-in profile. It drops lowercase letters
+and the extended punctuation, reporting anything legal only in the extended set
+as a warning aggregated per record. Use it when a partner has told you they
+require the basic set.
+
+`--charset off` disables both character-set rules. The homoglyph, control
+character and zero-width rules are unaffected by this flag.
+
+ISA11 is read as the repetition separator only when it holds a single
+non-alphanumeric character. A 004010 interchange whose ISA11 is the letter `U`
+declares no repetition separator, so `U` keeps its ordinary meaning and a stray
+caret elsewhere in that file is reported rather than silently ignored.
 
 ### Fixed-width layouts
 
@@ -184,14 +232,14 @@ Rule names are stable and appear in both the text and JSON output.
 
 | Rule | Severity | Applies to | Detects |
 |---|---|---|---|
-| `charset.bom` | error | all | File starts with a byte order mark, which parsers read as part of the first field. |
+| `charset.bom` | error | all (warning for delimited) | File starts with a byte order mark. An error for X12, HL7v2 and fixed-width, where a BOM before ISA or MSH shifts every fixed position in the file; a warning for delimited, because spreadsheet exports emit one routinely and most CSV readers cope. |
 | `charset.invalid-utf8` | error | all | Byte sequence is not valid UTF-8. |
 | `charset.nonprintable` | error | all | Control character in record content that is not a declared separator. Tabs are reported as warnings. |
 | `charset.zero-width` | error | all | Zero-width or bidirectional formatting character that renders as nothing but occupies bytes. |
 | `charset.homoglyph` | error | all | Unicode character that is visually identical to an ASCII one, such as Cyrillic А for A. |
 | `charset.nonascii` | warning | all | Non-ASCII character that is not a known lookalike. |
-| `charset.x12-basic` | warning | x12 | Character outside the X12 basic character set but inside the extended set. |
-| `charset.x12-extended` | error | x12 | Character outside both the X12 basic and extended character sets. |
+| `charset.x12-basic` | warning | x12 (requires `--charset basic`) | Character outside the X12 basic character set but inside the extended set. Off by default; the default profile is extended. |
+| `charset.x12-extended` | error | x12 | Character outside the X12 extended character set, which in printable ASCII means the caret or the backtick. A caret is exempt when ISA11 declares it as the repetition separator. |
 
 ### terminator
 
@@ -227,7 +275,7 @@ Rule names are stable and appear in both the text and JSON output.
 | `counts.mismatch` | error | all (requires --count-rule) | A declared record count does not match the recounted total. |
 | `counts.unparsable` | error | all (requires --count-rule) | The field a count rule points at is not an integer. |
 | `counts.missing-field` | error | all (requires --count-rule) | The declaring record has fewer fields than the count rule reads. |
-| `counts.no-declaring-record` | warning | all (requires --count-rule) | No record matched the count rule's declaring prefix, so nothing was verified. |
+| `counts.no-declaring-record` | warning | all (requires --count-rule) | No record matched the count rule's declaring record type, so nothing was verified. |
 
 ### fields
 
@@ -305,4 +353,4 @@ was clean. Check `Report.OK` or inspect `Report.Findings`.
 
 ## License
 
-Not yet chosen.
+Apache-2.0.
