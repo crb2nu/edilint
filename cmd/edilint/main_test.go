@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	osexec "os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -274,7 +276,7 @@ func TestFlagsAreAcceptedInAnyPosition(t *testing.T) {
 				t.Fatalf("exit = %d, want %d (stderr: %s)", code, exitFindings, stderr)
 			}
 			if !strings.HasPrefix(strings.TrimSpace(stdout), "{") {
-				t.Errorf("--json should have been honoured, got %q", stdout)
+				t.Errorf("--json should have been honored, got %q", stdout)
 			}
 		})
 	}
@@ -539,5 +541,198 @@ func TestDedupePreservesOrder(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("got %v, want %v", got, want)
 		}
+	}
+}
+
+// jqProgramRE finds a single-quoted jq program in a documented shell pipeline,
+// e.g. `edilint --json out/*.x12 | jq -r '.files[].findings[]'`.
+var jqProgramRE = regexp.MustCompile(`\| jq (?:-[a-zA-Z]+ )*'([^']*)'`)
+
+// documentedJQPrograms returns every jq program the project documents, both in
+// the README and in the tool's own --help output.
+func documentedJQPrograms(t *testing.T) map[string]string {
+	t.Helper()
+
+	readme, err := os.ReadFile(filepath.Join(repoRoot(t), "README.md"))
+	if err != nil {
+		t.Fatalf("read README: %v", err)
+	}
+	_, help, _ := exec("--help")
+
+	found := map[string]string{}
+	for source, text := range map[string]string{"README.md": string(readme), "--help": help} {
+		for _, m := range jqProgramRE.FindAllStringSubmatch(text, -1) {
+			found[m[1]] = source
+		}
+	}
+	if len(found) == 0 {
+		t.Fatal("no documented jq pipelines found; the extractor or the docs changed")
+	}
+	return found
+}
+
+func TestDocumentedJQPipelinesWorkOnCleanFiles(t *testing.T) {
+	// A Go round-trip cannot catch this: encoding/json unmarshals null into a
+	// nil slice of length 0, so `"findings": null` decodes and measures the same
+	// as `"findings": []`. jq is the consumer that actually breaks, so jq is
+	// what runs here.
+	jqPath, err := osexec.LookPath("jq")
+	if err != nil {
+		t.Skip("jq is not installed")
+	}
+
+	clean := write(t, t.TempDir(), "clean.x12", cleanX12)
+	code, stdout, stderr := exec("--json", clean)
+	if code != exitClean {
+		t.Fatalf("fixture should be clean, exit = %d (%s)", code, stderr)
+	}
+
+	for program, source := range documentedJQPrograms(t) {
+		t.Run(source+": "+program, func(t *testing.T) {
+			cmd := osexec.Command(jqPath, "-r", program)
+			cmd.Stdin = strings.NewReader(stdout)
+			var out, errOut bytes.Buffer
+			cmd.Stdout = &out
+			cmd.Stderr = &errOut
+
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("the %s pipeline fails on a clean file: %v\njq stderr: %s\ninput:\n%s",
+					source, err, errOut.String(), stdout)
+			}
+			if strings.TrimSpace(out.String()) != "" {
+				t.Errorf("a clean file should yield no rows, got %q", out.String())
+			}
+		})
+	}
+}
+
+func TestDocumentedJQPipelinesWorkOnDirtyFiles(t *testing.T) {
+	jqPath, err := osexec.LookPath("jq")
+	if err != nil {
+		t.Skip("jq is not installed")
+	}
+
+	broken := write(t, t.TempDir(), "broken.x12", brokenX12)
+	code, stdout, _ := exec("--json", broken)
+	if code != exitFindings {
+		t.Fatalf("fixture should have findings, exit = %d", code)
+	}
+
+	for program, source := range documentedJQPrograms(t) {
+		t.Run(source+": "+program, func(t *testing.T) {
+			cmd := osexec.Command(jqPath, "-r", program)
+			cmd.Stdin = strings.NewReader(stdout)
+			var out bytes.Buffer
+			cmd.Stdout = &out
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("the %s pipeline fails on a file with findings: %v", source, err)
+			}
+			if strings.TrimSpace(out.String()) == "" {
+				t.Error("a file with findings should yield at least one row")
+			}
+		})
+	}
+}
+
+func TestCleanJSONEmitsAnEmptyFindingsArray(t *testing.T) {
+	// The raw-bytes assertion, so the guarantee holds even where jq is absent.
+	clean := write(t, t.TempDir(), "clean.x12", cleanX12)
+	_, stdout, _ := exec("--json", clean)
+
+	if !strings.Contains(stdout, `"findings": []`) {
+		t.Errorf("a clean file must emit an empty findings array, not null:\n%s", stdout)
+	}
+	if strings.Contains(stdout, `"findings": null`) {
+		t.Errorf("findings must never marshal as null:\n%s", stdout)
+	}
+}
+
+func TestUnreadableFileDoesNotDiscardOtherFindings(t *testing.T) {
+	// A glob that races with a file being moved must still report what it found
+	// in the files it could read, while exiting 2 so the caller knows the run
+	// was incomplete.
+	dir := t.TempDir()
+	broken := write(t, dir, "broken.x12", brokenX12)
+	missing := filepath.Join(dir, "gone.x12")
+
+	code, stdout, stderr := exec(broken, missing)
+	if code != exitUsage {
+		t.Fatalf("exit = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stdout, "envelope.segment-count") {
+		t.Errorf("findings from the readable file must still be printed, got %q", stdout)
+	}
+	if !strings.Contains(stderr, "gone.x12") {
+		t.Errorf("stderr should name the unreadable file, got %q", stderr)
+	}
+	if !strings.Contains(stderr, "1 of 2 input(s) could not be read") {
+		t.Errorf("stderr should summarize the failures, got %q", stderr)
+	}
+}
+
+func TestUnreadableFileStillExitsTwoWhenOthersAreClean(t *testing.T) {
+	dir := t.TempDir()
+	clean := write(t, dir, "clean.x12", cleanX12)
+	missing := filepath.Join(dir, "gone.x12")
+
+	if code, _, _ := exec(clean, missing); code != exitUsage {
+		t.Errorf("exit = %d, want %d", code, exitUsage)
+	}
+}
+
+func TestUnknownFlagWithAnInlineValueReportsTheUnknownFlag(t *testing.T) {
+	clean := write(t, t.TempDir(), "clean.x12", cleanX12)
+
+	// Both spellings of an unknown flag must blame the flag, not the syntax.
+	for _, arg := range []string{"--bogus=1", "--bogus"} {
+		code, _, stderr := exec(arg, clean)
+		if code != exitUsage {
+			t.Errorf("%s: exit = %d, want %d", arg, code, exitUsage)
+		}
+		if !strings.Contains(stderr, "unknown flag: --bogus") {
+			t.Errorf("%s: stderr = %q, want it to name the unknown flag", arg, stderr)
+		}
+	}
+
+	// A real boolean flag given a value still gets the syntax message.
+	code, _, stderr := exec("--json=yes", clean)
+	if code != exitUsage {
+		t.Errorf("exit = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr, "--json does not take a value") {
+		t.Errorf("stderr = %q, want the value-syntax message", stderr)
+	}
+}
+
+func TestHelpStatesTheRealCharsetDefault(t *testing.T) {
+	// The help text drifted from the code once already.
+	_, help, _ := exec("--help")
+	if !strings.Contains(help, "extended (default)") {
+		t.Errorf("--help must state that extended is the default charset:\n%s", help)
+	}
+	if strings.Contains(help, "basic (default)") {
+		t.Error("--help still claims basic is the default charset")
+	}
+}
+
+func TestBinaryInputIsReportedOnceFromTheCLI(t *testing.T) {
+	// The shell-glob-catches-an-archive scenario, end to end.
+	body := make([]byte, 1<<20)
+	state := uint32(0x9e3779b9)
+	for i := range body {
+		state = state*1664525 + 1013904223
+		body[i] = byte(state >> 24)
+	}
+	blob := write(t, t.TempDir(), "archive.bin", string(body))
+
+	code, stdout, _ := exec(blob)
+	if code != exitFindings {
+		t.Fatalf("exit = %d, want %d", code, exitFindings)
+	}
+	if got := strings.Count(stdout, "charset.invalid-utf8"); got != 1 {
+		t.Errorf("binary input produced %d findings, want exactly 1:\n%s", got, stdout)
+	}
+	if !strings.Contains(stdout, "does not look like text") {
+		t.Errorf("the finding should name the real problem, got %q", stdout)
 	}
 }
