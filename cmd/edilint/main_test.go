@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/crb2nu/edilint"
 )
 
 // The CLI tests build their own fixtures so that this package stays independent
@@ -118,8 +120,8 @@ func TestFindingsGoToStdoutInDiagnosticForm(t *testing.T) {
 	if !strings.HasPrefix(line, broken+":") {
 		t.Errorf("finding should start with the file path, got %q", line)
 	}
-	if !strings.Contains(line, "error: [envelope.segment-count]") {
-		t.Errorf("finding should carry severity and rule, got %q", line)
+	if !strings.Contains(line, "error: [EL3006 envelope.segment-count]") {
+		t.Errorf("finding should carry severity, identifier and rule, got %q", line)
 	}
 	if !strings.Contains(stdout, "1 file checked, 1 finding") {
 		t.Errorf("output should end with a summary, got %q", stdout)
@@ -142,6 +144,7 @@ func TestJSONOutput(t *testing.T) {
 			File     string `json:"file"`
 			Format   string `json:"format"`
 			Findings []struct {
+				ID       string `json:"id"`
 				Rule     string `json:"rule"`
 				Class    string `json:"class"`
 				Severity string `json:"severity"`
@@ -158,8 +161,8 @@ func TestJSONOutput(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &doc); err != nil {
 		t.Fatalf("output is not valid JSON: %v\n%s", err, stdout)
 	}
-	if doc.Version != 2 {
-		t.Errorf("version = %d, want 2", doc.Version)
+	if doc.Version != 3 {
+		t.Errorf("version = %d, want 3", doc.Version)
 	}
 	if len(doc.Files) != 2 || doc.Summary.Files != 2 {
 		t.Fatalf("expected 2 file reports, got %d", len(doc.Files))
@@ -173,6 +176,9 @@ func TestJSONOutput(t *testing.T) {
 	f := doc.Files[1].Findings[0]
 	if f.Rule != "envelope.segment-count" || f.Class != "envelope" || f.Severity != "error" {
 		t.Errorf("unexpected finding: %+v", f)
+	}
+	if f.ID != "EL3006" {
+		t.Errorf("id = %q, want EL3006", f.ID)
 	}
 }
 
@@ -734,5 +740,371 @@ func TestBinaryInputIsReportedOnceFromTheCLI(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "does not look like text") {
 		t.Errorf("the finding should name the real problem, got %q", stdout)
+	}
+}
+
+// chdir moves the process into dir for the duration of one test. The suite is
+// not parallel, so this is safe; t.Chdir would be the modern spelling but it
+// needs a newer Go than go.mod's floor.
+func chdir(t *testing.T, dir string) {
+	t.Helper()
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir %s: %v", dir, err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(previous); err != nil {
+			t.Fatalf("restore working directory: %v", err)
+		}
+	})
+}
+
+func TestListRulesPrintsTheIdentifierColumn(t *testing.T) {
+	_, listing, _ := exec("--list-rules")
+
+	for _, want := range []string{"EL1005", "EL3006", "EL5002"} {
+		if !strings.Contains(listing, want) {
+			t.Errorf("rule listing is missing %s", want)
+		}
+	}
+	// Identifier, name and severity on one line, in that order.
+	var found string
+	for _, line := range strings.Split(listing, "\n") {
+		if strings.HasPrefix(line, "EL3006") {
+			found = line
+		}
+	}
+	if found == "" {
+		t.Fatalf("no line for EL3006:\n%s", listing)
+	}
+	fields := strings.Fields(found)
+	if len(fields) < 3 || fields[0] != "EL3006" ||
+		fields[1] != "envelope.segment-count" || fields[2] != "error" {
+		t.Errorf("EL3006 line = %q, want identifier, name then severity", found)
+	}
+}
+
+func TestDisableAcceptsIdentifiers(t *testing.T) {
+	broken := write(t, t.TempDir(), "broken.x12", brokenX12)
+
+	if code, _, _ := exec("--disable", "EL3006", broken); code != exitClean {
+		t.Error("disabling the failing rule by identifier should leave the file clean")
+	}
+	if code, _, _ := exec("--disable", "el3006", broken); code != exitClean {
+		t.Error("an identifier should match whatever its case")
+	}
+	if code, _, _ := exec("--disable", "EL3006,charset", broken); code != exitClean {
+		t.Error("identifiers and class names should mix in one list")
+	}
+}
+
+func TestDisableRejectsAnUnknownRule(t *testing.T) {
+	// A misspelled suppression that silently suppresses nothing is the failure
+	// mode this rejects.
+	clean := write(t, t.TempDir(), "clean.x12", cleanX12)
+
+	code, _, stderr := exec("--disable", "envelop", clean)
+	if code != exitUsage {
+		t.Fatalf("exit = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr, `unknown rule "envelop"`) {
+		t.Errorf("stderr should name the unknown rule, got %q", stderr)
+	}
+	if !strings.Contains(stderr, "EL3006") {
+		t.Errorf("stderr should show the accepted forms, got %q", stderr)
+	}
+}
+
+func TestBaselineRoundTripFromTheCLI(t *testing.T) {
+	// The documented adoption path, end to end.
+	dir := t.TempDir()
+	target := write(t, dir, "legacy.x12", brokenX12)
+	baseline := filepath.Join(dir, "baseline.json")
+
+	// The file fails on its own.
+	if code, _, _ := exec(target); code != exitFindings {
+		t.Fatal("the fixture should report findings before it is baselined")
+	}
+
+	code, stdout, stderr := exec("--write-baseline", baseline, target)
+	if code != exitClean {
+		t.Fatalf("recording exit = %d, want %d (%s)", code, exitClean, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("recording should not print findings to stdout, got %q", stdout)
+	}
+	if !strings.Contains(stderr, "recorded 1 finding(s)") {
+		t.Errorf("recording should say what it wrote, got %q", stderr)
+	}
+
+	// Re-running against the baseline is clean and silent.
+	code, stdout, stderr = exec("--baseline", baseline, target)
+	if code != exitClean {
+		t.Fatalf("baselined exit = %d, want %d (%s)", code, exitClean, stdout)
+	}
+	if stdout != "" {
+		t.Errorf("a fully baselined run should print nothing, got %q", stdout)
+	}
+	if stderr != "" {
+		t.Errorf("a fully baselined run should be silent on stderr, got %q", stderr)
+	}
+
+	// A new defect on top of the recorded one is reported, and only it.
+	planted := strings.Replace(brokenX12, "BPR*I*", "BPR*I\x0b*", 1)
+	if planted == brokenX12 {
+		t.Fatal("the planted defect did not apply")
+	}
+	write(t, dir, "legacy.x12", planted)
+
+	code, stdout, _ = exec("--baseline", baseline, target)
+	if code != exitFindings {
+		t.Fatalf("exit = %d, want %d", code, exitFindings)
+	}
+	if !strings.Contains(stdout, "1 finding") {
+		t.Errorf("exactly one new finding should be reported, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "charset.nonprintable") {
+		t.Errorf("the new finding should be the planted one, got %q", stdout)
+	}
+	if strings.Contains(stdout, "envelope.segment-count") {
+		t.Errorf("the recorded finding should stay suppressed, got %q", stdout)
+	}
+}
+
+func TestBaselineIsCommittableJSON(t *testing.T) {
+	dir := t.TempDir()
+	target := write(t, dir, "legacy.x12", brokenX12)
+	baseline := filepath.Join(dir, "baseline.json")
+
+	if code, _, stderr := exec("--write-baseline", baseline, target); code != exitClean {
+		t.Fatalf("exit = %d (%s)", code, stderr)
+	}
+	body, err := os.ReadFile(baseline)
+	if err != nil {
+		t.Fatalf("read baseline: %v", err)
+	}
+
+	var doc struct {
+		Version  int `json:"version"`
+		Findings []struct {
+			File    string `json:"file"`
+			ID      string `json:"id"`
+			Rule    string `json:"rule"`
+			Message string `json:"message"`
+			Count   int    `json:"count"`
+		} `json:"findings"`
+	}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		t.Fatalf("baseline is not valid JSON: %v\n%s", err, body)
+	}
+	if doc.Version != edilint.BaselineVersion {
+		t.Errorf("version = %d, want %d", doc.Version, edilint.BaselineVersion)
+	}
+	if len(doc.Findings) != 1 {
+		t.Fatalf("findings = %d, want 1", len(doc.Findings))
+	}
+	entry := doc.Findings[0]
+	if entry.ID != "EL3006" || entry.Rule != "envelope.segment-count" || entry.Count != 1 {
+		t.Errorf("entry = %+v", entry)
+	}
+	if entry.Message == "" {
+		t.Error("the entry should carry its message, so the file can be reviewed")
+	}
+	// No line or column, which is what lets the entry survive an edit above it.
+	if strings.Contains(string(body), `"line"`) {
+		t.Errorf("a baseline entry must not record a line number:\n%s", body)
+	}
+}
+
+func TestBaselineFlagErrors(t *testing.T) {
+	dir := t.TempDir()
+	clean := write(t, dir, "clean.x12", cleanX12)
+	missing := filepath.Join(dir, "absent.json")
+
+	code, _, stderr := exec("--baseline", missing, clean)
+	if code != exitUsage {
+		t.Errorf("a missing baseline exit = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr, "--write-baseline") {
+		t.Errorf("stderr should say how to record one, got %q", stderr)
+	}
+
+	code, _, stderr = exec("--baseline", missing, "--write-baseline", missing, clean)
+	if code != exitUsage {
+		t.Errorf("using both baseline flags exit = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr, "cannot be used together") {
+		t.Errorf("stderr should explain the conflict, got %q", stderr)
+	}
+}
+
+func TestWriteBaselineRefusesAfterAnUnreadableInput(t *testing.T) {
+	// Recording from an incomplete run would bake a gap into the baseline.
+	dir := t.TempDir()
+	target := write(t, dir, "legacy.x12", brokenX12)
+	baseline := filepath.Join(dir, "baseline.json")
+
+	code, _, stderr := exec("--write-baseline", baseline, target, filepath.Join(dir, "gone.x12"))
+	if code != exitUsage {
+		t.Fatalf("exit = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr, "no baseline was written") {
+		t.Errorf("stderr should say the file was not written, got %q", stderr)
+	}
+	if _, err := os.Stat(baseline); err == nil {
+		t.Error("no baseline file should have been created")
+	}
+}
+
+func TestStaleBaselineEntriesAreReportedWhenVerbose(t *testing.T) {
+	dir := t.TempDir()
+	target := write(t, dir, "legacy.x12", brokenX12)
+	baseline := filepath.Join(dir, "baseline.json")
+
+	if code, _, stderr := exec("--write-baseline", baseline, target); code != exitClean {
+		t.Fatalf("exit = %d (%s)", code, stderr)
+	}
+	// Fix the defect the baseline recorded.
+	write(t, dir, "legacy.x12", cleanX12)
+
+	code, _, stderr := exec("-v", "--baseline", baseline, target)
+	if code != exitClean {
+		t.Fatalf("exit = %d, want %d (%s)", code, exitClean, stderr)
+	}
+	if !strings.Contains(stderr, "no longer occur") {
+		t.Errorf("a stale baseline should be mentioned when verbose, got %q", stderr)
+	}
+
+	// A stale entry is not an error, and says nothing without --verbose.
+	if _, _, quiet := exec("--baseline", baseline, target); quiet != "" {
+		t.Errorf("a quiet run should not mention stale entries, got %q", quiet)
+	}
+}
+
+func TestConfigFileSuppliesOptions(t *testing.T) {
+	dir := t.TempDir()
+	bad := write(t, dir, "bad.psv", badCountPSV)
+	conf := write(t, dir, "edilint.yml", "count-rules:\n  - TRL:2:DTL\n")
+
+	// Without the configuration nothing declares a count, so the file is clean.
+	if code, _, _ := exec("--no-config", bad); code != exitClean {
+		t.Errorf("exit without a count rule = %d, want %d", code, exitClean)
+	}
+
+	code, stdout, stderr := exec("--config", conf, bad)
+	if code != exitFindings {
+		t.Fatalf("exit = %d, want %d (%s)", code, exitFindings, stderr)
+	}
+	if !strings.Contains(stdout, "counts.mismatch") {
+		t.Errorf("the configured count rule should have run, got %q", stdout)
+	}
+}
+
+func TestConfigFileIsFoundInTheWorkingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, ".edilint.yml", "disable:\n  - envelope\n")
+	write(t, dir, "broken.x12", brokenX12)
+	chdir(t, dir)
+
+	if code, stdout, _ := exec("broken.x12"); code != exitClean {
+		t.Errorf("the discovered config should have suppressed the finding, got %q", stdout)
+	}
+	if code, _, _ := exec("--no-config", "broken.x12"); code != exitFindings {
+		t.Error("--no-config should ignore the file in the working directory")
+	}
+
+	// Verbose runs name the file they read, so a surprising suppression is
+	// traceable to the configuration that caused it.
+	_, _, stderr := exec("-v", "broken.x12")
+	if !strings.Contains(stderr, ".edilint.yml") {
+		t.Errorf("a verbose run should name the config it used, got %q", stderr)
+	}
+}
+
+func TestCommandLineBeatsTheConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	lower := cleanISA + cleanGS + "ST*835*0001~\nN1*PE*Vale Medical Group~\nSE*3*0001~\nGE*1*1~\nIEA*1*000000001~\n"
+	path := write(t, dir, "lower.x12", lower)
+	conf := write(t, dir, "edilint.yml", "charset: basic\n")
+
+	// The file asks for the strict profile, which flags lowercase.
+	if code, stdout, _ := exec("--config", conf, path); code != exitFindings ||
+		!strings.Contains(stdout, "charset.x12-basic") {
+		t.Errorf("the configured profile should apply, got %q", stdout)
+	}
+	// The flag overrules it.
+	if code, _, _ := exec("--config", conf, "--charset", "extended", path); code != exitClean {
+		t.Error("--charset should overrule the configured profile")
+	}
+}
+
+func TestConfigAndCommandLineSuppressionsAddUp(t *testing.T) {
+	// Two sources both asking for quiet must both be heard: a flag adds to what
+	// the file suppressed rather than replacing it.
+	dir := t.TempDir()
+	path := write(t, dir, "warn.psv", warnOnlyPSV)
+	conf := write(t, dir, "edilint.yml", "disable:\n  - terminator\n")
+
+	if code, stdout, _ := exec("--config", conf, "--disable", "fields", path); code != exitClean {
+		t.Errorf("both suppressions should apply, got %q", stdout)
+	}
+}
+
+func TestConfigErrorsAreUsageErrors(t *testing.T) {
+	dir := t.TempDir()
+	clean := write(t, dir, "clean.x12", cleanX12)
+
+	broken := write(t, dir, "broken.yml", "verbosity: high\n")
+	code, _, stderr := exec("--config", broken, clean)
+	if code != exitUsage {
+		t.Errorf("exit = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr, "unknown setting") {
+		t.Errorf("stderr should explain the problem, got %q", stderr)
+	}
+
+	// An explicitly named file that does not exist is an error; a missing
+	// .edilint.yml in the working directory is not.
+	if code, _, _ := exec("--config", filepath.Join(dir, "absent.yml"), clean); code != exitUsage {
+		t.Errorf("a missing --config exit = %d, want %d", code, exitUsage)
+	}
+	if code, _, _ := exec("--config", broken, "--no-config", clean); code != exitUsage {
+		t.Error("--config and --no-config together should be a usage error")
+	}
+}
+
+func TestConfigCanRegradeARule(t *testing.T) {
+	dir := t.TempDir()
+	warn := write(t, dir, "warn.psv", warnOnlyPSV)
+	conf := write(t, dir, "edilint.yml", "severity:\n  EL2002: info\n")
+
+	// The only finding is a missing final terminator, normally a warning that
+	// fails the run. Downgraded to informational it is printed but does not gate.
+	code, stdout, stderr := exec("--config", conf, warn)
+	if code != exitClean {
+		t.Fatalf("exit = %d, want %d (%s)", code, exitClean, stderr)
+	}
+	if !strings.Contains(stdout, "info: [EL2002 terminator.missing-final]") {
+		t.Errorf("the finding should still be printed as informational, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "(0 error, 0 warning, 1 info)") {
+		t.Errorf("the summary should count it, got %q", stdout)
+	}
+}
+
+func TestExampleConfigRunsAsDocumented(t *testing.T) {
+	root := repoRoot(t)
+	conf := filepath.Join(root, "examples", "edilint.yml")
+	target := filepath.Join(root, "examples", "eligibility.psv")
+
+	code, stdout, stderr := exec("--config", conf, target)
+	if code != exitFindings {
+		t.Fatalf("exit = %d, want %d (%s)", code, exitFindings, stderr)
+	}
+	if !strings.Contains(stdout, "counts.mismatch") {
+		t.Errorf("the example config should apply its count rule, got %q", stdout)
 	}
 }

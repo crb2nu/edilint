@@ -83,9 +83,21 @@ type Options struct {
 	// within a single input are detected independently of this map.
 	SeenISA13 map[string]string
 
-	// Disabled suppresses rules by full name ("charset.homoglyph") or by
-	// dot-delimited prefix ("charset").
+	// Disabled suppresses rules by identifier ("EL1005"), by full name
+	// ("charset.homoglyph") or by dot-delimited prefix ("charset").
 	Disabled []string
+
+	// Severities overrides the severity a check assigned, keyed by rule
+	// identifier or rule name. It applies to every finding of that rule,
+	// including rules that otherwise grade themselves by format.
+	Severities map[string]Severity
+
+	// Baseline suppresses findings that were already recorded, so that a run
+	// reports only what is new. When non-nil it is read and written by every
+	// Lint call: each matched finding consumes one recorded occurrence. Callers
+	// linting a batch pass the same value to every call. It is not safe for
+	// concurrent use.
+	Baseline *Baseline
 
 	// MaxFindings caps the number of findings retained in a report. Zero or
 	// negative means unlimited, which is the default. The cap only affects the
@@ -136,10 +148,12 @@ func LintFile(path string, opts Options) (*Report, error) {
 // Lint analyzes data and returns a report. name is used only for display.
 func Lint(name string, data []byte, opts Options) *Report {
 	rep := &Report{
-		File:     name,
-		Format:   FormatText,
-		disabled: opts.Disabled,
-		retain:   retentionFor(opts),
+		File:       name,
+		Format:     FormatText,
+		disabled:   opts.Disabled,
+		severities: normalizeSeverities(opts.Severities),
+		baseline:   opts.Baseline,
+		retain:     retentionFor(opts),
 	}
 
 	body, bom := splitBOM(data)

@@ -16,11 +16,40 @@ up the first tag.
 - X12 EDI, HL7v2, delimited and fixed-width linting across six check classes:
   character hygiene, terminator consistency, X12 envelope integrity, declared
   record counts, field-count consistency and fixed-width layout conformance.
-- `--json` output, documented and versioned, currently schema version 2.
+- `--json` output, documented and versioned, currently schema version 3.
 - Exit statuses suitable for gating a send script: 0 clean, 1 findings, 2 the
   tool could not do its job.
 - `--count-rule`, `--layout`, `--charset`, `--disable`, `--max-findings` and
   `--type-field` for tuning a run to a partner's conventions.
+- Stable rule identifiers of the form `EL####`, grouped by check class:
+  `EL1xxx` character hygiene, `EL2xxx` terminators, `EL3xxx` X12 envelope,
+  `EL4xxx` counts, `EL5xxx` fixed-width layouts. `EL6xxx` and `EL7xxx` are
+  reserved for HL7v2 batch and EDIFACT envelope structure. Every finding carries
+  its identifier in both the text and the JSON output, and `--list-rules` prints
+  it as the first column.
+- `--disable` accepts an identifier as well as a rule name or a class.
+- A third severity, `info`, for findings that are printed but never fail a run.
+  No rule ships with it; it is what a configuration file downgrades a rule to.
+- `.edilint.yml` configuration file, read from the working directory, holding
+  `format`, `delimiter`, `charset`, `type-field`, `max-findings`,
+  `allow-warnings`, `layout`, `disable`, `severity` and `count-rules`.
+  `--config` names another file and `--no-config` ignores it. Flags overrule the
+  file, except that `--disable` and `--count-rule` add to it. The file must be
+  UTF-8 with LF or CRLF line endings (a leading UTF-8 byte order mark is
+  tolerated, UTF-16 is rejected), and a duplicate key at either level, an
+  unknown setting and an unparsable value are all errors naming the line. A
+  fuzz target holds the reader to that contract, and CI runs a bounded pass of
+  it.
+- `--write-baseline <file>` records the findings a set of files produces now,
+  and `--baseline <file>` reports only what is not in that recording. Entries
+  hold no line or column and ignore the unquoted numbers inside a message, so
+  they survive edits above them and statistics that shift as a file grows.
+  Quoted values and the code point of a character finding are part of the
+  match, so swapping one defect for another — a different bad date, control
+  number or homoglyph — is still reported. Identical findings collapse into
+  one entry with a count, so one more of the same defect is reported too. The
+  document is sorted and carries no timestamp, so re-recording an unchanged
+  set produces the same bytes.
 
 ### Changed
 
@@ -30,6 +59,14 @@ up the first tag.
   the exit status and the summary never depend on it.
 - A file that cannot be read no longer discards the findings already computed
   for the files that could. The run still exits 2.
+- Diagnostic lines now name the rule identifier alongside the rule name:
+  `error: [EL3006 envelope.segment-count] ...`. Both are greppable.
+- The JSON schema is version 3. Findings gained `id`, summaries gained `infos`,
+  and `severity` widened to include `info`. The documented policy for the
+  version field now covers additions as well as removals and changes of
+  meaning, since a consumer pinned to a version can meet any of them.
+- A `--disable` entry that names no rule, identifier or class is a usage error
+  rather than a silent no-op.
 
 ### Fixed
 
