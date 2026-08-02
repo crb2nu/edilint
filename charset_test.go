@@ -141,10 +141,14 @@ func TestCharsetHygiene(t *testing.T) {
 				return
 			}
 
-			f := firstOf(rep, tc.wantRule)
-			if f == nil {
-				t.Fatalf("expected a %s finding, got %v", tc.wantRule, ruleNames(rep))
+			// Exactly one finding, and it is the expected one: a case that also
+			// produced a spurious second finding used to pass silently.
+			requireRule(t, rep, tc.wantRule, 1)
+			if len(rep.Findings) != 1 {
+				t.Fatalf("expected exactly 1 finding, got %d: %v", len(rep.Findings), ruleNames(rep))
 			}
+
+			f := firstOf(rep, tc.wantRule)
 			if tc.wantCode != "" && f.CodePoint != tc.wantCode {
 				t.Errorf("code point = %q, want %q", f.CodePoint, tc.wantCode)
 			}
@@ -289,5 +293,85 @@ func TestBOMInDelimitedFileDoesNotFailWithAllowWarnings(t *testing.T) {
 	rep := Lint("test", []byte("\ufeffa,b,c\n1,2,3\n"), Options{})
 	if !rep.OK(SeverityError) {
 		t.Errorf("a BOM'd CSV should carry no errors, got %v", ruleNames(rep))
+	}
+}
+
+func TestConfusablesTableIsWellFormed(t *testing.T) {
+	// The table promises only code points that are visually indistinguishable
+	// from ASCII. A false entry produces a false error in the rule the README
+	// leads with, so its shape is checked rather than trusted.
+	for r, ascii := range confusables {
+		if r < 0x80 {
+			t.Errorf("%U maps an ASCII rune; the table is for non-ASCII lookalikes", r)
+		}
+		if ascii >= 0x80 {
+			t.Errorf("%U maps to non-ASCII %U; the target must be ASCII", r, ascii)
+		}
+		if ascii < 0x20 || ascii == 0x7F {
+			t.Errorf("%U maps to control character %U", r, ascii)
+		}
+		if _, dup := invisible[r]; dup {
+			t.Errorf("%U appears in both confusables and invisible", r)
+		}
+		if !inPlausibleBlock(r) {
+			t.Errorf("%U (-> %q) is outside the Unicode blocks this table draws from; "+
+				"add the block to inPlausibleBlock if the entry is intended", r, string(ascii))
+		}
+	}
+
+	for r := range invisible {
+		if r < 0x80 {
+			t.Errorf("%U is ASCII and cannot be an invisible formatting character", r)
+		}
+	}
+}
+
+// inPlausibleBlock reports whether a confusable comes from a Unicode block that
+// actually contains ASCII lookalikes. It is the guard that would have caught
+// U+2045 LEFT SQUARE BRACKET WITH QUILL being mapped to "/".
+func inPlausibleBlock(r rune) bool {
+	switch {
+	case r >= 0x00A0 && r <= 0x00FF: // Latin-1 Supplement
+		return true
+	case r >= 0x0100 && r <= 0x024F: // Latin Extended-A and B
+		return true
+	case r >= 0x0250 && r <= 0x02FF: // IPA Extensions, Spacing Modifiers
+		return true
+	case r >= 0x0370 && r <= 0x03FF: // Greek and Coptic
+		return true
+	case r >= 0x0400 && r <= 0x052F: // Cyrillic and Cyrillic Supplement
+		return true
+	case r >= 0x2000 && r <= 0x206F: // General Punctuation
+		return true
+	case r >= 0x2200 && r <= 0x22FF: // Mathematical Operators
+		return true
+	case r >= 0x3000 && r <= 0x303F: // CJK Symbols and Punctuation
+		return true
+	case r >= 0xA720 && r <= 0xA7FF: // Latin Extended-D
+		return true
+	case r >= 0xFE50 && r <= 0xFE6F: // Small Form Variants
+		return true
+	case r >= 0xFF01 && r <= 0xFF5E: // Halfwidth and Fullwidth Forms
+		return true
+	}
+	return false
+}
+
+func TestConfusablesDoNotFlagOrdinaryPunctuation(t *testing.T) {
+	// A regression guard for the class of defect S4 was: an entry that maps a
+	// character no one would mistake for ASCII.
+	notLookalikes := []rune{
+		0x2045, // LEFT SQUARE BRACKET WITH QUILL
+		0x2046, // RIGHT SQUARE BRACKET WITH QUILL
+		0x00A9, // COPYRIGHT SIGN
+		0x00AE, // REGISTERED SIGN
+		0x20AC, // EURO SIGN
+		0x2122, // TRADE MARK SIGN
+		0x2026, // HORIZONTAL ELLIPSIS
+	}
+	for _, r := range notLookalikes {
+		if ascii, ok := confusableASCII(r); ok {
+			t.Errorf("%U should not be treated as a lookalike for %q", r, string(ascii))
+		}
 	}
 }

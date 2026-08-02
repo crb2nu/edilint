@@ -96,12 +96,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 	// Sharing this map across files enables duplicate ISA13 detection for a batch.
 	cfg.opts.SeenISA13 = map[string]string{}
 
+	// An unreadable file does not discard the work already done. Every readable
+	// file is still reported, and the run exits 2 at the end, so a glob that
+	// races with a file being moved still tells the operator what it found.
 	rr := edilint.NewRunReport()
+	unreadable := 0
 	for _, path := range dedupe(cfg.files) {
 		rep, err := edilint.LintFile(path, cfg.opts)
 		if err != nil {
 			diagf(stderr, "edilint: %v\n", err)
-			return exitUsage
+			unreadable++
+			continue
 		}
 		rr.Add(rep)
 	}
@@ -113,6 +118,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	} else if err := rr.WriteText(stdout, cfg.verbose); err != nil {
 		diagf(stderr, "edilint: %v\n", err)
+		return exitUsage
+	}
+
+	if unreadable > 0 {
+		diagf(stderr, "edilint: %d of %d input(s) could not be read\n",
+			unreadable, len(dedupe(cfg.files)))
 		return exitUsage
 	}
 
@@ -152,6 +163,24 @@ var valueFlags = map[string]bool{
 	"--count-rule": true, "--disable": true, "--max-findings": true,
 }
 
+// boolFlags lists the flags that take no value.
+var boolFlags = map[string]bool{
+	"-h": true, "--help": true, "--version": true, "--list-rules": true,
+	"--json": true, "-v": true, "--verbose": true, "--allow-warnings": true,
+}
+
+// knownFlags is every recognized flag name.
+var knownFlags = func() map[string]bool {
+	all := make(map[string]bool, len(valueFlags)+len(boolFlags))
+	for name := range valueFlags {
+		all[name] = true
+	}
+	for name := range boolFlags {
+		all[name] = true
+	}
+	return all
+}()
+
 // parseArgs accepts flags in any position, in both "--flag value" and
 // "--flag=value" form, and stops flag processing at "--".
 func parseArgs(args []string) (config, error) {
@@ -171,6 +200,13 @@ func parseArgs(args []string) (config, error) {
 		}
 
 		name, val, hasInline := strings.Cut(arg, "=")
+
+		// Reject an unknown name before complaining about its syntax, so that
+		// "--bogus=1" reports the unknown flag rather than sending the reader
+		// looking for the right value syntax for a flag that does not exist.
+		if !knownFlags[name] {
+			return cfg, fmt.Errorf("unknown flag: %s", name)
+		}
 		switch {
 		case valueFlags[name]:
 			if !hasInline {
@@ -275,7 +311,7 @@ Flags:
   -f, --format <name>     auto (default), x12, hl7v2, delimited, fixed, text
   -d, --delimiter <char>  field delimiter for delimited files; accepts \t, \0, \xNN
       --layout <file>     fixed-width layout JSON; required for --format fixed
-      --charset <name>    X12 character set: basic (default), extended, off
+      --charset <name>    X12 character set: extended (default), basic, off
       --type-field <n>    1-based field used as the record-type discriminator
                           for the field-count check (default 1)
       --count-rule <rule> repeatable; recordPrefix:fieldIndex:countedPrefix,

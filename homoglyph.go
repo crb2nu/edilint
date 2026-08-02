@@ -71,7 +71,7 @@ var confusables = map[rune]rune{
 
 	// Punctuation.
 	0x2044: '/', 0x2215: '/', 0x2236: ':', 0xA789: ':', 0x037E: ';',
-	0x00B7: '.', 0x2027: '.', 0x00D7: 'x', 0x2044 + 1: '/',
+	0x00B7: '.', 0x2027: '.', 0x00D7: 'x',
 }
 
 // fullwidthOffset is the distance between an ASCII code point and its fullwidth

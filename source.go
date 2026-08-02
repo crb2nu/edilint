@@ -88,7 +88,7 @@ func newSource(name string, body []byte, format Format, opts Options, rep *Repor
 	return s
 }
 
-// buildX12 derives the ISA-declared separators and tokenises the body into segments.
+// buildX12 derives the ISA-declared separators and tokenizes the body into segments.
 func (s *source) buildX12(opts Options, rep *Report) {
 	isa := bytes.Index(s.Body, []byte("ISA"))
 	if isa < 0 || isa > leadingSpace(s.Body) {
@@ -121,7 +121,10 @@ func (s *source) buildX12(opts Options, rep *Report) {
 		return
 	}
 	if opts.Delimiter != "" {
-		if b, err := ParseDelimiter(opts.Delimiter); err == nil {
+		b, err := ParseDelimiter(opts.Delimiter)
+		if err != nil {
+			reportBadDelimiter(rep, opts.Delimiter, err, "the element separator the ISA declares")
+		} else {
 			d.Element = b
 		}
 	}
@@ -217,7 +220,7 @@ func isPadByte(b byte) bool {
 // For delimited and fixed-width inputs the leading field is only treated as a
 // record type when it actually behaves like one, that is when it repeats across
 // records. Otherwise it is data — a member id in a headerless CSV, say — and
-// labelling findings with it would be misleading.
+// labeling findings with it would be misleading.
 func (s *source) assignIDs() {
 	ids := make([]string, len(s.Records))
 	for i := range s.Records {
@@ -329,6 +332,11 @@ func indexLines(body []byte) []int {
 	return starts
 }
 
+// isaScanLimit bounds how far deriveDelims looks for the sixteenth element
+// separator. A conformant ISA is 106 bytes; this leaves generous room for a
+// malformed one while keeping the scan proportional to a segment, not a file.
+const isaScanLimit = 512
+
 // deriveDelims reads the separator characters out of an ISA segment. It walks to
 // the sixteenth element separator rather than trusting the fixed 106-character
 // width, so that a mis-sized ISA still yields usable separators.
@@ -338,8 +346,13 @@ func deriveDelims(body []byte, isa int) (delims, bool) {
 	}
 	d := delims{Element: body[isa+3]}
 
+	// A well-formed ISA is 106 bytes, so the sixteenth separator cannot be far
+	// away. Bounding the scan here rather than inside the loop keeps a wrong
+	// element-separator guess from walking the whole file.
+	end := min(len(body), isa+isaScanLimit)
+
 	seen := 0
-	for i := isa + 3; i < len(body); i++ {
+	for i := isa + 3; i < end; i++ {
 		if body[i] != d.Element {
 			continue
 		}
@@ -353,11 +366,6 @@ func deriveDelims(body []byte, isa int) (delims, bool) {
 			d.ISALen = i + 2 - isa + 1
 			d.Declared = true
 			break
-		}
-		// An ISA never spans more than a couple of hundred bytes; bail out rather
-		// than scanning a whole file when the element separator guess is wrong.
-		if i-isa > 512 {
-			return delims{}, false
 		}
 	}
 	if !d.Declared {
@@ -382,11 +390,13 @@ func deriveDelims(body []byte, isa int) (delims, bool) {
 	return d, true
 }
 
-// resolveDelimiter honours an explicit --delimiter, otherwise detects one.
+// resolveDelimiter honors an explicit delimiter option, otherwise detects one.
 func resolveDelimiter(body []byte, opts Options, rep *Report) byte {
 	if opts.Delimiter != "" {
 		b, err := ParseDelimiter(opts.Delimiter)
-		if err == nil {
+		if err != nil {
+			reportBadDelimiter(rep, opts.Delimiter, err, "delimiter detection")
+		} else {
 			return b
 		}
 	}
@@ -436,4 +446,20 @@ func hl7FieldSep(records []record) byte {
 		}
 	}
 	return '|'
+}
+
+// reportBadDelimiter records an unusable Options.Delimiter rather than silently
+// analyzing the file under options the caller did not ask for. The CLI rejects
+// the value up front, so this is reachable only from the library.
+func reportBadDelimiter(rep *Report, value string, err error, fallback string) {
+	if rep == nil {
+		return
+	}
+	rep.add(Finding{
+		Rule:     RuleFieldOutlier,
+		Severity: SeverityError,
+		Message: fmt.Sprintf("delimiter option %q is unusable (%v); analysis fell back to %s",
+			value, err, fallback),
+		Line: 1,
+	})
 }
