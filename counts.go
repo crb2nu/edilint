@@ -50,9 +50,32 @@ func (c CountRule) String() string {
 	return fmt.Sprintf("%s:%d:%s", c.Declaring, c.Field, c.Counted)
 }
 
+// Validate checks that a rule is usable. ParseCountRule guarantees this for the
+// CLI, but CountRule has exported fields, so a library caller can build one that
+// does not.
+func (c CountRule) Validate() error {
+	if c.Declaring == "" || c.Counted == "" {
+		return fmt.Errorf("record types must not be empty")
+	}
+	if c.Field < 1 {
+		return fmt.Errorf("field index %d must be a positive integer (1-based)", c.Field)
+	}
+	return nil
+}
+
 // checkCountRules recounts every declared record total and reports mismatches.
 func checkCountRules(s *source, opts Options, rep *Report) {
 	for _, rule := range opts.CountRules {
+		if err := rule.Validate(); err != nil {
+			rep.add(Finding{
+				Rule:     RuleCountUnparsable,
+				Severity: SeverityError,
+				Message: fmt.Sprintf("count rule %q is unusable, so it was not applied: %v",
+					rule, err),
+				Line: 1,
+			})
+			continue
+		}
 		applyCountRule(s, rule, rep)
 	}
 }

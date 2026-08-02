@@ -1,6 +1,7 @@
 package edilint
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -59,7 +60,7 @@ func LoadLayout(path string) (*Layout, error) {
 		return nil, fmt.Errorf("read layout %s: %w", path, err)
 	}
 	var l Layout
-	dec := json.NewDecoder(strings.NewReader(string(data)))
+	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&l); err != nil {
 		return nil, fmt.Errorf("parse layout %s: %w", path, err)
@@ -88,7 +89,8 @@ func (l *Layout) Validate() error {
 			return fmt.Errorf("field %q has pad %q; want %q or %q", f.Name, f.Pad, PadLeft, PadRight)
 		}
 		if len(f.PadChar) > 1 {
-			return fmt.Errorf("field %q has padChar %q; it must be a single character", f.Name, f.PadChar)
+			return fmt.Errorf("field %q has padChar %q; it must be a single ASCII character, since "+
+				"fixed-width field widths are byte offsets", f.Name, f.PadChar)
 		}
 	}
 	return nil
@@ -161,6 +163,11 @@ func checkLayout(s *source, opts Options, rep *Report) {
 
 // describeDrift names the field at which a length mismatch starts to matter.
 func describeDrift(l *Layout, got, want int) string {
+	// Lint rejects an empty layout before reaching here, but this function
+	// indexes the last field, so it enforces the invariant itself as well.
+	if len(l.Fields) == 0 {
+		return "the layout declares no fields"
+	}
 	if got > want {
 		return fmt.Sprintf("%d character(s) trail the last field %q", got-want, l.Fields[len(l.Fields)-1].Name)
 	}
