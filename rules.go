@@ -18,8 +18,8 @@ import (
 //	EL3xxx  X12 envelope structure
 //	EL4xxx  declared record counts and field-count consistency
 //	EL5xxx  fixed-width layouts
-//	EL6xxx  HL7v2 batch structure (reserved, not implemented yet)
-//	EL7xxx  EDIFACT envelope structure (reserved, not implemented yet)
+//	EL6xxx  HL7v2 batch structure
+//	EL7xxx  EDIFACT envelope structure
 //
 // Identifiers are permanent. A withdrawn rule keeps its number rather than
 // passing it to something else, so a suppression written today cannot silently
@@ -35,14 +35,14 @@ var classBlocks = map[string]string{
 	ClassCounts:     "EL4",
 	ClassFields:     "EL4",
 	ClassLayout:     "EL5",
+	ClassHL7Batch:   "EL6",
+	ClassEdifact:    "EL7",
 }
 
 // reservedBlocks are allocated to formats that are specified but not yet
-// implemented. Nothing shipped may use them.
-var reservedBlocks = map[string]string{
-	"EL6": "HL7v2 batch structure",
-	"EL7": "EDIFACT envelope structure",
-}
+// implemented. Nothing shipped may use them. EL6 (HL7v2 batch) and EL7
+// (EDIFACT envelope) left this table when workstream A shipped them.
+var reservedBlocks = map[string]string{}
 
 // RuleDoc describes a rule for --list-rules and for the documentation table.
 type RuleDoc struct {
@@ -97,6 +97,9 @@ func Rules() []RuleDoc {
 			"Whitespace between segment terminators is applied inconsistently."},
 		{"EL2005", RuleX12Separator, ClassTerminator, SeverityError, "x12",
 			"Declared separators collide with each other or are alphanumeric."},
+		{"EL2006", RuleEdifactSegment, ClassTerminator, SeverityError, "edifact",
+			"Segment is not closed by the segment terminator in force, which in practice means " +
+				"the file was truncated mid-segment."},
 
 		{"EL3001", RuleISALength, ClassEnvelope, SeverityError, "x12",
 			"ISA segment is not the fixed 106 characters, or is absent."},
@@ -141,6 +144,49 @@ func Rules() []RuleDoc {
 			"Record length does not match the sum of the layout's field widths."},
 		{"EL5002", RuleLayoutPadding, ClassLayout, SeverityWarning, "fixed (requires --layout)",
 			"A field's padding is unambiguously on the side opposite the one the layout declares."},
+
+		{"EL6001", RuleBatchUnclosed, ClassHL7Batch, SeverityError, "hl7v2",
+			"FHS or BHS is never closed by a matching FTS or BTS, so the batch envelope is incomplete."},
+		{"EL6002", RuleBatchUnopened, ClassHL7Batch, SeverityError, "hl7v2",
+			"FTS or BTS appears without its matching FHS or BHS header."},
+		{"EL6003", RuleBatchMessageCount, ClassHL7Batch, SeverityError, "hl7v2",
+			"BTS-1 does not match the recounted MSH messages in the batch. An empty BTS-1 is not " +
+				"checked; the field is optional."},
+		{"EL6004", RuleBatchFileCount, ClassHL7Batch, SeverityError, "hl7v2",
+			"FTS-1 does not match the recounted BHS batches in the file. An empty FTS-1 is not " +
+				"checked; the field is optional."},
+		{"EL6005", RuleBatchSeparator, ClassHL7Batch, SeverityError, "hl7v2",
+			"FHS, BHS and MSH headers disagree on the field separator or the encoding characters, " +
+				"or a header's encoding characters are malformed. Split-and-merge tooling reads every " +
+				"message with the first header's separators, so a disagreeing message is misparsed."},
+		{"EL6006", RuleBatchStrayMessage, ClassHL7Batch, SeverityWarning, "hl7v2",
+			"MSH appears outside any open batch in a file that uses batch envelopes, so batch-aware " +
+				"readers will not process it. Files with no BHS at all are not checked; bare message " +
+				"streams are valid without an envelope."},
+
+		{"EL7001", RuleEdifactUnclosed, ClassEdifact, SeverityError, "edifact",
+			"UNB, UNG or UNH is never closed by a matching UNZ, UNE or UNT."},
+		{"EL7002", RuleEdifactUnopened, ClassEdifact, SeverityError, "edifact",
+			"UNZ, UNE or UNT appears without its matching header."},
+		{"EL7003", RuleEdifactSegmentCount, ClassEdifact, SeverityError, "edifact",
+			"UNT-1 does not match the recounted segments from UNH through UNT inclusive."},
+		{"EL7004", RuleEdifactGroupCount, ClassEdifact, SeverityError, "edifact",
+			"UNE-1 does not match the recounted messages in the functional group."},
+		{"EL7005", RuleEdifactInterchangeCount, ClassEdifact, SeverityError, "edifact",
+			"UNZ-1 does not match the recounted messages in the interchange, or the recounted " +
+				"functional groups when UNG groups are used."},
+		{"EL7006", RuleEdifactControlRef, ClassEdifact, SeverityError, "edifact",
+			"Header and trailer control references differ (UNB-5/UNZ-2, UNG-5/UNE-2, UNH-1/UNT-2), " +
+				"or a header's reference is empty."},
+		{"EL7007", RuleEdifactServiceString, ClassEdifact, SeverityError, "edifact",
+			"UNA is not the fixed nine characters, its service characters collide or are " +
+				"alphanumeric, or its decimal mark is not a period or a comma."},
+		{"EL7008", RuleEdifactNesting, ClassEdifact, SeverityError, "edifact",
+			"UNG or UNH appears outside the envelope that must enclose it, or no UNB is present " +
+				"in a file forced to the edifact format."},
+		{"EL7009", RuleEdifactTrailing, ClassEdifact, SeverityError, "edifact",
+			"Segments appear outside any interchange; data after UNZ is not part of a valid " +
+				"EDIFACT file."},
 	}
 }
 

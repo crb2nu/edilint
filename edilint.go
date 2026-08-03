@@ -1,6 +1,6 @@
 // Package edilint implements pre-send quality checks for healthcare interchange
-// files: X12 EDI envelopes, HL7v2 messages, delimited extracts and fixed-width
-// records.
+// files: X12 EDI envelopes, HL7v2 messages and batches, EDIFACT envelopes,
+// delimited extracts and fixed-width records.
 //
 // The package has no dependencies outside the Go standard library and no
 // knowledge of any particular trading partner, so it can be embedded in a build
@@ -26,8 +26,12 @@ const (
 	FormatAuto Format = "auto"
 	// FormatX12 is an X12 EDI interchange introduced by an ISA segment.
 	FormatX12 Format = "x12"
-	// FormatHL7v2 is an HL7 version 2.x message introduced by an MSH segment.
+	// FormatHL7v2 is an HL7 version 2.x message introduced by an MSH segment,
+	// or a batch of them introduced by FHS or BHS.
 	FormatHL7v2 Format = "hl7v2"
+	// FormatEdifact is a UN/EDIFACT interchange introduced by a UNA service
+	// string advice or a UNB header.
+	FormatEdifact Format = "edifact"
 	// FormatDelimited is a line-oriented record file with a single-character
 	// field delimiter (CSV, pipe-delimited, tab-delimited).
 	FormatDelimited Format = "delimited"
@@ -41,12 +45,12 @@ const (
 // ParseFormat converts a user-supplied --format value into a Format.
 func ParseFormat(s string) (Format, error) {
 	switch Format(s) {
-	case FormatAuto, FormatX12, FormatHL7v2, FormatDelimited, FormatFixed, FormatText:
+	case FormatAuto, FormatX12, FormatHL7v2, FormatEdifact, FormatDelimited, FormatFixed, FormatText:
 		return Format(s), nil
 	case "":
 		return FormatAuto, nil
 	default:
-		return "", fmt.Errorf("unknown format %q (want auto, x12, hl7v2, delimited, fixed or text)", s)
+		return "", fmt.Errorf("unknown format %q (want auto, x12, hl7v2, edifact, delimited, fixed or text)", s)
 	}
 }
 
@@ -207,6 +211,12 @@ func Lint(name string, data []byte, opts Options) *Report {
 	checkTerminators(src, rep)
 	if src.Format == FormatX12 {
 		checkX12Envelope(src, opts, rep)
+	}
+	if src.Format == FormatHL7v2 {
+		checkHL7Batch(src, rep)
+	}
+	if src.Format == FormatEdifact {
+		checkEdifactEnvelope(src, rep)
 	}
 	checkCountRules(src, opts, rep)
 	checkFieldCounts(src, opts, rep)

@@ -1,10 +1,11 @@
 # edilint
 
-A pre-send linter for healthcare interchange files. It reads X12 EDI, HL7v2,
-delimited and fixed-width files and reports the defects that break a downstream
-parser or draw a trading-partner rejection: invisible and lookalike characters,
-inconsistent terminators, broken X12 envelopes, duplicate control numbers, and
-declared record counts that disagree with the records actually present.
+A pre-send linter for healthcare interchange files. It reads X12 EDI, HL7v2
+messages and batches, EDIFACT, delimited and fixed-width files and reports the
+defects that break a downstream parser or draw a trading-partner rejection:
+invisible and lookalike characters, inconsistent terminators, broken X12,
+HL7v2 batch and EDIFACT envelopes, duplicate control numbers, and declared
+record counts that disagree with the records actually present.
 
 Single static binary, exit codes, and JSON output, so it works as a gate in a
 send script or a CI job.
@@ -150,7 +151,7 @@ interchange control number detection across the whole batch.
 
 | Flag | Purpose |
 |---|---|
-| `-f`, `--format <name>` | `auto` (default), `x12`, `hl7v2`, `delimited`, `fixed`, `text`. |
+| `-f`, `--format <name>` | `auto` (default), `x12`, `hl7v2`, `edifact`, `delimited`, `fixed`, `text`. |
 | `-d`, `--delimiter <char>` | Field delimiter for delimited files. Accepts `\t`, `\0`, `\xNN`. |
 | `--layout <file>` | Fixed-width layout JSON. Required for `--format fixed`. |
 | `--charset <name>` | X12 character set: `extended` (default), `basic`, `off`. |
@@ -187,7 +188,8 @@ with one both exit 1.
 
 ### Format detection
 
-`ISA` in the leading bytes selects X12; `MSH`, `FHS` or `BHS` selects HL7v2; a
+`ISA` in the leading bytes selects X12; `MSH`, `FHS` or `BHS` selects HL7v2;
+`UNA` or `UNB` followed by a separator selects EDIFACT; a
 `--layout` selects fixed-width; otherwise a field delimiter is inferred from how
 consistently a candidate character appears across records. Anything else is
 treated as plain text, which limits the run to the character and terminator
@@ -285,7 +287,7 @@ anywhere else, and `--no-config` to ignore the one that is there.
 version: 1
 
 # Analysis settings. Each is optional and each has a flag that overrules it.
-format: auto              # auto, x12, hl7v2, delimited, fixed, text
+format: auto              # auto, x12, hl7v2, edifact, delimited, fixed, text
 delimiter: "|"            # accepts \t, \0, \xNN as the flag does
 charset: extended         # extended, basic, off
 type-field: 1
@@ -401,8 +403,8 @@ tool produced a finding before you look anything up:
 | `EL3xxx` | X12 envelope structure |
 | `EL4xxx` | Declared record counts and field-count consistency |
 | `EL5xxx` | Fixed-width layouts |
-| `EL6xxx` | HL7v2 batch structure (reserved, not implemented yet) |
-| `EL7xxx` | EDIFACT envelope structure (reserved, not implemented yet) |
+| `EL6xxx` | HL7v2 batch structure |
+| `EL7xxx` | EDIFACT envelope structure |
 
 Identifiers are permanent. A withdrawn rule keeps its number rather than passing
 it to something else, so a suppression written today cannot silently come to
@@ -433,6 +435,7 @@ themselves by format, and a configuration file can override any of them.
 | `EL2003` | `terminator.x12-segment` | error | x12 | Segment is not closed by the segment terminator the ISA declared. |
 | `EL2004` | `terminator.x12-padding` | warning | x12 | Whitespace between segment terminators is applied inconsistently. |
 | `EL2005` | `terminator.x12-separator` | error | x12 | Declared separators collide with each other or are alphanumeric. |
+| `EL2006` | `terminator.edifact-segment` | error | edifact | Segment is not closed by the segment terminator in force, which in practice means the file was truncated mid-segment. |
 
 ### envelope
 
@@ -472,6 +475,40 @@ themselves by format, and a configuration file can override any of them.
 |---|---|---|---|---|
 | `EL5001` | `layout.length` | error | fixed (requires --layout) | Record length does not match the sum of the layout's field widths. |
 | `EL5002` | `layout.padding` | warning | fixed (requires --layout) | A field's padding is unambiguously on the side opposite the one the layout declares. |
+
+### hl7batch
+
+A file of bare MSH messages is valid without any envelope, so the pairing and
+count checks run only when the file uses FHS, BHS, BTS or FTS at all. The
+separator checks always run: a single message with malformed encoding
+characters is broken on its own.
+
+| ID | Rule | Severity | Applies to | Detects |
+|---|---|---|---|---|
+| `EL6001` | `hl7batch.unclosed` | error | hl7v2 | FHS or BHS is never closed by a matching FTS or BTS, so the batch envelope is incomplete. |
+| `EL6002` | `hl7batch.unopened` | error | hl7v2 | FTS or BTS appears without its matching FHS or BHS header. |
+| `EL6003` | `hl7batch.message-count` | error | hl7v2 | BTS-1 does not match the recounted MSH messages in the batch. An empty BTS-1 is not checked; the field is optional. |
+| `EL6004` | `hl7batch.batch-count` | error | hl7v2 | FTS-1 does not match the recounted BHS batches in the file. An empty FTS-1 is not checked; the field is optional. |
+| `EL6005` | `hl7batch.separator` | error | hl7v2 | FHS, BHS and MSH headers disagree on the field separator or the encoding characters, or a header's encoding characters are malformed. Split-and-merge tooling reads every message with the first header's separators, so a disagreeing message is misparsed. |
+| `EL6006` | `hl7batch.stray-message` | warning | hl7v2 | MSH appears outside any open batch in a file that uses batch envelopes, so batch-aware readers will not process it. |
+
+### edifact
+
+Envelope level only, the same boundary as the X12 checks: UNB/UNZ, UNG/UNE and
+UNH/UNT pairing, trailer recounts, control-reference matching and the UNA
+service string advice. Message content is out of scope.
+
+| ID | Rule | Severity | Applies to | Detects |
+|---|---|---|---|---|
+| `EL7001` | `edifact.unclosed` | error | edifact | UNB, UNG or UNH is never closed by a matching UNZ, UNE or UNT. |
+| `EL7002` | `edifact.unopened` | error | edifact | UNZ, UNE or UNT appears without its matching header. |
+| `EL7003` | `edifact.segment-count` | error | edifact | UNT-1 does not match the recounted segments from UNH through UNT inclusive. |
+| `EL7004` | `edifact.group-count` | error | edifact | UNE-1 does not match the recounted messages in the functional group. |
+| `EL7005` | `edifact.interchange-count` | error | edifact | UNZ-1 does not match the recounted messages in the interchange, or the recounted functional groups when UNG groups are used. |
+| `EL7006` | `edifact.control-reference` | error | edifact | Header and trailer control references differ (UNB-5/UNZ-2, UNG-5/UNE-2, UNH-1/UNT-2), or a header's reference is empty. A numerically-equal-but-not-identical pair is reported as a warning. |
+| `EL7007` | `edifact.service-string` | error | edifact | UNA is not the fixed nine characters, its service characters collide or are alphanumeric, or its decimal mark is not a period or a comma. |
+| `EL7008` | `edifact.nesting` | error | edifact | UNG or UNH appears outside the envelope that must enclose it, or no UNB is present in a file forced to the edifact format. |
+| `EL7009` | `edifact.trailing-data` | error | edifact | Segments appear outside any interchange; data after UNZ is not part of a valid EDIFACT file. |
 
 ## Scope
 

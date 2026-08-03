@@ -169,7 +169,7 @@ func TestLoadConfigRejectsBadSettings(t *testing.T) {
 		{"misspelled class", "disable:\n  - charsets\n", `unknown rule "charsets"`},
 		{"unknown severity", "severity:\n  EL2002: fatal\n", `unknown severity "fatal"`},
 		{"class in severity", "severity:\n  charset: info\n", `unknown rule "charset"`},
-		{"bad format", "format: edifact\n", "unknown format"},
+		{"bad format", "format: edi\n", "unknown format"},
 		{"bad charset", "charset: strict\n", "unknown charset"},
 		{"bad delimiter", "delimiter: \"||\"\n", "delimiter must be a single character"},
 		{"bad count rule", "count-rules:\n  - TRL:x:DTL\n", "field index must be a positive integer"},

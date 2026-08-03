@@ -16,6 +16,18 @@ up the first tag.
 - X12 EDI, HL7v2, delimited and fixed-width linting across six check classes:
   character hygiene, terminator consistency, X12 envelope integrity, declared
   record counts, field-count consistency and fixed-width layout conformance.
+- HL7v2 batch structure checks (`EL6xxx`): FHS/FTS and BHS/BTS pairing, BTS-1
+  and FTS-1 recounts, and field-separator and encoding-character consistency
+  across every FHS, BHS and MSH header in a file. A stream of bare MSH messages
+  is valid without an envelope and produces no batch findings.
+- EDIFACT envelope checks (`EL7xxx`) behind a new detected `edifact` format:
+  UNB/UNZ, UNG/UNE and UNH/UNT pairing, UNT-1/UNE-1/UNZ-1 recounts,
+  control-reference matching (UNB-5/UNZ-2, UNG-5/UNE-2, UNH-1/UNT-2), and
+  validation of the UNA service string advice, whose declared separators —
+  including a moved segment terminator and the release character — govern how
+  the file is read. An unterminated final segment is reported as truncation
+  (`EL2006`). Detection requires `UNA`/`UNB` to be followed by a separator, so
+  a delimited file whose first field starts with those letters is not misread.
 - `--json` output, documented and versioned, currently schema version 3.
 - Exit statuses suitable for gating a send script: 0 clean, 1 findings, 2 the
   tool could not do its job.

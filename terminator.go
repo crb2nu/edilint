@@ -20,6 +20,13 @@ func checkTerminators(s *source, rep *Report) {
 		checkX12Padding(s, rep)
 		return
 	}
+	// EDIFACT segments are terminator-delimited, not line-delimited, so the
+	// line-ending checks do not apply. The service characters themselves are
+	// validated by the UNA check in the edifact class.
+	if s.Format == FormatEdifact && s.Edifact.Declared {
+		checkEdifactSegmentTerms(s, rep)
+		return
+	}
 	checkLineEndings(s, rep)
 }
 

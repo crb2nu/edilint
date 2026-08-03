@@ -485,7 +485,7 @@ Exit status:
   2  usage error or a file could not be read
 
 Flags:
-  -f, --format <name>     auto (default), x12, hl7v2, delimited, fixed, text
+  -f, --format <name>     auto (default), x12, hl7v2, edifact, delimited, fixed, text
   -d, --delimiter <char>  field delimiter for delimited files; accepts \t, \0, \xNN
       --layout <file>     fixed-width layout JSON; required for --format fixed
       --charset <name>    X12 character set: extended (default), basic, off

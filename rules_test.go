@@ -87,7 +87,7 @@ func TestRuleLookups(t *testing.T) {
 	}
 
 	classes := RuleClasses()
-	want := []string{"charset", "counts", "envelope", "fields", "layout", "terminator"}
+	want := []string{"charset", "counts", "edifact", "envelope", "fields", "hl7batch", "layout", "terminator"}
 	if len(classes) != len(want) {
 		t.Fatalf("RuleClasses() = %v, want %v", classes, want)
 	}
