@@ -76,6 +76,15 @@ up the first tag.
   one entry with a count, so one more of the same defect is reported too. The
   document is sorted and carries no timestamp, so re-recording an unchanged
   set produces the same bytes.
+- Release engineering: pushing a `v*` tag builds and publishes archives for
+  darwin, linux and windows on amd64 and arm64 via goreleaser, a Homebrew
+  cask in `crb2nu/homebrew-tap` (skipped cleanly until the tap and its
+  token exist), and a from-scratch Docker image at `ghcr.io/crb2nu/edilint` —
+  a static binary and nothing else, because a linter that makes no network
+  calls needs no CA bundle, shell or libc. `goreleaser check` runs in CI so
+  the release configuration cannot drift between tags. A pre-commit hook
+  definition lets `pre-commit` shops pin a released tag and lint interchange
+  files before they are committed.
 
 ### Changed
 

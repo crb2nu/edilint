@@ -155,6 +155,21 @@ Severities map onto each format's own vocabulary the same way: `error` and
 `warning` keep their names, and `info` becomes SARIF `note`, JUnit `skipped`,
 and Actions `notice` — rendered, never gating.
 
+As a [pre-commit](https://pre-commit.com) hook, once a tagged release exists
+to pin:
+
+```yaml
+repos:
+  - repo: https://github.com/crb2nu/edilint
+    rev: <a released tag>
+    hooks:
+      - id: edilint
+```
+
+The default hook runs on `.x12`, `.edi`, `.edifact` and `.hl7` files; a shop
+whose files are named by transaction set (`*.837`, `*.835`) overrides `files`
+in its own configuration.
+
 For machine consumption, `--json` writes one document describing every file:
 
 ```sh
