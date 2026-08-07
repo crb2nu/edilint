@@ -139,6 +139,16 @@ func FormatFinding(f Finding, format Format) string {
 	}
 	fmt.Fprintf(&b, ": %s: [%s] %s", f.Severity, rule, f.Message)
 
+	if ctx := findingContext(f, format); ctx != "" {
+		fmt.Fprintf(&b, " (%s)", ctx)
+	}
+	return b.String()
+}
+
+// findingContext names the record a finding sits on, e.g. "record 3, segment
+// DTL", or "" when the finding carries no record at all. It is the shared
+// suffix of every output format that renders findings as prose.
+func findingContext(f Finding, format Format) string {
 	var where []string
 	if f.RecordNumber > 0 {
 		where = append(where, fmt.Sprintf("record %d", f.RecordNumber))
@@ -150,10 +160,7 @@ func FormatFinding(f Finding, format Format) string {
 		}
 		where = append(where, label+" "+f.Record)
 	}
-	if len(where) > 0 {
-		fmt.Fprintf(&b, " (%s)", strings.Join(where, ", "))
-	}
-	return b.String()
+	return strings.Join(where, ", ")
 }
 
 func plural(n int, unit string) string {

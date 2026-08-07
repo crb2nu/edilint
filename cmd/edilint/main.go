@@ -49,6 +49,7 @@ type config struct {
 	noConfig      bool
 	baselinePath  string
 	writeBaseline string
+	output        edilint.OutputFormat
 	jsonOut       bool
 	verbose       bool
 	allowWarnings bool
@@ -152,12 +153,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return recordBaseline(cfg, rr, unreadable, len(paths), stderr)
 	}
 
-	if cfg.jsonOut {
-		if err := rr.WriteJSON(stdout); err != nil {
-			diagf(stderr, "edilint: %v\n", err)
-			return exitUsage
-		}
-	} else if err := rr.WriteText(stdout, cfg.verbose); err != nil {
+	if err := writeReport(rr, cfg, stdout); err != nil {
 		diagf(stderr, "edilint: %v\n", err)
 		return exitUsage
 	}
@@ -179,6 +175,24 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitFindings
 	}
 	return exitClean
+}
+
+// writeReport renders the run report in the selected output format. Every
+// format goes to standard output; which one is in force never changes what the
+// run found or how it exits.
+func writeReport(rr *edilint.RunReport, cfg config, stdout io.Writer) error {
+	switch cfg.output {
+	case edilint.OutputJSON:
+		return rr.WriteJSON(stdout)
+	case edilint.OutputSARIF:
+		return rr.WriteSARIF(stdout, version)
+	case edilint.OutputJUnit:
+		return rr.WriteJUnit(stdout)
+	case edilint.OutputGitHub:
+		return rr.WriteGitHubAnnotations(stdout)
+	default:
+		return rr.WriteText(stdout, cfg.verbose)
+	}
 }
 
 // resolve layers the configuration file under the command line.
@@ -317,6 +331,7 @@ var valueFlags = map[string]bool{
 	"--layout": true, "--charset": true, "--type-field": true,
 	"--count-rule": true, "--disable": true, "--max-findings": true,
 	"--config": true, "--baseline": true, "--write-baseline": true,
+	"--output": true,
 }
 
 // boolFlags lists the flags that take no value.
@@ -416,6 +431,10 @@ func parseArgs(args []string) (config, error) {
 		case "--write-baseline":
 			cfg.writeBaseline = val
 
+		case "--output":
+			cfg.output, err = edilint.ParseOutputFormat(val)
+			cfg.set["output"] = true
+
 		case "--charset":
 			cfg.opts.X12Charset, err = edilint.ParseCharsetProfile(val)
 			cfg.set["charset"] = true
@@ -458,6 +477,19 @@ func parseArgs(args []string) (config, error) {
 		if err != nil {
 			return cfg, err
 		}
+	}
+
+	// --json predates --output and is kept as a shorthand for --output json.
+	// The pair only conflicts when they disagree.
+	if cfg.jsonOut {
+		if cfg.set["output"] && cfg.output != edilint.OutputJSON {
+			return cfg, fmt.Errorf("--json and --output %s cannot be used together; --json means --output json",
+				cfg.output)
+		}
+		cfg.output = edilint.OutputJSON
+	}
+	if cfg.output == "" {
+		cfg.output = edilint.OutputText
 	}
 
 	if cfg.baselinePath != "" && cfg.writeBaseline != "" {
@@ -504,7 +536,11 @@ Flags:
       --max-findings <n>  print at most n findings per file (default unlimited).
                           The exit status always reflects every finding.
       --allow-warnings    exit 0 when only warnings were found
-      --json              emit a JSON document instead of diagnostic lines
+      --output <name>     text (default), json, sarif, junit, github.
+                          sarif is SARIF 2.1.0 for GitHub code scanning, junit
+                          is JUnit XML for CI test panels, github is one
+                          Actions annotation per finding.
+      --json              shorthand for --output json
   -v, --verbose           print a line for clean files too
       --list-rules        print the rule catalog and exit
       --version           print the version and exit
@@ -527,5 +563,9 @@ Examples:
 
   # Machine-readable output for a CI annotation step.
   edilint --json outbound/*.x12 | jq '.files[].findings[]'
+
+  # SARIF for GitHub code scanning; JUnit for a CI test panel.
+  edilint --output sarif outbound/*.x12 > edilint.sarif
+  edilint --output junit outbound/*.x12 > edilint-junit.xml
 `)
 }

@@ -103,6 +103,58 @@ edilint:
     - edilint outbound/*.x12
 ```
 
+### CI-native output formats
+
+`--output` selects how findings are rendered. Every format goes to standard
+output, and none of them changes what the run found or how it exits.
+
+| Format | For |
+|---|---|
+| `text` (default) | Humans and grep: one diagnostic line per finding. |
+| `json` | Scripts. The versioned document described below; `--json` is shorthand. |
+| `sarif` | GitHub code scanning. SARIF 2.1.0 with the rule catalog embedded. |
+| `junit` | CI test panels (GitLab, Jenkins). One testsuite per file, one testcase per finding. |
+| `github` | GitHub Actions annotations, one workflow command per finding. |
+
+SARIF into GitHub code scanning, so findings appear on the pull request's
+Security tab and as review annotations:
+
+```yaml
+      - run: edilint --output sarif outbound/*.x12 > edilint.sarif
+        continue-on-error: true
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: edilint.sarif
+```
+
+`continue-on-error` keeps the upload step reachable when there are findings;
+drop it (and the upload) to use the exit status as a plain gate instead.
+
+JUnit into GitLab's test panel:
+
+```yaml
+edilint:
+  image: golang:1.26
+  script:
+    - go install github.com/crb2nu/edilint/cmd/edilint@latest
+    - edilint --output junit outbound/*.x12 > edilint-junit.xml
+  artifacts:
+    when: always
+    reports:
+      junit: edilint-junit.xml
+```
+
+A clean file renders as one passing testcase, so a green pipeline shows what
+was checked. Errors and warnings render as failures; findings re-graded to
+`info` render as skipped, because info never fails a run.
+
+`--output github` needs no upload step: the runner turns each printed
+`::error` or `::warning` line into an annotation on the file and line.
+
+Severities map onto each format's own vocabulary the same way: `error` and
+`warning` keep their names, and `info` becomes SARIF `note`, JUnit `skipped`,
+and Actions `notice` — rendered, never gating.
+
 For machine consumption, `--json` writes one document describing every file:
 
 ```sh
@@ -126,7 +178,10 @@ Each `summary` object carries `total`, `errors`, `warnings` and `infos`.
 The JSON document carries a `version` field, currently `3`. It is incremented
 whenever a consumer written against the previous version could meet something it
 has not seen before: a field added, removed, renamed, given a new meaning, or
-given a value outside its documented set.
+given a value outside its documented set. The shape is committed as a JSON
+schema in [`schema/report.v3.schema.json`](schema/report.v3.schema.json), and
+the test suite holds the schema and the code to each other, so the two cannot
+drift apart silently.
 
 | Version | Change |
 |---|---|
@@ -164,7 +219,8 @@ interchange control number detection across the whole batch.
 | `--write-baseline <file>` | Record this run's findings as a baseline and exit 0. |
 | `--max-findings <n>` | Print at most n findings per file. The exit status and the summary always reflect every finding, whatever this is set to. |
 | `--allow-warnings` | Exit 0 when only warnings were found. |
-| `--json` | Emit a JSON document instead of diagnostic lines. |
+| `--output <name>` | Output format: `text` (default), `json`, `sarif`, `junit`, `github`. |
+| `--json` | Shorthand for `--output json`. |
 | `-v`, `--verbose` | Print a line for clean files too, name the configuration file in use, and report stale baseline entries. |
 | `--list-rules` | Print the rule catalog and exit. |
 
