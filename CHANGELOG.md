@@ -28,7 +28,21 @@ up the first tag.
   the file is read. An unterminated final segment is reported as truncation
   (`EL2006`). Detection requires `UNA`/`UNB` to be followed by a separator, so
   a delimited file whose first field starts with those letters is not misread.
-- `--json` output, documented and versioned, currently schema version 3.
+- `--json` output, documented and versioned, currently schema version 3. The
+  shape is committed as a JSON schema in `schema/report.v3.schema.json`, and
+  the test suite holds the schema and the structs to each other.
+- `--output <name>` selects the output format: `text` (the default diagnostic
+  lines), `json` (`--json` remains as shorthand), `sarif` (SARIF 2.1.0 for
+  GitHub code scanning, rule catalog embedded), `junit` (JUnit XML for CI test
+  panels: a testsuite per file, a testcase per finding, clean files as passing
+  cases) and `github` (one GitHub Actions workflow-command annotation per
+  finding). Every format goes to standard output, and none of them changes
+  what a run finds or how it exits. Severities keep their names where the
+  target vocabulary has them; `info` becomes SARIF `note`, JUnit `skipped` and
+  Actions `notice`, rendered but never gating, the same contract it has
+  everywhere else. When `--max-findings` drops findings, `junit` adds a
+  failing testcase and `github` a `::notice` saying how many, so truncated
+  output cannot read as complete.
 - Exit statuses suitable for gating a send script: 0 clean, 1 findings, 2 the
   tool could not do its job.
 - `--count-rule`, `--layout`, `--charset`, `--disable`, `--max-findings` and

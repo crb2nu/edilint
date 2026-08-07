@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/crb2nu/edilint/main/schema/report.v3.schema.json",
+  "title": "edilint JSON report, version 3",
+  "description": "The document `edilint --json` (equivalently `--output json`) writes: one run report covering every file linted in one invocation. The `version` field is incremented, and a new schema file committed, whenever a consumer written against the previous version could meet something it has not seen before.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "files", "summary"],
+  "properties": {
+    "version": {
+      "description": "The document shape version. This schema describes version 3.",
+      "const": 3
+    },
+    "files": {
+      "description": "One report per input file, in the order the files were given. Always an array, [] when no file could be read.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/report" }
+    },
+    "summary": { "$ref": "#/$defs/runSummary" }
+  },
+  "$defs": {
+    "report": {
+      "description": "The result of linting one input.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "format", "findings", "summary"],
+      "properties": {
+        "file": {
+          "description": "The input path as given, \"-\" for standard input.",
+          "type": "string"
+        },
+        "format": {
+          "description": "The detected or forced structural family of the input.",
+          "enum": ["x12", "hl7v2", "edifact", "delimited", "fixed", "text"]
+        },
+        "findings": {
+          "description": "The findings retained for display, ordered by position. Always an array, [] for a clean file. When summary.truncated is true this holds fewer findings than summary.total.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        },
+        "summary": { "$ref": "#/$defs/summary" }
+      }
+    },
+    "finding": {
+      "description": "A single defect located in an input file.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rule", "class", "severity", "message"],
+      "properties": {
+        "id": {
+          "description": "The stable rule identifier, e.g. \"EL3006\".",
+          "type": "string",
+          "pattern": "^EL[0-9]{4}$"
+        },
+        "rule": {
+          "description": "The stable dotted rule name, e.g. \"envelope.segment-count\".",
+          "type": "string"
+        },
+        "class": {
+          "description": "The leading component of the rule name, e.g. \"envelope\".",
+          "type": "string"
+        },
+        "severity": {
+          "enum": ["error", "warning", "info"]
+        },
+        "message": {
+          "description": "A one-line human-readable description.",
+          "type": "string"
+        },
+        "file": {
+          "description": "The input path, repeated on each finding so one finding is self-contained.",
+          "type": "string"
+        },
+        "line": {
+          "description": "The 1-based physical line the defect starts on. Absent for whole-file findings.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "description": "The 1-based rune column within the line.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "record_number": {
+          "description": "The 1-based logical record (or X12 segment) ordinal.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "record": {
+          "description": "The kind of record: the segment identifier for X12 and HL7v2, the record type otherwise. Absent when the leading field holds data rather than a record-type discriminator.",
+          "type": "string"
+        },
+        "code_point": {
+          "description": "The offending character for character findings, e.g. \"U+0410\".",
+          "type": "string"
+        },
+        "expected": {
+          "description": "The declared side of a count, length or padding mismatch.",
+          "type": "string"
+        },
+        "actual": {
+          "description": "The observed side of a count, length or padding mismatch.",
+          "type": "string"
+        }
+      }
+    },
+    "summary": {
+      "description": "Finding counts for one file. Always reflects the complete set, including findings counted but not retained for display.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "errors", "warnings", "infos"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "errors": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "infos": { "type": "integer", "minimum": 0 },
+        "by_rule": {
+          "description": "Finding counts keyed by rule name. Absent for a clean file.",
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "truncated": {
+          "description": "Present and true when the findings array was capped. The counts in this summary are exact either way.",
+          "type": "boolean"
+        }
+      }
+    },
+    "runSummary": {
+      "description": "Finding counts aggregated over every file in the run.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "total", "errors", "warnings", "infos"],
+      "properties": {
+        "files": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "errors": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "infos": { "type": "integer", "minimum": 0 },
+        "truncated": {
+          "description": "Present and true when any file's findings array was capped.",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

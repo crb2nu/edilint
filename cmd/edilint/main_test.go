@@ -1108,3 +1108,77 @@ func TestExampleConfigRunsAsDocumented(t *testing.T) {
 		t.Errorf("the example config should apply its count rule, got %q", stdout)
 	}
 }
+
+func TestOutputFlagSelectsTheWriter(t *testing.T) {
+	dir := t.TempDir()
+	broken := write(t, dir, "broken.x12", brokenX12)
+
+	tests := []struct {
+		name   string
+		output string
+		want   []string
+	}{
+		{"sarif", "sarif", []string{`"$schema"`, `"2.1.0"`, `"ruleId": "EL3006"`, `"level": "error"`}},
+		{"junit", "junit", []string{"<?xml", "<testsuite", `type="error"`, "EL3006 envelope.segment-count"}},
+		{"github", "github", []string{"::error file=", "title=EL3006 envelope.segment-count"}},
+		{"json", "json", []string{`"version": 3`, `"id": "EL3006"`}},
+		{"text", "text", []string{": error: [EL3006 envelope.segment-count]"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			code, stdout, stderr := exec("--output", tc.output, broken)
+			if code != exitFindings {
+				t.Fatalf("exit = %d, want %d (%s)", code, exitFindings, stderr)
+			}
+			for _, want := range tc.want {
+				if !strings.Contains(stdout, want) {
+					t.Errorf("--output %s: output lacks %q:\n%s", tc.output, want, stdout)
+				}
+			}
+		})
+	}
+}
+
+func TestOutputJSONMatchesTheJSONFlag(t *testing.T) {
+	dir := t.TempDir()
+	broken := write(t, dir, "broken.x12", brokenX12)
+
+	_, viaFlag, _ := exec("--json", broken)
+	_, viaOutput, _ := exec("--output", "json", broken)
+	if viaFlag != viaOutput {
+		t.Errorf("--json and --output json disagree:\n%s\n---\n%s", viaFlag, viaOutput)
+	}
+}
+
+func TestOutputFlagValidation(t *testing.T) {
+	dir := t.TempDir()
+	clean := write(t, dir, "clean.x12", cleanX12)
+
+	if code, _, stderr := exec("--output", "yaml", clean); code != exitUsage ||
+		!strings.Contains(stderr, "unknown output format") {
+		t.Errorf("--output yaml: exit = %d, stderr = %q, want a usage error naming the format", code, stderr)
+	}
+	if code, _, stderr := exec("--json", "--output", "sarif", clean); code != exitUsage ||
+		!strings.Contains(stderr, "cannot be used together") {
+		t.Errorf("--json with --output sarif: exit = %d, stderr = %q, want a conflict error", code, stderr)
+	}
+	// Agreement is not a conflict.
+	if code, _, stderr := exec("--json", "--output", "json", clean); code != exitClean {
+		t.Errorf("--json with --output json: exit = %d (%s), want %d", code, stderr, exitClean)
+	}
+}
+
+func TestOutputFormatsKeepTheExitContract(t *testing.T) {
+	dir := t.TempDir()
+	clean := write(t, dir, "clean.x12", cleanX12)
+	broken := write(t, dir, "broken.x12", brokenX12)
+
+	for _, output := range []string{"sarif", "junit", "github"} {
+		if code, _, _ := exec("--output", output, clean); code != exitClean {
+			t.Errorf("--output %s on a clean file: exit = %d, want %d", output, code, exitClean)
+		}
+		if code, _, _ := exec("--output", output, broken); code != exitFindings {
+			t.Errorf("--output %s on a broken file: exit = %d, want %d", output, code, exitFindings)
+		}
+	}
+}
