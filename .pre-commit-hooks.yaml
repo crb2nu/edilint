@@ -1,0 +1,18 @@
+# Hook definition for https://pre-commit.com. Consumers reference this repo
+# and pin a released tag:
+#
+#   repos:
+#     - repo: https://github.com/crb2nu/edilint
+#       rev: <a released tag>
+#       hooks:
+#         - id: edilint
+#
+# The default files pattern covers the common interchange extensions; a shop
+# whose files use other names (X12 files are often named by transaction set,
+# e.g. *.837) overrides `files` in its own configuration.
+- id: edilint
+  name: edilint
+  description: Pre-send checks for healthcare interchange files (X12, HL7v2, EDIFACT, delimited, fixed-width).
+  entry: edilint
+  language: golang
+  files: '\.(x12|edi|edifact|hl7)$'

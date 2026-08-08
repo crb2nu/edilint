@@ -87,6 +87,20 @@ jobs:
       - name: go test -fuzz
         run: go test -run '^$' -fuzz '^FuzzParseYAML$' -fuzztime 10s .
 
+  # The release configuration is only exercised on tag pushes, which is the
+  # worst possible moment to learn it has drifted. This job validates it on
+  # every change instead.
+  release-config:
+    name: goreleaser check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: check
+
   # go.mod claims a floor of Go 1.23. This job is what keeps that claim honest:
   # the audience is locked-down healthcare toolchains that cannot fetch a newer
   # one, so GOTOOLCHAIN=local makes any accidental upward drift a hard failure.

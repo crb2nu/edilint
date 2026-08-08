@@ -1,0 +1,98 @@
+# goreleaser configuration. A push of a v* tag runs this via
+# .github/workflows/release.yml; `goreleaser check` runs in CI on every change
+# so the file cannot drift into something a release day discovers.
+version: 2
+
+project_name: edilint
+
+builds:
+  - main: ./cmd/edilint
+    binary: edilint
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Reproducible timestamps: the same tag builds the same bytes.
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: checksums.txt
+
+# CHANGELOG.md is written by hand; a commit-log changelog would duplicate it
+# with worse prose.
+changelog:
+  disable: true
+
+release:
+  footer: |
+    See [CHANGELOG.md](https://github.com/crb2nu/edilint/blob/main/CHANGELOG.md)
+    for the authored changelog.
+
+# Homebrew ships CLI binaries from a tap as a cask. `brew install
+# crb2nu/tap/edilint` resolves it the same way it resolved the old formula
+# form, which goreleaser has deprecated.
+homebrew_casks:
+  - name: edilint
+    binaries:
+      - edilint
+    repository:
+      owner: crb2nu
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    directory: Casks
+    homepage: https://github.com/crb2nu/edilint
+    description: Pre-send linter for healthcare interchange files
+    # The workflow always sets TAP_GITHUB_TOKEN, possibly to the empty string
+    # when the secret is not configured yet. Skipping then keeps a release
+    # publishable before the tap exists, rather than failing halfway.
+    skip_upload: '{{ if .Env.TAP_GITHUB_TOKEN }}false{{ else }}true{{ end }}'
+    # The binaries are not signed or notarized, so Gatekeeper would quarantine
+    # them on download. Dropping the quarantine attribute at install time is
+    # goreleaser's documented approach until signing is worth its cost.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/edilint"]
+          end
+
+# The image is built from scratch: a static binary and nothing else. edilint
+# makes no network calls, so it needs no CA bundle, no shell and no libc, and
+# an empty base keeps that verifiable. dockers_v2 builds one multi-platform
+# manifest in a single buildx step.
+dockers_v2:
+  - dockerfile: Dockerfile
+    images:
+      - ghcr.io/crb2nu/edilint
+    tags:
+      - "{{ .Version }}"
+      - latest
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      org.opencontainers.image.title: edilint
+      org.opencontainers.image.description: Pre-send linter for healthcare interchange files
+      org.opencontainers.image.source: https://github.com/crb2nu/edilint
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.licenses: Apache-2.0

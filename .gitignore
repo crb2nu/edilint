@@ -7,3 +7,6 @@
 # Coverage output
 coverage.out
 coverage.html
+
+# goreleaser output
+/dist/
