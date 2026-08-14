@@ -1,3 +1,5 @@
+![Banner](assets/banner.png)
+
 # edilint
 
 A pre-send linter for healthcare interchange files. It reads X12 EDI, HL7v2
