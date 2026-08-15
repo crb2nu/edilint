@@ -1,8 +1,40 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
+> Last Updated: 2026-08-15
+> Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
+> Tracking Issue: none open — backlog is the
+> [issues list](https://github.com/crb2nu/edilint/issues)
+
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
 and are non-negotiable.
+
+## Current Status
+
+edilint is a public single-binary Go linter for healthcare interchange files —
+X12 EDI, HL7v2 messages and batches, EDIFACT, delimited and fixed-width. Unlike
+the rest of the portfolio it lives on GitHub (`crb2nu/edilint`), not the internal
+GitLab, so its CI and backlog conventions differ from the workspace default.
+
+The repository is 30 commits old and every one of them landed in the last 90
+days. The v0.1 gate plus four workstreams have merged via PRs #1–#4: B (rule
+system foundation), A (HL7v2 batch + EDIFACT envelope coverage), C (SARIF,
+JUnit and GitHub annotation outputs), and D (release engineering), the last on
+2026-08-07. Release automation — goreleaser, tag-driven releases, a Docker
+image, and a pre-commit hook — is wired but **has never fired**: the repository
+carries no tags, so there is no published release and no install path for a
+stranger. That unfired release, not missing checks, is what currently separates
+this from the "install to first useful finding in under two minutes" exit
+criterion below.
+
+Evidence: `git log` window 2026-08-02 → 2026-08-14 on `main`; `git tag` empty;
+`.github/workflows/{ci,release}.yml`; GitHub issues enabled with zero open
+issues. Inspected 2026-08-15.
+
+- **Plan store**: none — this file is the plan
+- **Deployed**: not deployed (CLI; distribution is GitHub releases, once tagged)
+- **CI**: GitHub Actions (`ci.yml`, `release.yml`) — not the shared
+  `platform/gitops` GitLab templates
 
 ## Vision
 
@@ -196,4 +228,14 @@ v0.1 (in flight)
   factual post, no launch theater
 - One documented case (even a friend's shop) of a defect caught pre-send
 - Zero telemetry, zero network, zero accounts — verifiable by reading main()
+
+## Backlog
+
+Full backlog: [open issues](https://github.com/crb2nu/edilint/issues) ·
+[pull requests](https://github.com/crb2nu/edilint/pulls)
+
+This repo is on GitHub, so the workspace `P1`/`P2`/`P3` GitLab label convention
+does not apply here. Zero issues were open as of 2026-08-15 — the workstream
+sections above are the working backlog. Open a GitHub issue for a workstream
+when an agent picks it up, so in-flight work is visible outside this file.
 ```
