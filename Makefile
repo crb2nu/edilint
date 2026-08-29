@@ -2,7 +2,7 @@
 
 # Keep this pinned to the version .github/workflows/ci.yml uses, so `make lint`
 # and CI cannot disagree.
-GOLANGCI_LINT_VERSION := v2.12.2
+GOLANGCI_LINT_VERSION := v2.13.2
 
 BIN := bin/edilint
 
