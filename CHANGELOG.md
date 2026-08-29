@@ -8,8 +8,33 @@ from its first tag.
 
 ## [Unreleased]
 
-Nothing has been released yet. The entries below are the changes that will make
-up the first tag.
+### Added
+
+- `edilint fmt`: canonical layout for X12 interchanges and HL7v2 messages and
+  batches — one segment per line, closed by its terminator and a single LF,
+  inter-record whitespace normalized away. The default prints to standard
+  output, `--write` rewrites in place, and `--check` prints the name of each
+  file that is not already canonical and exits 1 if there were any.
+  Formatting is layout only and idempotent: the bytes inside a record are
+  never touched, so defects — a byte order mark, a wrong count, an
+  unterminated final X12 segment — pass through and still lint as findings.
+- `edilint fix`: mechanical repairs, each tied to the one rule it clears and
+  each the smallest byte edit that clears it. The safe tier strips a UTF-8
+  byte order mark (`EL1001`), normalizes line terminators to the dominant
+  style and appends a missing final one (`EL2001`, `EL2002`), closes an
+  unterminated trailing X12 segment and normalizes inter-segment whitespace
+  (`EL2003`, `EL2004`), rewrites SE01, GE01, IEA01, BTS-1 and FTS-1 to their
+  recounted totals (`EL3006`, `EL3007`, `EL3008`, `EL6003`, `EL6004`), and
+  zero-pads an ISA10 or GS05 time one leading zero short of valid (`EL3010`).
+  `--unsafe` adds homoglyph-to-ASCII substitution (`EL1005`), skipping any
+  lookalike whose ASCII form is a structural character of the file. The
+  default is a dry run that describes each pending repair and prints a
+  unified diff; `--write` applies exactly what the dry run showed, and unsafe
+  repairs print their diff even then. Input the tool cannot read — binary, or
+  behind a UTF-16 byte order mark — comes back untouched.
+- `Canonical` and `Fix` in the library, carrying both subcommands.
+
+## [0.1.0] - 2026-08-15
 
 ### Added
 

@@ -70,10 +70,18 @@ type settings struct {
 
 func run(args []string, stdout, stderr io.Writer) int {
 	// Subcommands are dispatched before flag parsing, so everything after the
-	// subcommand name belongs to it. A file that happens to be named "mcp" is
-	// still reachable: "edilint -- mcp" and "edilint ./mcp" both lint.
-	if len(args) > 0 && args[0] == "mcp" {
-		return runMCP(args[1:], stdin, stdout, stderr)
+	// subcommand name belongs to it. A file that happens to be named "fmt",
+	// "fix" or "mcp" is still reachable: "edilint -- fmt" and "edilint ./fmt"
+	// both lint.
+	if len(args) > 0 {
+		switch args[0] {
+		case "fmt":
+			return runFmt(args[1:], stdout, stderr)
+		case "fix":
+			return runFix(args[1:], stdout, stderr)
+		case "mcp":
+			return runMCP(args[1:], stdin, stdout, stderr)
+		}
 	}
 
 	cfg, parseErr := parseArgs(args)
@@ -514,12 +522,16 @@ func printUsage(w io.Writer) {
 
 Usage:
   edilint [flags] <file>...
+  edilint fmt [flags] <file>...
+  edilint fix [flags] <file>...
   edilint mcp [flags]
 
 Reads X12 EDI, HL7v2, delimited and fixed-width files and reports the defects
 that break downstream parsers. Use "-" to read standard input.
 
 Subcommands:
+  fmt  rewrite X12 and HL7v2 files into a canonical layout ('edilint fmt --help')
+  fix  apply mechanical repairs tied to lint rules ('edilint fix --help')
   mcp  serve the checks over the Model Context Protocol ('edilint mcp --help')
 
 Exit status:
