@@ -19,15 +19,15 @@ import (
 // schemaPath is the committed schema for the current SchemaVersion.
 const schemaPath = "schema/report.v3.schema.json"
 
-func loadSchema(t *testing.T) map[string]any {
+func loadSchema(t *testing.T, path string) map[string]any {
 	t.Helper()
-	data, err := os.ReadFile(schemaPath)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read schema: %v", err)
 	}
 	var doc map[string]any
 	if err := json.Unmarshal(data, &doc); err != nil {
-		t.Fatalf("%s is not valid JSON: %v", schemaPath, err)
+		t.Fatalf("%s is not valid JSON: %v", path, err)
 	}
 	return doc
 }
@@ -79,7 +79,7 @@ func sortedKeys(m map[string]bool) []string {
 }
 
 func TestSchemaMatchesStructs(t *testing.T) {
-	doc := loadSchema(t)
+	doc := loadSchema(t, schemaPath)
 
 	tests := []struct {
 		name string
@@ -127,7 +127,7 @@ func TestSchemaMatchesStructs(t *testing.T) {
 }
 
 func TestSchemaVersionConstMatchesCode(t *testing.T) {
-	doc := loadSchema(t)
+	doc := loadSchema(t, schemaPath)
 	got, ok := schemaObject(t, doc, "properties", "version")["const"].(float64)
 	if !ok || int(got) != SchemaVersion {
 		t.Errorf("schema version const %v, want SchemaVersion %d; a new version needs a new schema file",
@@ -139,7 +139,7 @@ func TestSchemaVersionConstMatchesCode(t *testing.T) {
 }
 
 func TestSchemaEnumsMatchConstants(t *testing.T) {
-	doc := loadSchema(t)
+	doc := loadSchema(t, schemaPath)
 
 	formats := schemaObject(t, doc, "$defs", "report", "properties", "format")["enum"].([]any)
 	wantFormats := []string{
@@ -158,7 +158,7 @@ func TestSchemaEnumsMatchConstants(t *testing.T) {
 }
 
 func TestSchemaIDPatternMatchesCatalog(t *testing.T) {
-	doc := loadSchema(t)
+	doc := loadSchema(t, schemaPath)
 	pattern, ok := schemaObject(t, doc, "$defs", "finding", "properties", "id")["pattern"].(string)
 	if !ok {
 		t.Fatal("finding.id has no pattern")
@@ -193,7 +193,7 @@ func TestSchemaAcceptsRealOutput(t *testing.T) {
 		t.Fatalf("WriteJSON output is not valid JSON: %v", err)
 	}
 
-	doc := loadSchema(t)
+	doc := loadSchema(t, schemaPath)
 	requireDeclared(t, "$", emitted, schemaObject(t, doc, "properties"), doc)
 }
 

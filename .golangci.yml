@@ -67,11 +67,11 @@ linters:
           - errcheck
           - dogsled
 
-      # G304: reading a file whose path came from a command-line argument is the
-      # entire purpose of this tool.
+      # G304/G703: reading a file whose path came from a command-line argument
+      # is the entire purpose of this tool.
       - linters:
           - gosec
-        text: "G304"
+        text: "G304|G703"
 
 issues:
   max-issues-per-linter: 50
