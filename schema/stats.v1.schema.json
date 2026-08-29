@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/crb2nu/edilint/main/schema/stats.v1.schema.json",
+  "title": "edilint stats JSON report, version 1",
+  "description": "The document `edilint stats --json` writes: one census covering every file examined in one invocation. The `version` field is incremented, and a new schema file committed, whenever a consumer written against the previous version could meet something it has not seen before.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "files"],
+  "properties": {
+    "version": {
+      "description": "The document shape version. This schema describes version 1.",
+      "const": 1
+    },
+    "files": {
+      "description": "One census per input file, in the order the files were given. Always an array, [] when no file could be read.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/fileStats" }
+    }
+  },
+  "$defs": {
+    "fileStats": {
+      "description": "The census of one input file. The separator, charset and envelope sections apply only to X12 input and are absent otherwise.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "format", "bytes", "records"],
+      "properties": {
+        "file": {
+          "description": "The input path as given, \"-\" for standard input.",
+          "type": "string"
+        },
+        "format": {
+          "description": "The detected structural family of the input.",
+          "enum": ["x12", "hl7v2", "edifact", "delimited", "fixed", "text"]
+        },
+        "bytes": {
+          "description": "The input size as read, byte order mark included.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "records": {
+          "description": "The number of records with content: segments for X12 and EDIFACT, non-blank lines otherwise.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "records_by_id": {
+          "description": "The record histogram, keyed by segment identifier or record type. Absent when the format assigns no record types, as in a delimited file whose leading field holds data.",
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "separators": { "$ref": "#/$defs/separators" },
+        "charset": { "$ref": "#/$defs/charset" },
+        "envelope": { "$ref": "#/$defs/envelope" }
+      }
+    },
+    "separators": {
+      "description": "The separators the interchange declared in its ISA.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["element", "sub_element", "segment"],
+      "properties": {
+        "element": { "type": "string" },
+        "sub_element": { "type": "string" },
+        "segment": { "type": "string" },
+        "repetition": {
+          "description": "Absent when ISA11 declares no repetition separator, as in a 004010 interchange.",
+          "type": "string"
+        }
+      }
+    },
+    "charset": {
+      "description": "The narrowest X12 character-set profile that admits every content character observed. Structural characters and control characters are not classified.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "extended_only", "beyond_extended"],
+      "properties": {
+        "profile": {
+          "enum": ["basic", "extended", "beyond-extended"]
+        },
+        "extended_only": {
+          "description": "Characters legal in the extended set but not the basic set.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "beyond_extended": {
+          "description": "Characters outside even the extended set, non-ASCII included.",
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "envelope": {
+      "description": "The X12 envelope census. A range is absent when no envelope declared the value; only well-formed all-digit dates of the declared width are sampled.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interchanges", "groups", "transactions"],
+      "properties": {
+        "interchanges": { "type": "integer", "minimum": 0 },
+        "groups": { "type": "integer", "minimum": 0 },
+        "transactions": { "type": "integer", "minimum": 0 },
+        "groups_by_code": {
+          "description": "Functional group counts keyed by GS01 functional identifier code.",
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "transactions_by_type": {
+          "description": "Transaction set counts keyed by ST01 transaction set identifier code.",
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "isa13": { "$ref": "#/$defs/valueRange" },
+        "gs06": { "$ref": "#/$defs/valueRange" },
+        "st02": { "$ref": "#/$defs/valueRange" },
+        "isa_dates": { "$ref": "#/$defs/valueRange" },
+        "gs_dates": { "$ref": "#/$defs/valueRange" }
+      }
+    },
+    "valueRange": {
+      "description": "The least and greatest of a sampled set of values. Values that parse as integers are ordered numerically, anything else lexically.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "string" },
+        "max": { "type": "string" }
+      }
+    }
+  }
+}

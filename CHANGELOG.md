@@ -85,6 +85,26 @@ up the first tag.
   the release configuration cannot drift between tags. A pre-commit hook
   definition lets `pre-commit` shops pin a released tag and lint interchange
   files before they are committed.
+- `edilint diff a.x12 b.x12`, a structural, element-level comparison of two
+  X12 files for vendor spec disputes. Segments align by their position within
+  the envelope hierarchy — interchange, functional group, transaction set —
+  never by byte offset, and differences are reported as a path plus the X12
+  element designator with both values. Terminator style, whitespace after
+  terminators and trailing whitespace inside elements are ignored unless
+  `--strict`, which reports them marked `cosmetic`; trailing empty elements
+  are never a difference. Exit status mirrors the linter: 0 structurally
+  identical, 1 differences found, 2 the comparison could not be made. `--json`
+  writes a versioned document, currently version 1, committed as
+  `schema/diff.v1.schema.json`.
+- `edilint stats <file>...`, a census of interchange files: for X12 the
+  interchange, functional group and transaction set counts by GS01 and ST01
+  code, control-number ranges (ISA13, GS06, ST02), envelope date ranges
+  (ISA09, GS04), the declared separators and the narrowest X12 character-set
+  profile that admits every character observed; for any format the size,
+  record count and record histogram, one section per file. A census is a
+  report, not a gate: it exits 0 whatever the files contain, 2 only when a
+  file could not be read. `--json` writes a versioned document, currently
+  version 1, committed as `schema/stats.v1.schema.json`.
 
 ### Changed
 

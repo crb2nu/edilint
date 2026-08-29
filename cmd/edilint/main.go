@@ -28,7 +28,23 @@ const (
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(dispatch(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// dispatch routes a subcommand to its own entry point. Anything else — flags
+// first, no arguments, a file that happens to exist — takes the linting path
+// unchanged. A file literally named like a subcommand can still be linted as
+// "./diff" or after "--".
+func dispatch(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 {
+		switch args[0] {
+		case "diff":
+			return runDiff(args[1:], stdout, stderr)
+		case "stats":
+			return runStats(args[1:], stdout, stderr)
+		}
+	}
+	return run(args, stdout, stderr)
 }
 
 // diagf writes a diagnostic or usage message. A failure to write the message
@@ -507,9 +523,14 @@ func printUsage(w io.Writer) {
 
 Usage:
   edilint [flags] <file>...
+  edilint diff [--strict] [--json] <a> <b>
+  edilint stats [--json] <file>...
 
 Reads X12 EDI, HL7v2, delimited and fixed-width files and reports the defects
 that break downstream parsers. Use "-" to read standard input.
+
+"edilint diff" structurally compares two X12 files and "edilint stats" prints
+a file census; each subcommand documents itself under --help.
 
 Exit status:
   0  no findings

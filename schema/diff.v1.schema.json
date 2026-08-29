@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/crb2nu/edilint/main/schema/diff.v1.schema.json",
+  "title": "edilint diff JSON report, version 1",
+  "description": "The document `edilint diff --json` writes: one structural comparison of two X12 files. The `version` field is incremented, and a new schema file committed, whenever a consumer written against the previous version could meet something it has not seen before.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "a", "b", "strict", "identical", "differences", "summary"],
+  "properties": {
+    "version": {
+      "description": "The document shape version. This schema describes version 1.",
+      "const": 1
+    },
+    "a": {
+      "description": "The first input path as given, \"-\" for standard input.",
+      "type": "string"
+    },
+    "b": {
+      "description": "The second input path as given, \"-\" for standard input.",
+      "type": "string"
+    },
+    "strict": {
+      "description": "Whether cosmetic differences were compared as well.",
+      "type": "boolean"
+    },
+    "identical": {
+      "description": "True when no differences were found at the requested strictness, which is what exit status 0 means.",
+      "type": "boolean"
+    },
+    "differences": {
+      "description": "One entry per difference, in envelope order. Always an array, [] for identical files.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/difference" }
+    },
+    "summary": { "$ref": "#/$defs/summary" }
+  },
+  "$defs": {
+    "difference": {
+      "description": "A single structural difference between the two files.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "a", "b", "message"],
+      "properties": {
+        "kind": {
+          "description": "What differs. The *-added kinds mean the construct is only in the second file, the *-removed kinds only in the first.",
+          "enum": [
+            "element",
+            "terminator",
+            "segment-added",
+            "segment-removed",
+            "transaction-added",
+            "transaction-removed",
+            "group-added",
+            "group-removed",
+            "interchange-added",
+            "interchange-removed"
+          ]
+        },
+        "cosmetic": {
+          "description": "Present and true for differences that only strict comparison reports: terminator style, and values that differ only in trailing whitespace.",
+          "type": "boolean"
+        },
+        "path": { "$ref": "#/$defs/path" },
+        "designator": {
+          "description": "The conventional X12 element designator, e.g. \"CLP03\". Present only for element differences.",
+          "type": "string"
+        },
+        "a": {
+          "description": "The differing content from the first file: the element value, the terminator and its padding, or the segment or envelope-header text of a removed construct. Empty when the first file lacks the construct.",
+          "type": "string"
+        },
+        "b": {
+          "description": "The differing content from the second file, with the same meaning as \"a\".",
+          "type": "string"
+        },
+        "a_line": {
+          "description": "The 1-based physical line of the segment involved in the first file. Absent when the first file lacks the construct.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "b_line": {
+          "description": "The 1-based physical line of the segment involved in the second file. Absent when the second file lacks the construct.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "message": {
+          "description": "A one-line human-readable description carrying the path.",
+          "type": "string"
+        }
+      }
+    },
+    "path": {
+      "description": "Where the difference sits in the envelope hierarchy. Every index is 1-based and names a position, not a control number. Positions refer to the first file, except that a construct present only in the second file is located by its position there. Segment is the position within its enclosing unit; for a transaction set that is the ST-through-SE ordinal, so ST is segment 1.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "interchange": { "type": "integer", "minimum": 1 },
+        "group": { "type": "integer", "minimum": 1 },
+        "transaction": { "type": "integer", "minimum": 1 },
+        "transaction_type": {
+          "description": "ST01 of the transaction set, e.g. \"835\".",
+          "type": "string"
+        },
+        "transaction_control": {
+          "description": "ST02 of the transaction set.",
+          "type": "string"
+        },
+        "segment": { "type": "integer", "minimum": 1 },
+        "segment_id": {
+          "description": "The segment identifier, e.g. \"CLP\".",
+          "type": "string"
+        },
+        "element": {
+          "description": "The X12 element position, so CLP03 is element 3.",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "summary": {
+      "description": "Difference counts by disposition. Cosmetic counts the differences only strict comparison reports, whatever their kind, so it overlaps the other counters.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "elements", "added", "removed", "cosmetic"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "elements": { "type": "integer", "minimum": 0 },
+        "added": { "type": "integer", "minimum": 0 },
+        "removed": { "type": "integer", "minimum": 0 },
+        "cosmetic": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

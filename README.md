@@ -216,10 +216,13 @@ exit status is never affected by truncation.
 
 ```
 edilint [flags] <file>...
+edilint diff [--strict] [--json] <a> <b>
+edilint stats [--json] <file>...
 ```
 
 Use `-` to read standard input. Passing several files enables duplicate
-interchange control number detection across the whole batch.
+interchange control number detection across the whole batch. The `diff` and
+`stats` subcommands are documented in their own sections below.
 
 | Flag | Purpose |
 |---|---|
@@ -460,6 +463,94 @@ Three consequences worth knowing:
 refuses to write anything if an input could not be read, so a baseline never
 bakes in a gap. Run with `-v` to be told when recorded findings no longer occur,
 which is the signal to re-record.
+
+## Structural diff
+
+`edilint diff` exists for vendor spec disputes: when your copy of a file and a
+partner's copy disagree, or two generators claim to produce the same
+interchange, a byte diff drowns the one element that matters in line-break and
+terminator noise. `edilint diff` compares two X12 files structurally instead:
+
+```sh
+$ edilint diff ours.x12 theirs.x12
+interchange 1, group 1, transaction 1 (835, control 0001), segment 8 (CLP): CLP03 is "1200.00" in ours.x12 (line 10) but "1250.00" in theirs.x12 (line 10)
+
+1 difference (1 element, 0 added, 0 removed)
+```
+
+Segments are aligned by their position within the envelope hierarchy —
+interchange, functional group, transaction set — never by byte offset, so a
+file re-encoded with different separators or different line breaks compares as
+identical. Within each transaction set, segments that compare equal anchor the
+alignment; between anchors, segments pair by identifier, and anything left
+over is reported as added or removed, as is a whole transaction set, group or
+interchange present in only one file.
+
+Differences are reported as a path plus the X12 element designator, so
+"segment 8 (CLP): CLP03" means the third element of the eighth segment of the
+transaction set, counting ST as segment 1.
+
+Three kinds of difference are cosmetic and ignored by default: segment
+terminator style and the whitespace after terminators, trailing whitespace
+inside element values, and trailing empty elements (`DTM*405*20260221*` against
+`DTM*405*20260221`). `--strict` reports the first two and marks them
+`cosmetic`; a trailing empty element is never a difference, because it carries
+no content. Exit status mirrors the linter: 0 when structurally identical, 1
+when at least one difference was found, 2 when an input could not be read or is
+not X12. `--json` writes a versioned document, currently version 1, whose shape
+is committed as [`schema/diff.v1.schema.json`](schema/diff.v1.schema.json)
+under the same version discipline as the lint report.
+
+Known limitations:
+
+- Interchanges and functional groups pair by position, not by control number:
+  the second ISA of one file is compared with the second ISA of the other.
+- There is no move detection. Two same-identifier segments that swapped places
+  are reported as changed elements or as a removal plus an addition, whichever
+  the alignment lands on, not as a move.
+- Elements are compared as written. Files that declare different sub-element
+  or repetition separators report every component-carrying element as
+  different, alongside the ISA16 or ISA11 difference that explains it.
+- A transaction set whose ST01 type differs from its positional counterpart is
+  reported as one transaction removed and another added, not element by
+  element.
+- A unit large enough to exceed the alignment budget (about four million
+  comparison cells) falls back to position-only pairing within that unit.
+
+## File census
+
+`edilint stats` answers the questions that precede any send or dispute — how
+many interchanges, which transaction types, which control numbers, which dates
+— without anyone opening the file in an editor:
+
+```sh
+$ edilint stats examples/remittance.x12
+examples/remittance.x12: x12, 987 bytes, 31 segments
+  separators: element "*", sub-element ":", segment "~", repetition "^"
+  charset: basic (0 extended-only, 0 beyond extended)
+  interchanges: 1, ISA13 000000001, ISA09 dates 260115
+  groups: 1 (HP: 1), GS06 1, GS04 dates 20260115
+  transactions: 1 (835: 1), ST02 0001
+  segments by ID: DTM 3, AMT 2, CAS 2, CLP 2, N1 2, N3 2, N4 2, NM1 2, REF 2, SVC 2, BPR 1, GE 1, GS 1, IEA 1, ISA 1, LX 1, PER 1, SE 1, TRN 1
+```
+
+For X12 the census covers interchange, functional group and transaction set
+counts by type (GS01 and ST01 codes), control-number ranges (ISA13, GS06,
+ST02), envelope date ranges (ISA09, GS04), the declared separators, and the
+narrowest X12 character-set profile that admits every character observed,
+using the same set definitions and structural-character exemptions as the
+charset rules. Other formats get the census that applies to them: size, record
+count and the record histogram. Several files produce one section each.
+
+Two details worth knowing: ranges print as `min..max` and order values
+numerically when they parse as integers, so control number 2 sits below 10;
+and only well-formed all-digit dates are sampled into the date ranges, because
+reporting malformed ones is the linter's job, not the census's.
+
+stats is a report, not a gate. It exits 0 whatever the files contain and 2
+only when a file could not be read. `--json` writes a versioned document,
+currently version 1, whose shape is committed as
+[`schema/stats.v1.schema.json`](schema/stats.v1.schema.json).
 
 ## Rules
 
