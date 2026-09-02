@@ -107,7 +107,15 @@ func TestNoBritishSpellings(t *testing.T) {
 			return err
 		}
 		if d.IsDir() {
-			if d.Name() == ".git" {
+			// Skip everything that is not this repository's own text: the
+			// git dir, tool caches CI places inside the checkout (the shared
+			// Go template sets GOPATH and GOCACHE to .go/ and .go-build/,
+			// which the first GitLab pipeline walked for ten minutes before
+			// timing out), linked worktrees, build output and vendored code.
+			// .github stays in: its workflow files are ours.
+			name := d.Name()
+			if path != "." && ((strings.HasPrefix(name, ".") && name != ".github") ||
+				name == "vendor" || name == "bin" || name == "node_modules") {
 				return fs.SkipDir
 			}
 			return nil
