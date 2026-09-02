@@ -1,0 +1,23 @@
+{
+  "$schema": "../banner-kit/brand.schema.json",
+  "schema": "flexinfer.brand-manifest",
+  "version": "1.0.0",
+  "repo": {
+    "name": "edilint",
+    "kind": "library",
+    "namespace": "libs",
+    "path": "libs/edilint",
+    "remote": "https://gitlab.flexinfer.ai/libs/edilint",
+    "package": "github.com/crb2nu/edilint",
+    "language": "Go"
+  },
+  "title": "edilint",
+  "subtitle": "Pre-send linter for X12, HL7v2 and EDIFACT files that fails the send before the trading partner does",
+  "iconText": "EDI",
+  "accentHex": "#F59E0B",
+  "motif": "shield",
+  "badgeText": "FLEXINFER LIBRARY",
+  "visibility": "public",
+  "audience": ["EDI and interface engineers", "healthcare CI pipelines"],
+  "readme": { "ensureBannerReference": true, "bannerPath": "assets/banner.png", "placement": "first-line", "altText": "Banner" }
+}
