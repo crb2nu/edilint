@@ -57,6 +57,8 @@ examples/remit.txt:4: error: [EL5001 layout.length] record is 48 character(s) lo
 All files under `examples/` are synthetic. The payers, providers, member
 identifiers and amounts are invented.
 
+The synthetic `testdata/837p_claims_*.x12` corpus covers single- and multi-transaction professional claim batches plus isolated envelope, character, and terminator faults.
+
 ## Exit status
 
 | Code | Meaning |

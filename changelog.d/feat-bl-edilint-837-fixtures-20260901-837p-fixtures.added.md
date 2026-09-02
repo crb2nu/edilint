@@ -1,0 +1,1 @@
+- Add synthetic single- and multi-transaction 837P claim fixtures and table-driven envelope, character, and terminator tests in `testdata/837p_claims_*.x12` and `fixtures_837_test.go`.
