@@ -32,11 +32,17 @@ cover: ## Write and open an HTML coverage report
 lint: ## Run golangci-lint
 	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run ./...
 
+# Go sources to format: everything except hidden directories. CI keeps its
+# module and build caches inside the checkout (.go/, .go-build/) and linked
+# worktrees live under .worktrees/; a bare `gofmt -l .` walks all of them and
+# reports third-party testdata that is deliberately unparseable.
+GO_SOURCES = find . -path '*/.*' -prune -o -name '*.go' -print
+
 fmt: ## Format the source
-	gofmt -w .
+	$(GO_SOURCES) | xargs gofmt -w
 
 fmt-check: ## Fail if any file needs formatting
-	@unformatted=$$(gofmt -l .); \
+	@unformatted=$$($(GO_SOURCES) | xargs gofmt -l); \
 	if [ -n "$$unformatted" ]; then \
 		echo "These files need gofmt:"; \
 		echo "$$unformatted"; \

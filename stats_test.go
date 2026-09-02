@@ -181,12 +181,12 @@ func TestStatsCharsetObserved(t *testing.T) {
 		},
 		{
 			name: "lowercase letters need the extended set",
-			body: edit(t, base, "*HALE*", "*Hale*"),
+			body: editSegment(t, base, "*HALE*", "*Hale*"),
 			want: CharsetStats{Profile: "extended", ExtendedOnly: 3},
 		},
 		{
 			name: "a non-ASCII character is beyond the extended set",
-			body: edit(t, base, "*MORGAN*", "*MORG\u00c1N*"),
+			body: editSegment(t, base, "*MORGAN*", "*MORG\u00c1N*"),
 			want: CharsetStats{Profile: "beyond-extended", BeyondExtended: 1},
 		},
 	}

@@ -8,8 +8,53 @@ from its first tag.
 
 ## [Unreleased]
 
-Nothing has been released yet. The entries below are the changes that will make
-up the first tag.
+### Added
+
+- `edilint fmt`: canonical layout for X12 interchanges and HL7v2 messages and
+  batches — one segment per line, closed by its terminator and a single LF,
+  inter-record whitespace normalized away. The default prints to standard
+  output, `--write` rewrites in place, and `--check` prints the name of each
+  file that is not already canonical and exits 1 if there were any.
+  Formatting is layout only and idempotent: the bytes inside a record are
+  never touched, so defects — a byte order mark, a wrong count, an
+  unterminated final X12 segment — pass through and still lint as findings.
+- `edilint fix`: mechanical repairs, each tied to the one rule it clears and
+  each the smallest byte edit that clears it. The safe tier strips a UTF-8
+  byte order mark (`EL1001`), normalizes line terminators to the dominant
+  style and appends a missing final one (`EL2001`, `EL2002`), closes an
+  unterminated trailing X12 segment and normalizes inter-segment whitespace
+  (`EL2003`, `EL2004`), rewrites SE01, GE01, IEA01, BTS-1 and FTS-1 to their
+  recounted totals (`EL3006`, `EL3007`, `EL3008`, `EL6003`, `EL6004`), and
+  zero-pads an ISA10 or GS05 time one leading zero short of valid (`EL3010`).
+  `--unsafe` adds homoglyph-to-ASCII substitution (`EL1005`), skipping any
+  lookalike whose ASCII form is a structural character of the file. The
+  default is a dry run that describes each pending repair and prints a
+  unified diff; `--write` applies exactly what the dry run showed, and unsafe
+  repairs print their diff even then. Input the tool cannot read — binary, or
+  behind a UTF-16 byte order mark — comes back untouched.
+- `Canonical` and `Fix` in the library, carrying both subcommands.
+- `edilint diff a.x12 b.x12`, a structural, element-level comparison of two
+  X12 files for vendor spec disputes. Segments align by their position within
+  the envelope hierarchy — interchange, functional group, transaction set —
+  never by byte offset, and differences are reported as a path plus the X12
+  element designator with both values. Terminator style, whitespace after
+  terminators and trailing whitespace inside elements are ignored unless
+  `--strict`, which reports them marked `cosmetic`; trailing empty elements
+  are never a difference. Exit status mirrors the linter: 0 structurally
+  identical, 1 differences found, 2 the comparison could not be made. `--json`
+  writes a versioned document, currently version 1, committed as
+  `schema/diff.v1.schema.json`.
+- `edilint stats <file>...`, a census of interchange files: for X12 the
+  interchange, functional group and transaction set counts by GS01 and ST01
+  code, control-number ranges (ISA13, GS06, ST02), envelope date ranges
+  (ISA09, GS04), the declared separators and the narrowest X12 character-set
+  profile that admits every character observed; for any format the size,
+  record count and record histogram, one section per file. A census is a
+  report, not a gate: it exits 0 whatever the files contain, 2 only when a
+  file could not be read. `--json` writes a versioned document, currently
+  version 1, committed as `schema/stats.v1.schema.json`.
+
+## [0.1.0] - 2026-08-15
 
 ### Added
 
@@ -85,26 +130,6 @@ up the first tag.
   the release configuration cannot drift between tags. A pre-commit hook
   definition lets `pre-commit` shops pin a released tag and lint interchange
   files before they are committed.
-- `edilint diff a.x12 b.x12`, a structural, element-level comparison of two
-  X12 files for vendor spec disputes. Segments align by their position within
-  the envelope hierarchy — interchange, functional group, transaction set —
-  never by byte offset, and differences are reported as a path plus the X12
-  element designator with both values. Terminator style, whitespace after
-  terminators and trailing whitespace inside elements are ignored unless
-  `--strict`, which reports them marked `cosmetic`; trailing empty elements
-  are never a difference. Exit status mirrors the linter: 0 structurally
-  identical, 1 differences found, 2 the comparison could not be made. `--json`
-  writes a versioned document, currently version 1, committed as
-  `schema/diff.v1.schema.json`.
-- `edilint stats <file>...`, a census of interchange files: for X12 the
-  interchange, functional group and transaction set counts by GS01 and ST01
-  code, control-number ranges (ISA13, GS06, ST02), envelope date ranges
-  (ISA09, GS04), the declared separators and the narrowest X12 character-set
-  profile that admits every character observed; for any format the size,
-  record count and record histogram, one section per file. A census is a
-  report, not a gate: it exits 0 whatever the files contain, 2 only when a
-  file could not be read. `--json` writes a versioned document, currently
-  version 1, committed as `schema/stats.v1.schema.json`.
 
 ### Changed
 

@@ -30,7 +30,7 @@ func diffStrings(t *testing.T, a, b string, opts DiffOptions) *DiffReport {
 
 // edit applies one string replacement and fails the test if nothing changed,
 // so a stale pattern cannot silently turn a test into a no-op.
-func edit(t *testing.T, base, from, to string) string {
+func editSegment(t *testing.T, base, from, to string) string {
 	t.Helper()
 	out := strings.Replace(base, from, to, 1)
 	if out == base {
@@ -123,7 +123,7 @@ func TestDiffReportsExactlyTheChangedElement(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			rep := diffStrings(t, base, edit(t, base, tc.from, tc.to), DiffOptions{})
+			rep := diffStrings(t, base, editSegment(t, base, tc.from, tc.to), DiffOptions{})
 			if len(rep.Differences) != 1 {
 				t.Fatalf("got %d difference(s), want exactly 1: %+v", len(rep.Differences), rep.Differences)
 			}
@@ -237,9 +237,9 @@ func TestDiffAddedSegmentWithinATransaction(t *testing.T) {
 	base := string(readFixture(t, "diff_base_835.x12"))
 	// Insert a REF after TRN in the first transaction and correct the SE01
 	// recount, which is what a generator emitting one more segment produces.
-	with := edit(t, base, "TRN*1*20260220BP0001*1443322110~\n",
+	with := editSegment(t, base, "TRN*1*20260220BP0001*1443322110~\n",
 		"TRN*1*20260220BP0001*1443322110~\nREF*EV*BP835~\n")
-	with = edit(t, with, "SE*13*0001~", "SE*14*0001~")
+	with = editSegment(t, with, "SE*13*0001~", "SE*14*0001~")
 
 	rep := diffStrings(t, base, with, DiffOptions{})
 	if len(rep.Differences) != 2 {
@@ -294,7 +294,7 @@ func TestDiffTransactionTypeChangeIsAddAndRemove(t *testing.T) {
 	// Transaction sets pair by position only when their ST01 types agree;
 	// a type change reads as one transaction gone and another arrived.
 	base := string(readFixture(t, "diff_base_835.x12"))
-	changed := edit(t, base, "ST*835*0002~", "ST*837*0002~")
+	changed := editSegment(t, base, "ST*835*0002~", "ST*837*0002~")
 	rep := diffStrings(t, base, changed, DiffOptions{})
 	if firstDiff(rep, DiffTransactionRemoved) == nil || firstDiff(rep, DiffTransactionAdded) == nil {
 		t.Errorf("a changed ST01 should read as removed plus added, got %+v", rep.Differences)

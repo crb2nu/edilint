@@ -1,6 +1,6 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
-> Last Updated: 2026-08-15
+> Last Updated: 2026-09-02
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
 > Tracking Issue: none open — backlog is the
 > [issues list](https://github.com/crb2nu/edilint/issues)
@@ -11,30 +11,29 @@ and are non-negotiable.
 
 ## Current Status
 
-edilint is a public single-binary Go linter for healthcare interchange files —
-X12 EDI, HL7v2 messages and batches, EDIFACT, delimited and fixed-width. Unlike
-the rest of the portfolio it lives on GitHub (`crb2nu/edilint`), not the internal
-GitLab, so its CI and backlog conventions differ from the workspace default.
+The v0.1.0 release is published: `git tag` lists `v0.1.0`, and the tag-triggered
+GitHub Actions workflow in `.github/workflows/release.yml` ran for that release.
+Install the module with `go install github.com/crb2nu/edilint/cmd/edilint@v0.1.0`;
+the release workflow publishes goreleaser binaries on the GitHub release.
 
-The repository is 30 commits old and every one of them landed in the last 90
-days. The v0.1 gate plus four workstreams have merged via PRs #1–#4: B (rule
-system foundation), A (HL7v2 batch + EDIFACT envelope coverage), C (SARIF,
-JUnit and GitHub annotation outputs), and D (release engineering), the last on
-2026-08-07. Release automation — goreleaser, tag-driven releases, a Docker
-image, and a pre-commit hook — is wired but **has never fired**: the repository
-carries no tags, so there is no published release and no install path for a
-stranger. That unfired release, not missing checks, is what currently separates
-this from the "install to first useful finding in under two minutes" exit
-criterion below.
+`git log` records merged workstreams B (rule system foundation), A (HL7v2 batch
+and EDIFACT envelope coverage), C (SARIF, JUnit, and GitHub annotation outputs),
+and D (release engineering), completing v0.2. Workstreams E (`fmt` + `fix`) and
+F (`diff` + `stats`) are implemented and in maintainer review as GitLab merge
+requests !2 and !1, respectively. Workstreams G and H have not started.
 
-Evidence: `git log` window 2026-08-02 → 2026-08-14 on `main`; `git tag` empty;
-`.github/workflows/{ci,release}.yml`; GitHub issues enabled with zero open
-issues. Inspected 2026-08-15.
+The canonical repository is `gitlab.flexinfer.ai/libs/edilint`; README
+`Repository` documents GitHub as its push mirror. GitLab CI runs on merge
+requests, while the GitHub Actions workflows continue to run on the mirror.
+
+Evidence inspected 2026-09-02: `git tag` (`v0.1.0`), `git log`,
+`.github/workflows/release.yml`, and README `Repository`.
 
 - **Plan store**: none — this file is the plan
-- **Deployed**: not deployed (CLI; distribution is GitHub releases, once tagged)
-- **CI**: GitHub Actions (`ci.yml`, `release.yml`) — not the shared
-  `platform/gitops` GitLab templates
+- **Distribution**: `go install` for `v0.1.0` and goreleaser binaries on its
+  GitHub release (`git tag`; `.github/workflows/release.yml`)
+- **CI**: GitLab CI on the canonical repository and GitHub Actions on the push
+  mirror (README `Repository`)
 
 ## Vision
 
@@ -215,6 +214,8 @@ v0.1 (in flight)
 - One agent per workstream, repo-local worktree, branch `feat/<workstream>`,
   conventional commits, MR/PR per the repo's flow. Solo workstreams (B, H) get the
   repo to themselves — nothing else merges while they're open.
+- Since 2026-09-01, merge requests land on the GitLab canonical repository and
+  then mirror to GitHub (README `Repository`).
 - Every agent reads `ROADMAP.md` + its own section only; scope outside the owned
   paths is a review rejection, not a judgment call.
 - Maintainer (Cody) reviews every MR before merge in v0.2; can delegate to

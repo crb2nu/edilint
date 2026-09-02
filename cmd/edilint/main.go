@@ -38,6 +38,10 @@ func main() {
 func dispatch(args []string, stdout, stderr io.Writer) int {
 	if len(args) > 0 {
 		switch args[0] {
+		case "fmt":
+			return runFmt(args[1:], stdout, stderr)
+		case "fix":
+			return runFix(args[1:], stdout, stderr)
 		case "diff":
 			return runDiff(args[1:], stdout, stderr)
 		case "stats":
@@ -523,14 +527,19 @@ func printUsage(w io.Writer) {
 
 Usage:
   edilint [flags] <file>...
+  edilint fmt [flags] <file>...
+  edilint fix [flags] <file>...
   edilint diff [--strict] [--json] <a> <b>
   edilint stats [--json] <file>...
 
 Reads X12 EDI, HL7v2, delimited and fixed-width files and reports the defects
 that break downstream parsers. Use "-" to read standard input.
 
-"edilint diff" structurally compares two X12 files and "edilint stats" prints
-a file census; each subcommand documents itself under --help.
+Subcommands (each documents itself under --help):
+  fmt    rewrite X12 and HL7v2 files into a canonical layout
+  fix    apply mechanical repairs tied to lint rules
+  diff   structurally compare two X12 files
+  stats  print a census of an X12 file
 
 Exit status:
   0  no findings

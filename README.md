@@ -57,6 +57,8 @@ examples/remit.txt:4: error: [EL5001 layout.length] record is 48 character(s) lo
 All files under `examples/` are synthetic. The payers, providers, member
 identifiers and amounts are invented.
 
+The synthetic `testdata/837p_claims_*.x12` corpus covers single- and multi-transaction professional claim batches plus isolated envelope, character, and terminator faults.
+
 ## Exit status
 
 | Code | Meaning |
@@ -216,6 +218,8 @@ exit status is never affected by truncation.
 
 ```
 edilint [flags] <file>...
+edilint fmt [flags] <file>...
+edilint fix [flags] <file>...
 edilint diff [--strict] [--json] <a> <b>
 edilint stats [--json] <file>...
 ```
@@ -350,6 +354,78 @@ nothing. Use the class name to suppress a class.
 An entry that names no rule, no identifier and no class is a usage error rather
 than a silent no-op, because a misspelled suppression that quietly suppresses
 nothing is the worst outcome a suppression can have.
+
+## Subcommands
+
+Beside linting, the binary carries subcommands. Each has its own `--help`.
+
+### fmt
+
+```
+edilint fmt [--check | --write] [-f <format>] <file>...
+```
+
+`edilint fmt` rewrites an X12 interchange or an HL7v2 message or batch file
+into a canonical layout: one segment per line, each closed by its terminator
+and a single LF, whitespace between records normalized away, whitespace-only
+records dropped, a final LF always present. By default the canonical form is
+printed to standard output; `--write` rewrites the files in place, and
+`--check` writes nothing, prints the name of each file that is not already
+canonical, and exits 1 if there were any — the CI mode:
+
+```sh
+edilint fmt --check outbound/*.x12
+```
+
+Formatting is layout only, and it is idempotent: a canonical file passes
+through unchanged, and `fmt(fmt(x))` is `fmt(x)`. The bytes inside a record
+are never touched, so formatting cannot alter what a file says — and cannot
+repair it either. A byte order mark, a wrong count and a homoglyph all pass
+through and still lint as findings; so does an X12 file whose last segment is
+missing the declared terminator, because that missing terminator is how a
+truncated interchange announces itself. Repairs are `edilint fix`.
+
+Formats other than X12 and HL7v2 have no canonical layout defined, and are a
+usage error rather than a guess.
+
+### fix
+
+```
+edilint fix [--write] [--unsafe] [-f <format>] <file>...
+```
+
+`edilint fix` applies mechanical repairs, each tied to the one rule whose
+findings it clears, and each the smallest byte edit that does so — bytes a
+repair does not name are never touched. The default is a dry run: every
+pending repair is described on standard error, the resulting change is
+printed as a unified diff, and the exit status is 1 so a pipeline can gate on
+"repairs pending". `--write` applies exactly what the dry run showed.
+
+The safe tier repairs defects whose correct form the file itself determines:
+
+| Fixes | Repair | When not to use |
+|---|---|---|
+| `EL1001` | Strip the UTF-8 byte order mark nothing downstream wants. | A UTF-16 mark is never stripped: the bytes behind it are UTF-16 and need transcoding, not a strip, so the file is left whole. |
+| `EL2001` | Rewrite minority line terminators to the file's dominant style. | When the strays are the intended style — a file that should be CRLF but is mostly LF — the majority wins anyway, because it is the only signal the file offers. |
+| `EL2002` | Append the file's terminator to the last record. | A last record the transport truncated mid-field gets terminated as it stands; confirm it is complete first. |
+| `EL2003` | Append the declared X12 segment terminator to a trailing unterminated segment. | The missing terminator is often the only visible sign of a cut-short transfer. The segment's content is left as-is, so one cut mid-element still lints wrong — but read the tail before repairing. |
+| `EL2004` | Rewrite minority inter-segment whitespace to the dominant style. | Same majority rule as `EL2001`: if the minority style was the intended one, this normalizes the wrong way. |
+| `EL3006` `EL3007` `EL3008` | Rewrite SE01, GE01 and IEA01 to the recounted totals — declare what was counted. | If records were *lost* rather than miscounted, recounting endorses the loss. A declared count far from the actual one deserves reading before repairing. |
+| `EL3010` | Zero-pad an ISA10 or GS05 time that is one digit short of HHMM, HHMMSS or HHMMSSDD, when the padded value is valid. | Only a dropped leading zero is derivable. A time out of range, non-numeric, or two digits short is left for a person; so are the envelope dates, whose lost zeros sit mid-value where padding cannot restore them. |
+| `EL6003` `EL6004` | Rewrite BTS-1 and FTS-1 to the recounted totals. An empty count field is optional and stays empty. | The same caution as the X12 recounts. |
+
+`--unsafe` adds one more tier:
+
+| Fixes | Repair | When not to use |
+|---|---|---|
+| `EL1005` | Replace each Unicode lookalike with the ASCII character it imitates — Cyrillic А becomes A, a no-break space becomes a space. | This edits content bytes on a visual judgment, which is why it is opt-in and why its diff is always printed, `--write` or not. A lookalike whose ASCII form is one of the file's structural characters — a declared X12 separator, the HL7v2 field separator or an encoding character — is skipped, because substituting it would change the record structure. |
+
+`fix` exits 0 when there was nothing to repair or `--write` applied
+everything, 1 when a dry run found repairs pending, and 2 when it could not
+do its job. Repairs never reach beyond their catalog: findings with no listed
+fix — a duplicate control number, a character outside the X12 set, a layout
+mismatch — are untouched, and EDIFACT repairs are not implemented, so a
+defective EDIFACT file comes back byte-identical rather than half-repaired.
 
 ## Configuration file
 
@@ -739,6 +815,14 @@ for _, f := range rep.Findings {
 
 A nil error from `LintFile` means the input was read and analyzed, not that it
 was clean. Check `Report.OK` or inspect `Report.Findings`.
+
+## Repository
+
+The canonical repository is `gitlab.flexinfer.ai/libs/edilint`, where merge requests
+run the GitLab CI in `.gitlab-ci.yml`; `github.com/crb2nu/edilint` is a push mirror
+of `main` and tags. The GitHub Actions workflow still runs on the mirror and adds the
+macOS and Windows test matrix. Issues and pull requests opened on GitHub are read;
+changes land through GitLab and arrive on GitHub with the next mirror push.
 
 ## License
 

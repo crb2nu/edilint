@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/crb2nu/edilint"
@@ -92,22 +90,6 @@ func runDiff(args []string, stdout, stderr io.Writer) int {
 		return exitFindings
 	}
 	return exitClean
-}
-
-// readInput reads one input path, "-" meaning standard input.
-func readInput(path string) ([]byte, error) {
-	if path == "-" {
-		data, err := io.ReadAll(os.Stdin)
-		if err != nil {
-			return nil, fmt.Errorf("read stdin: %w", err)
-		}
-		return data, nil
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	return data, nil
 }
 
 func printDiffUsage(w io.Writer) {

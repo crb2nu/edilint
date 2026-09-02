@@ -45,10 +45,11 @@ func write(t *testing.T, dir, name, body string) string {
 	return path
 }
 
-// exec runs the CLI and returns its exit code plus captured output.
+// exec runs the CLI through the subcommand dispatcher, the way main does, and
+// returns its exit code plus captured output.
 func exec(args ...string) (code int, stdout, stderr string) {
 	var out, errBuf bytes.Buffer
-	code = run(args, &out, &errBuf)
+	code = dispatch(args, &out, &errBuf)
 	return code, out.String(), errBuf.String()
 }
 
