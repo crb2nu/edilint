@@ -1,0 +1,117 @@
+# GitLab CI — gitlab.flexinfer.ai/libs/edilint is the canonical repository;
+# github.com/crb2nu/edilint is a push mirror of main and tags (see mirror:github).
+#
+# The GitHub Actions workflow (.github/workflows/ci.yml) keeps running on the
+# mirror and supplies what these runners cannot: the macOS and Windows test
+# matrix (CRLF fixture bytes) and the goreleaser config check. Everything in
+# `make ci` runs here, on every MR, using the same pinned golangci-lint version
+# the Makefile does so lint results cannot disagree between laptop and CI.
+include:
+  - project: 'platform/gitops'
+    file: '/ci/templates/go.yml'
+  - project: 'services/tech-radar'
+    file: '/ci/radar.yml'
+
+stages: [lint, test, build, mirror]
+
+variables:
+  GOPROXY: "https://proxy.golang.org,direct"
+  # Go jobs here do not use Docker-in-Docker; disable the runner's daemon wait.
+  DOCKER_HOST: ""
+  DOCKERHUB_CACHE_PREFIX: "registry.harbor.lan/dockerhub-cache"
+
+# The shared .go-lint template installs its own golangci-lint version. This
+# repo pins the version in the Makefile so `make lint` and CI are identical;
+# reuse the template's cache and checkout handling but run the Makefile target.
+lint:
+  extends: .go-base
+  stage: lint
+  interruptible: true
+  variables:
+    CGO_ENABLED: "0"
+  script:
+    - make fmt-check
+    - make vet
+    - make lint
+
+test:
+  extends: .go-base
+  stage: test
+  interruptible: true
+  variables:
+    # The race detector needs cgo.
+    CGO_ENABLED: "1"
+  script:
+    - make test-race
+
+# Bounded fuzz pass over the restricted YAML reader — the one component that
+# parses arbitrary user bytes with hand-written code. Ten seconds, as in
+# .github/workflows/ci.yml.
+fuzz:
+  extends: .go-base
+  stage: test
+  interruptible: true
+  variables:
+    CGO_ENABLED: "1"
+  script:
+    - make fuzz
+
+# go.mod claims a Go 1.23 floor for locked-down healthcare toolchains.
+# GOTOOLCHAIN=local turns any accidental upward drift into a hard failure.
+minimum-go:
+  extends: .go-base
+  stage: test
+  interruptible: true
+  image: registry.harbor.lan/dockerhub-cache/library/golang:1.23
+  variables:
+    CGO_ENABLED: "0"
+    GOTOOLCHAIN: local
+  script:
+    - go build ./...
+    - go test ./...
+
+build:
+  extends: .go-base
+  stage: build
+  interruptible: true
+  variables:
+    CGO_ENABLED: "0"
+  script:
+    - go build -o bin/edilint ./cmd/edilint
+    - ./bin/edilint --version
+    - ./bin/edilint examples/remittance.x12 || test $? -eq 1
+  artifacts:
+    paths: [bin/edilint]
+    expire_in: 1 week
+
+# Push main and tags to the public GitHub mirror. Skips cleanly when the token
+# is absent so a missing credential never reddens main; set it with
+#   glab variable set GITHUB_MIRROR_TOKEN --repo libs/edilint --masked --protected
+# (a fine-grained GitHub token with contents:write on crb2nu/edilint).
+# Work-in-progress branches stay on GitLab; the GitHub release workflow still
+# fires on mirrored tags.
+mirror:github:
+  stage: mirror
+  image: ${DOCKERHUB_CACHE_PREFIX}/alpine/git:latest
+  variables:
+    GIT_STRATEGY: clone
+    GIT_DEPTH: 0
+  script:
+    - |
+      set -eu
+      if [ -z "${GITHUB_MIRROR_TOKEN:-}" ]; then
+        echo "GITHUB_MIRROR_TOKEN is not set; skipping GitHub mirror push."
+        echo "Set it with: glab variable set GITHUB_MIRROR_TOKEN --repo libs/edilint --masked --protected"
+        exit 0
+      fi
+      git remote remove github 2>/dev/null || true
+      git remote add github "https://x-access-token:${GITHUB_MIRROR_TOKEN}@github.com/crb2nu/edilint.git"
+      git fetch github --prune --tags
+      git push --force-with-lease github "HEAD:refs/heads/${CI_DEFAULT_BRANCH}"
+      git push --force-with-lease --tags github
+      echo "Mirrored ${CI_COMMIT_SHA} to github.com/crb2nu/edilint"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+radar-scan:
+  extends: .radar-scan

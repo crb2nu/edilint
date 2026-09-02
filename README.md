@@ -649,6 +649,14 @@ for _, f := range rep.Findings {
 A nil error from `LintFile` means the input was read and analyzed, not that it
 was clean. Check `Report.OK` or inspect `Report.Findings`.
 
+## Repository
+
+The canonical repository is `gitlab.flexinfer.ai/libs/edilint`, where merge requests
+run the GitLab CI in `.gitlab-ci.yml`; `github.com/crb2nu/edilint` is a push mirror
+of `main` and tags. The GitHub Actions workflow still runs on the mirror and adds the
+macOS and Windows test matrix. Issues and pull requests opened on GitHub are read;
+changes land through GitLab and arrive on GitHub with the next mirror push.
+
 ## License
 
 Apache-2.0.
