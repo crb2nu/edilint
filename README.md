@@ -577,6 +577,38 @@ themselves by format, and a configuration file can override any of them.
 | `EL3011` | `envelope.missing-control-id` | error | x12 | ISA13 interchange control number is empty. |
 | `EL3012` | `envelope.trailing-data` | error | x12 | Segments appear outside any interchange. |
 
+### What the trading partner would say
+
+Every X12 rule maps to the acknowledgment a receiver's front end returns for
+the same defect: a TA1 note code (TA105) for interchange-level problems, and
+999 codes at group (AK905), transaction set (IK502), segment (IK304) or data
+element (IK403) level. A 997 carries the same codes in AK905, AK502, AK304 and
+AK403. The mapping is what `explain_rule` reports in the MCP server and what
+the `help` text of every rule carries in SARIF output, so a finding can be
+read as the rejection it prevents.
+
+| Rule | Acknowledgment |
+|---|---|
+| `EL1007`, `EL1008` | 999 IK403 6, invalid character in a data element |
+| `EL2003` | TA1 004, segment terminator invalid; TA1 023, premature end of file when the unterminated segment swallows the trailer |
+| `EL2004` | 999 IK304 1, unrecognized segment identifier, because the padding is read as part of the next segment's identifier |
+| `EL2005` | TA1 026, 027 and 032, invalid data element, component or repetition separator; TA1 004, segment terminator invalid |
+| `EL3001` | TA1 022, invalid control structure. A receiver that cannot read the ISA often cannot return a TA1 at all. |
+| `EL3002` | TA1 024, invalid interchange content, for a GS outside any ISA; 999 IK502 18, transaction set not in a functional group |
+| `EL3003` | TA1 023, premature end of file; 999 AK905 3, group trailer missing; 999 IK502 2, transaction set trailer missing |
+| `EL3004` | TA1 022, invalid control structure; 999 IK304 2, unexpected segment |
+| `EL3005` | TA1 001; 999 AK905 4; 999 IK502 3: header and trailer control numbers do not match, at each level |
+| `EL3006` | 999 IK502 4, number of included segments does not match the actual count |
+| `EL3007` | 999 AK905 5, number of included transaction sets does not match the actual count |
+| `EL3008` | TA1 021, invalid number of included groups value |
+| `EL3009` | TA1 025, duplicate interchange control number; 999 AK905 19 and IK502 23, control number not unique within its parent |
+| `EL3010` | TA1 014 and 015, invalid interchange date or time; 999 AK905 30 and 31, invalid group date or time |
+| `EL3011` | TA1 018, invalid interchange control number value |
+| `EL3012` | TA1 022, invalid control structure, for segments after the IEA |
+
+Rules outside X12 have no entry. HL7v2 receivers answer with ACK messages and
+EDIFACT receivers with CONTRL messages, whose codes are not mapped yet.
+
 ### counts
 
 | ID | Rule | Severity | Applies to | Detects |

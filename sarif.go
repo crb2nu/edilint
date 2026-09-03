@@ -2,6 +2,7 @@ package edilint
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -48,6 +49,10 @@ type sarifRule struct {
 	ShortDescription     sarifMessage       `json:"shortDescription"`
 	FullDescription      *sarifMessage      `json:"fullDescription,omitempty"`
 	DefaultConfiguration sarifConfiguration `json:"defaultConfiguration"`
+	// Help is what a viewer shows when a reader asks what to do about the
+	// rule: the acknowledgment the trading partner would have returned, and
+	// how to suppress the rule.
+	Help *sarifMessage `json:"help,omitempty"`
 }
 
 type sarifConfiguration struct {
@@ -157,6 +162,9 @@ func sarifRuleFor(id string, f Finding) sarifRule {
 			DefaultConfiguration: sarifConfiguration{Level: sarifLevel(f.Severity)},
 		}
 	}
+	// The index holds the bare table; acknowledgments are attached on demand
+	// because their table is keyed through the index itself.
+	doc.Acks = RuleAcks(doc.ID)
 	rule := sarifRule{
 		ID:                   doc.ID,
 		Name:                 doc.Name,
@@ -166,7 +174,28 @@ func sarifRuleFor(id string, f Finding) sarifRule {
 	if full := doc.Summary; full != rule.ShortDescription.Text {
 		rule.FullDescription = &sarifMessage{Text: full}
 	}
+	rule.Help = &sarifMessage{Text: RuleHelp(doc)}
 	return rule
+}
+
+// RuleHelp renders the guidance shared by the SARIF help text and the MCP
+// server's explain_rule tool: which acknowledgment a trading partner returns
+// for the defect, and how to suppress or baseline the rule.
+func RuleHelp(doc RuleDoc) string {
+	var b strings.Builder
+	if len(doc.Acks) > 0 {
+		b.WriteString("A trading partner's front end reports this defect as:\n")
+		for _, a := range doc.Acks {
+			b.WriteString("  " + a.String() + "\n")
+		}
+	} else {
+		b.WriteString("No X12 acknowledgment code names this defect; it is caught by the parser " +
+			"or the hygiene layer before an acknowledgment is produced.\n")
+	}
+	fmt.Fprintf(&b, "Suppress the rule with --disable %s, or list it under \"disable\" in .edilint.yml. "+
+		"To accept the occurrences a file already has without suppressing the rule, record them "+
+		"with --write-baseline and run with --baseline.", doc.ID)
+	return b.String()
 }
 
 // sarifRegionFor converts editor coordinates to a SARIF region. A finding with

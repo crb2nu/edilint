@@ -60,11 +60,42 @@ type RuleDoc struct {
 	Formats string `json:"formats"`
 	// Summary is the one-line rationale printed by --list-rules.
 	Summary string `json:"summary"`
+	// Acks are the acknowledgment codes a trading partner returns for the
+	// defect, for X12 rules. Nil for every other rule.
+	Acks []Ack `json:"acknowledgments,omitempty"`
+}
+
+// ruleEntry is one row of the catalog table: the fields a rule is declared
+// with, positionally, so that each rule fits on a few lines. Rules converts
+// rows to RuleDoc and attaches what is derived, such as acknowledgments.
+type ruleEntry struct {
+	id       string
+	name     string
+	class    string
+	severity Severity
+	formats  string
+	summary  string
+}
+
+func (e ruleEntry) doc() RuleDoc {
+	return RuleDoc{ID: e.id, Name: e.name, Class: e.class, Severity: e.severity, Formats: e.formats, Summary: e.summary}
 }
 
 // Rules returns the catalog of implemented rules, ordered by identifier.
 func Rules() []RuleDoc {
-	return []RuleDoc{
+	rows := catalog()
+	rules := make([]RuleDoc, 0, len(rows))
+	for _, row := range rows {
+		doc := row.doc()
+		doc.Acks = RuleAcks(doc.ID)
+		rules = append(rules, doc)
+	}
+	return rules
+}
+
+// catalog is the rule table itself.
+func catalog() []ruleEntry {
+	return []ruleEntry{
 		{"EL1001", RuleBOM, ClassCharset, SeverityError, "all (warning for delimited)",
 			"File starts with a byte order mark. An error for X12, HL7v2 and fixed-width, where a BOM " +
 				"before ISA or MSH shifts every fixed position in the file; a warning for delimited, " +
@@ -206,7 +237,10 @@ func buildRuleIndex() ruleLookup {
 		byID:   map[string]RuleDoc{},
 	}
 	seen := map[string]bool{}
-	for _, r := range Rules() {
+	// The index is built from the bare table: ruleAcks is keyed through RuleID,
+	// which reads this index, so Rules() cannot be called until it exists.
+	for _, row := range catalog() {
+		r := row.doc()
 		idx.byName[r.Name] = r
 		idx.byID[r.ID] = r
 		if !seen[r.Class] {

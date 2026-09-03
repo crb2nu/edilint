@@ -502,18 +502,23 @@ func (s *Server) explainRule(raw json.RawMessage) map[string]any {
 	fmt.Fprintf(&b, "Default severity: %s. A configuration file can re-grade it, and a rule graded info is printed but never fails a run.\n", doc.Severity)
 	fmt.Fprintf(&b, "Applies to: %s\n", doc.Formats)
 	fmt.Fprintf(&b, "%s\n", doc.Summary)
-	fmt.Fprintf(&b, "Suppress it with --disable %s, or list it under \"disable\" in .edilint.yml. "+
-		"To accept the occurrences a file already has without suppressing the rule, record them with "+
-		"--write-baseline and run with --baseline.\n", doc.ID)
+	fmt.Fprintf(&b, "%s\n", edilint.RuleHelp(doc))
 
+	acks := doc.Acks
+	if acks == nil {
+		// A clean file must still marshal as an empty array, so a reader can
+		// tell "no acknowledgment" from a field it did not expect.
+		acks = []edilint.Ack{}
+	}
 	return textResult(b.String(), map[string]any{
-		"id":           doc.ID,
-		"name":         doc.Name,
-		"class":        doc.Class,
-		"severity":     doc.Severity,
-		"formats":      doc.Formats,
-		"summary":      doc.Summary,
-		"disable_flag": "--disable " + doc.ID,
+		"id":              doc.ID,
+		"name":            doc.Name,
+		"class":           doc.Class,
+		"severity":        doc.Severity,
+		"formats":         doc.Formats,
+		"summary":         doc.Summary,
+		"acknowledgments": acks,
+		"disable_flag":    "--disable " + doc.ID,
 	})
 }
 

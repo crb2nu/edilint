@@ -95,6 +95,8 @@ boring maturity work that separates a weekend project from a tool.
   --claims 100`). Test data is a real, unserved pain; also feeds our own corpus.
   Big enough to be its own project; decide after v1.0.
 - Community rule packs (versioned YAML rules for shop-specific conventions).
+- EDIFACT CONTRL (UCI/UCM) and HL7v2 ACK cross-references, matching the X12
+  acknowledgment table that `RuleHelp` and `explain_rule` render.
 - NCPDP batch structure checks (licensing review first).
 
 ---
