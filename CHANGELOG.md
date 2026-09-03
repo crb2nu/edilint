@@ -8,7 +8,13 @@ from its first tag.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- `--version`, the SARIF tool version and the MCP server's reported version
+  now fall back to the module build information when the binary was built
+  without release ldflags, so `go install github.com/crb2nu/edilint/cmd/edilint@v0.3.0`
+  reports `0.3.0` rather than `dev`, and a build from a checkout reports `dev`
+  qualified with its commit.
 
 ## [0.3.0] - 2026-09-03
 

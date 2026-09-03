@@ -83,7 +83,7 @@ func runMCP(args []string, in io.Reader, stdout, stderr io.Writer) int {
 	}
 
 	srv := &mcp.Server{
-		Version:       version,
+		Version:       buildVersion(),
 		Options:       set.opts,
 		AllowWarnings: set.allowWarnings,
 		Log:           stderr,
