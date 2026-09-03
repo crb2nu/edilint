@@ -533,14 +533,29 @@ func TestExplainRule(t *testing.T) {
 				t.Errorf("structured = %v", structured)
 			}
 			text := toolText(t, r)
-			for _, want := range []string{"EL3006 envelope.segment-count", "--disable EL3006", "x12", "Default severity: error"} {
+			for _, want := range []string{"EL3006 envelope.segment-count", "--disable EL3006", "x12",
+				"Default severity: error", "999 code 4 (IK502)"} {
 				if !strings.Contains(text, want) {
 					t.Errorf("text is missing %q: %q", want, text)
 				}
 			}
+			acks := arr(t, structured["acknowledgments"])
+			if len(acks) != 1 || obj(t, acks[0])["code"] != "4" {
+				t.Errorf("acknowledgments = %v", acks)
+			}
 		})
 	}
-	r := result(t, one(t, &Server{}, call(1, "explain_rule", map[string]any{"rule": "EL9999"})))
+
+	// A rule outside X12 has no acknowledgment, and says so rather than
+	// omitting the field.
+	r := result(t, one(t, &Server{}, call(1, "explain_rule", map[string]any{"rule": "EL6001"})))
+	if acks := arr(t, obj(t, r["structuredContent"])["acknowledgments"]); len(acks) != 0 {
+		t.Errorf("EL6001 acknowledgments = %v, want []", acks)
+	}
+	if !strings.Contains(toolText(t, r), "No X12 acknowledgment") {
+		t.Errorf("EL6001 text should say there is no acknowledgment: %q", toolText(t, r))
+	}
+	r = result(t, one(t, &Server{}, call(1, "explain_rule", map[string]any{"rule": "EL9999"})))
 	if !isError(r) || !strings.Contains(toolText(t, r), "list_rules") {
 		t.Errorf("unknown rule should be an error pointing at list_rules, got %v", r)
 	}

@@ -95,6 +95,13 @@ up the first tag.
   the `initialize` handshake of revisions 2025-11-25 and earlier and the
   per-request metadata of 2026-07-28, using the standard library only. The
   server makes no network connection and reads only the files a call names.
+- Every X12 rule is cross-referenced to the acknowledgment a trading partner
+  returns for the defect it catches: TA1 note codes (TA105) and 999 codes at
+  group, transaction set, segment and element level (AK905, IK502, IK304,
+  IK403). The mapping is attached to the rule catalog (`RuleDoc.Acks`,
+  `RuleAcks`), rendered by `RuleHelp`, carried as the `help` text of every
+  SARIF rule, reported by the MCP server's `explain_rule` tool, and tabled in
+  the README. Rules outside X12 have no entry.
 
 ### Changed
 
