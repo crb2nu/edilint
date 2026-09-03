@@ -78,6 +78,16 @@ var spellingExempt = map[string]bool{
 	"spelling_test.go": true,
 }
 
+// spellingForeign are exact tokens quoted from external protocols, whose
+// spelling is theirs to choose and ours to reproduce. Each is blanked out of a
+// line before the rules run, so only the token itself is exempt.
+var spellingForeign = []string{
+	// The Model Context Protocol's cancellation notification, as the
+	// specification names it. The mcp package must send and document the exact
+	// method name.
+	"notifications/cancelled",
+}
+
 // spellingExts are the file types checked.
 var spellingExts = map[string]bool{
 	".go": true, ".md": true, ".yml": true, ".yaml": true,
@@ -129,10 +139,16 @@ func TestNoBritishSpellings(t *testing.T) {
 			return readErr
 		}
 		for i, line := range strings.Split(string(body), "\n") {
+			// A token quoted from another protocol keeps that protocol's
+			// spelling; the prose around it is still held to ours.
+			checked := line
+			for _, token := range spellingForeign {
+				checked = strings.ReplaceAll(checked, token, "")
+			}
 			for _, r := range rules {
-				if loc := r.re.FindStringIndex(line); loc != nil {
+				if loc := r.re.FindStringIndex(checked); loc != nil {
 					t.Errorf("%s:%d: British spelling %q (use the American form, e.g. %q)\n\t%s",
-						path, i+1, line[loc[0]:loc[1]], r.american, strings.TrimSpace(line))
+						path, i+1, checked[loc[0]:loc[1]], r.american, strings.TrimSpace(line))
 				}
 			}
 		}

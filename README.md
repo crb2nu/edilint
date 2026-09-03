@@ -463,6 +463,54 @@ refuses to write anything if an input could not be read, so a baseline never
 bakes in a gap. Run with `-v` to be told when recorded findings no longer occur,
 which is the signal to re-record.
 
+## Use with a coding agent
+
+`edilint mcp` serves the checks over the
+[Model Context Protocol](https://modelcontextprotocol.io/) on standard input and
+output, so an agent that generates or edits interchange files can lint them in
+the loop instead of shelling out and parsing text. It is the same binary and the
+same rules; nothing is downloaded and no network connection is made.
+
+Register it with the client as the command `edilint` and the argument `mcp`.
+For Claude Code:
+
+```sh
+claude mcp add edilint -- edilint mcp
+```
+
+Other clients take the equivalent command and arguments in their configuration
+file:
+
+```json
+{ "mcpServers": { "edilint": { "command": "edilint", "args": ["mcp"] } } }
+```
+
+Four tools are exposed, all read-only:
+
+| Tool | Purpose |
+|---|---|
+| `lint_file` | Lint one or more files by path. Duplicate control numbers are detected across the files of one call. |
+| `lint_text` | Lint content passed in the call, for a file that exists only in the conversation. |
+| `list_rules` | The rule catalog, optionally filtered to one class. |
+| `explain_rule` | What a rule checks, its default severity and formats, and how to suppress or baseline it. |
+
+The lint tools accept the same tuning as the flags (`format`, `delimiter`,
+`charset`, `type_field`, `count_rules`, `disable`, `max_findings`, `layout`,
+`allow_warnings`). They return the text diagnostics the command line prints,
+followed by the exit status it would return, plus structured content holding
+`exit_status` (0, 1 or 2, with the meanings above) and the same document
+`--json` writes. Findings are the normal result of a call, not an error; a call
+is an error only when its arguments are wrong or no input could be read.
+Findings are capped at 200 per file unless the call or the configuration file
+says otherwise, and the summary counts are exact regardless.
+
+A `.edilint.yml` in the server's working directory, or the file named by
+`edilint mcp --config`, is the base every call starts from, exactly as on the
+command line. Both generations of the protocol are spoken: the `initialize`
+handshake of revisions 2025-11-25 and earlier, and the per-request metadata of
+revision 2026-07-28. The transport is implemented with the standard library, so
+`go install` still pulls in nothing.
+
 ## Rules
 
 Rule identifiers and names are both stable and both appear in the text and JSON

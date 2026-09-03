@@ -69,6 +69,13 @@ type settings struct {
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
+	// Subcommands are dispatched before flag parsing, so everything after the
+	// subcommand name belongs to it. A file that happens to be named "mcp" is
+	// still reachable: "edilint -- mcp" and "edilint ./mcp" both lint.
+	if len(args) > 0 && args[0] == "mcp" {
+		return runMCP(args[1:], stdin, stdout, stderr)
+	}
+
 	cfg, parseErr := parseArgs(args)
 	if parseErr != nil {
 		diagf(stderr, "edilint: %v\n", parseErr)
@@ -507,9 +514,13 @@ func printUsage(w io.Writer) {
 
 Usage:
   edilint [flags] <file>...
+  edilint mcp [flags]
 
 Reads X12 EDI, HL7v2, delimited and fixed-width files and reports the defects
 that break downstream parsers. Use "-" to read standard input.
+
+Subcommands:
+  mcp  serve the checks over the Model Context Protocol ('edilint mcp --help')
 
 Exit status:
   0  no findings

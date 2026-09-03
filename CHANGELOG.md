@@ -85,6 +85,16 @@ up the first tag.
   the release configuration cannot drift between tags. A pre-commit hook
   definition lets `pre-commit` shops pin a released tag and lint interchange
   files before they are committed.
+- `edilint mcp` serves the checks over the Model Context Protocol on standard
+  input and output, so a coding agent can lint the files it generates without
+  shelling out. Four read-only tools: `lint_file`, `lint_text`, `list_rules`
+  and `explain_rule`. The lint tools take the same tuning as the flags and
+  return the command line's text diagnostics plus the `--json` document and an
+  `exit_status`; findings are capped at 200 per file unless asked otherwise,
+  with exact summary counts either way. Both protocol generations are spoken,
+  the `initialize` handshake of revisions 2025-11-25 and earlier and the
+  per-request metadata of 2026-07-28, using the standard library only. The
+  server makes no network connection and reads only the files a call names.
 
 ### Changed
 
