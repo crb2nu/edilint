@@ -17,9 +17,6 @@ import (
 	"github.com/crb2nu/edilint"
 )
 
-// version is overridden at build time with -ldflags "-X main.version=...".
-var version = "dev"
-
 // Exit statuses. These are part of the tool's contract with calling scripts.
 const (
 	exitClean    = 0
@@ -100,7 +97,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		printUsage(stdout)
 		return exitClean
 	case cfg.showVersion:
-		diagf(stdout, "edilint %s\n", version)
+		diagf(stdout, "edilint %s\n", buildVersion())
 		return exitClean
 	case cfg.listRules:
 		if err := edilint.WriteRules(stdout); err != nil {
@@ -204,7 +201,7 @@ func writeReport(rr *edilint.RunReport, cfg config, stdout io.Writer) error {
 	case edilint.OutputJSON:
 		return rr.WriteJSON(stdout)
 	case edilint.OutputSARIF:
-		return rr.WriteSARIF(stdout, version)
+		return rr.WriteSARIF(stdout, buildVersion())
 	case edilint.OutputJUnit:
 		return rr.WriteJUnit(stdout)
 	case edilint.OutputGitHub:

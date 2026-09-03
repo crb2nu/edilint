@@ -104,8 +104,8 @@ func TestMCPServesOverStandardStreams(t *testing.T) {
 	if init["protocolVersion"] != "2025-11-25" {
 		t.Errorf("negotiated %v", init["protocolVersion"])
 	}
-	if init["serverInfo"].(map[string]any)["version"] != version {
-		t.Errorf("serverInfo.version = %v, want the build's version %q", init["serverInfo"], version)
+	if init["serverInfo"].(map[string]any)["version"] != buildVersion() {
+		t.Errorf("serverInfo.version = %v, want the build's version %q", init["serverInfo"], buildVersion())
 	}
 	tools := msgs[1]["result"].(map[string]any)["tools"].([]any)
 	if len(tools) != 4 {
