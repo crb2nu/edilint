@@ -8,6 +8,10 @@ from its first tag.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.3.0] - 2026-09-03
+
 ### Added
 
 - `edilint fmt`: canonical layout for X12 interchanges and HL7v2 messages and
@@ -33,6 +37,43 @@ from its first tag.
   repairs print their diff even then. Input the tool cannot read — binary, or
   behind a UTF-16 byte order mark — comes back untouched.
 - `Canonical` and `Fix` in the library, carrying both subcommands.
+- `edilint diff a.x12 b.x12`, a structural, element-level comparison of two
+  X12 files for vendor spec disputes. Segments align by their position within
+  the envelope hierarchy — interchange, functional group, transaction set —
+  never by byte offset, and differences are reported as a path plus the X12
+  element designator with both values. Terminator style, whitespace after
+  terminators and trailing whitespace inside elements are ignored unless
+  `--strict`, which reports them marked `cosmetic`; trailing empty elements
+  are never a difference. Exit status mirrors the linter: 0 structurally
+  identical, 1 differences found, 2 the comparison could not be made. `--json`
+  writes a versioned document, currently version 1, committed as
+  `schema/diff.v1.schema.json`.
+- `edilint stats <file>...`, a census of interchange files: for X12 the
+  interchange, functional group and transaction set counts by GS01 and ST01
+  code, control-number ranges (ISA13, GS06, ST02), envelope date ranges
+  (ISA09, GS04), the declared separators and the narrowest X12 character-set
+  profile that admits every character observed; for any format the size,
+  record count and record histogram, one section per file. A census is a
+  report, not a gate: it exits 0 whatever the files contain, 2 only when a
+  file could not be read. `--json` writes a versioned document, currently
+  version 1, committed as `schema/stats.v1.schema.json`.
+- `edilint mcp` serves the checks over the Model Context Protocol on standard
+  input and output, so a coding agent can lint the files it generates without
+  shelling out. Four read-only tools: `lint_file`, `lint_text`, `list_rules`
+  and `explain_rule`. The lint tools take the same tuning as the flags and
+  return the command line's text diagnostics plus the `--json` document and an
+  `exit_status`; findings are capped at 200 per file unless asked otherwise,
+  with exact summary counts either way. Both protocol generations are spoken,
+  the `initialize` handshake of revisions 2025-11-25 and earlier and the
+  per-request metadata of 2026-07-28, using the standard library only. The
+  server makes no network connection and reads only the files a call names.
+- Every X12 rule is cross-referenced to the acknowledgment a trading partner
+  returns for the defect it catches: TA1 note codes (TA105) and 999 codes at
+  group, transaction set, segment and element level (AK905, IK502, IK304,
+  IK403). The mapping is attached to the rule catalog (`RuleDoc.Acks`,
+  `RuleAcks`), rendered by `RuleHelp`, carried as the `help` text of every
+  SARIF rule, reported by the MCP server's `explain_rule` tool, and tabled in
+  the README. Rules outside X12 have no entry.
 
 ## [0.1.0] - 2026-08-15
 
@@ -110,43 +151,6 @@ from its first tag.
   the release configuration cannot drift between tags. A pre-commit hook
   definition lets `pre-commit` shops pin a released tag and lint interchange
   files before they are committed.
-- `edilint mcp` serves the checks over the Model Context Protocol on standard
-  input and output, so a coding agent can lint the files it generates without
-  shelling out. Four read-only tools: `lint_file`, `lint_text`, `list_rules`
-  and `explain_rule`. The lint tools take the same tuning as the flags and
-  return the command line's text diagnostics plus the `--json` document and an
-  `exit_status`; findings are capped at 200 per file unless asked otherwise,
-  with exact summary counts either way. Both protocol generations are spoken,
-  the `initialize` handshake of revisions 2025-11-25 and earlier and the
-  per-request metadata of 2026-07-28, using the standard library only. The
-  server makes no network connection and reads only the files a call names.
-- Every X12 rule is cross-referenced to the acknowledgment a trading partner
-  returns for the defect it catches: TA1 note codes (TA105) and 999 codes at
-  group, transaction set, segment and element level (AK905, IK502, IK304,
-  IK403). The mapping is attached to the rule catalog (`RuleDoc.Acks`,
-  `RuleAcks`), rendered by `RuleHelp`, carried as the `help` text of every
-  SARIF rule, reported by the MCP server's `explain_rule` tool, and tabled in
-  the README. Rules outside X12 have no entry.
-- `edilint diff a.x12 b.x12`, a structural, element-level comparison of two
-  X12 files for vendor spec disputes. Segments align by their position within
-  the envelope hierarchy — interchange, functional group, transaction set —
-  never by byte offset, and differences are reported as a path plus the X12
-  element designator with both values. Terminator style, whitespace after
-  terminators and trailing whitespace inside elements are ignored unless
-  `--strict`, which reports them marked `cosmetic`; trailing empty elements
-  are never a difference. Exit status mirrors the linter: 0 structurally
-  identical, 1 differences found, 2 the comparison could not be made. `--json`
-  writes a versioned document, currently version 1, committed as
-  `schema/diff.v1.schema.json`.
-- `edilint stats <file>...`, a census of interchange files: for X12 the
-  interchange, functional group and transaction set counts by GS01 and ST01
-  code, control-number ranges (ISA13, GS06, ST02), envelope date ranges
-  (ISA09, GS04), the declared separators and the narrowest X12 character-set
-  profile that admits every character observed; for any format the size,
-  record count and record histogram, one section per file. A census is a
-  report, not a gate: it exits 0 whatever the files contain, 2 only when a
-  file could not be read. `--json` writes a versioned document, currently
-  version 1, committed as `schema/stats.v1.schema.json`.
 
 ### Changed
 
