@@ -1,6 +1,6 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
-> Last Updated: 2026-09-02
+> Last Updated: 2026-09-03
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
 > Tracking Issue: none open — backlog is the
 > [issues list](https://github.com/crb2nu/edilint/issues)
@@ -18,17 +18,21 @@ the release workflow publishes goreleaser binaries on the GitHub release.
 
 `git log` records merged workstreams B (rule system foundation), A (HL7v2 batch
 and EDIFACT envelope coverage), C (SARIF, JUnit, and GitHub annotation outputs),
-and D (release engineering), completing v0.2. Workstreams E (`fmt` + `fix`) and
-F (`diff` + `stats`) are implemented and in maintainer review as GitLab merge
-requests !2 and !1, respectively. Workstream I (MCP server) is implemented on
-`feat/mcp-server` and awaits review. Workstreams G and H have not started.
+and D (release engineering), completing v0.2, and E (`fmt` + `fix`, !2), F
+(`diff` + `stats`, !1) and I (MCP server, !8; acknowledgment cross-reference,
+!9), all merged 2026-09-03, completing v0.3 and the first piece of v1.0. None
+of v0.2 or v0.3 has been tagged: `v0.1.0` is still the only release, so the
+next tag publishes every subcommand at once. Workstreams G and H have not
+started; G is the natural next slice, since `RuleHelp` and the acknowledgment
+table now give every rule page real content.
 
 The canonical repository is `gitlab.flexinfer.ai/libs/edilint`; README
 `Repository` documents GitHub as its push mirror. GitLab CI runs on merge
 requests, while the GitHub Actions workflows continue to run on the mirror.
 
-Evidence inspected 2026-09-02: `git tag` (`v0.1.0`), `git log`,
-`.github/workflows/release.yml`, and README `Repository`.
+Evidence inspected 2026-09-03: `git tag` (`v0.1.0`), `git log`, GitLab merge
+requests !1, !2, !8 and !9, `.github/workflows/release.yml`, and README
+`Repository`.
 
 - **Plan store**: none — this file is the plan
 - **Distribution**: `go install` for `v0.1.0` and goreleaser binaries on its
