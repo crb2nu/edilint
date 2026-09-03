@@ -20,7 +20,8 @@ the release workflow publishes goreleaser binaries on the GitHub release.
 and EDIFACT envelope coverage), C (SARIF, JUnit, and GitHub annotation outputs),
 and D (release engineering), completing v0.2. Workstreams E (`fmt` + `fix`) and
 F (`diff` + `stats`) are implemented and in maintainer review as GitLab merge
-requests !2 and !1, respectively. Workstreams G and H have not started.
+requests !2 and !1, respectively. Workstream I (MCP server) is implemented on
+`feat/mcp-server` and awaits review. Workstreams G and H have not started.
 
 The canonical repository is `gitlab.flexinfer.ai/libs/edilint`; README
 `Repository` documents GitHub as its push mirror. GitLab CI runs on merge
@@ -84,9 +85,10 @@ people can actually install.
 `fmt`, `fix`, `diff`, `stats`. Linters get installed; formatters and diffs get
 recommended. This phase is why anyone tells a coworker.
 
-### v1.0 — ecosystem (workstreams G, H)
+### v1.0 — ecosystem (workstreams G, H, I)
 Rule reference site, published Action, pre-commit hook, streaming performance,
-fuzzing. The boring maturity work that separates a weekend project from a tool.
+fuzzing, and the MCP server that puts the checks in front of coding agents. The
+boring maturity work that separates a weekend project from a tool.
 
 ### Exploration (not scheduled)
 - `edilint gen` — synthetic X12/HL7v2 test-file generator (`edilint gen 837p
@@ -194,6 +196,25 @@ crash-free guarantee on arbitrary bytes.
 **Depends:** A, E, F merged (parsers stable).
 **Accept:** 2 GB synthetic file lints in bounded memory; fuzzers run clean for a
 sustained CI budget; benchmarks tracked.
+
+## Workstream I — MCP server
+
+**Goal:** `edilint mcp` serves the checks over the Model Context Protocol on
+standard input and output, so a coding agent can lint the files it generates
+and look up rule identifiers without shelling out. Tools: `lint_file`,
+`lint_text`, `list_rules`, `explain_rule`, all read-only. Both protocol
+generations are spoken (the `initialize` handshake through revision
+2025-11-25 and the per-request metadata of 2026-07-28), with the standard
+library only, so the zero-dependency, zero-network promise still holds.
+Landscape research (2026-09-02) found no X12, HL7v2 or EDIFACT validation
+exposed as an agent tool anywhere; FHIR `$validate` wrappers are the only prior
+art.
+**Owns:** `mcp/`, `cmd/edilint/mcp.go`, the README section, their tests.
+**Depends:** B, C (rule IDs and the JSON document are the tool's vocabulary).
+**Accept:** a client that speaks either generation lists four tools and gets
+findings back with `exit_status`; every stdout line is one JSON message;
+unknown arguments are tool errors, not silent no-ops; configuration file and
+per-call options layer exactly as the flags do.
 
 ---
 
