@@ -714,7 +714,9 @@ The GitHub Pages workflow publishes the checked files from the GitHub mirror.
 
 
 Rule identifiers and names are both stable and both appear in the text and JSON
-output. `edilint --list-rules` prints this catalog at runtime.
+output. `edilint --list-rules` prints this catalog at runtime, and the
+[Markdown rule reference](docs/rules/README.md) carries the same pages for
+reading in the repository; `make rulesdoc` regenerates it.
 
 An identifier's leading digit is its check class, so it says which part of the
 tool produced a finding before you look anything up:

@@ -1,0 +1,1 @@
+- Add generated per-rule reference pages, a generator, and a byte-for-byte drift guard under `docs/rules/`, `cmd/edilint-rulesdoc/`, and `internal/rulesdoc/`.
