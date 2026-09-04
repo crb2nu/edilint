@@ -1,4 +1,4 @@
-.PHONY: help build install test test-race fuzz cover lint fmt fmt-check vet tidy clean ci
+.PHONY: help build install wasm test test-race fuzz cover lint fmt fmt-check vet tidy clean ci
 
 # Keep this pinned to the version .github/workflows/ci.yml uses, so `make lint`
 # and CI cannot disagree.
@@ -14,6 +14,19 @@ build: ## Build the CLI into bin/
 
 install: ## Install the CLI into GOPATH/bin
 	go install ./cmd/edilint
+
+# The browser build: the linter as a WebAssembly module plus the Go runtime's
+# JavaScript shim, which moved from misc/wasm to lib/wasm in Go 1.24.
+WASM_DIR := dist/wasm
+WASM_VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//')
+
+wasm: ## Build the browser module into dist/wasm/ (edilint.wasm + wasm_exec.js)
+	mkdir -p $(WASM_DIR)
+	GOOS=js GOARCH=wasm go build -trimpath -ldflags "-s -w -X main.version=$(WASM_VERSION)" -o $(WASM_DIR)/edilint.wasm ./cmd/edilint-wasm
+	@shim="$$(go env GOROOT)/lib/wasm/wasm_exec.js"; \
+	[ -f "$$shim" ] || shim="$$(go env GOROOT)/misc/wasm/wasm_exec.js"; \
+	cp "$$shim" $(WASM_DIR)/wasm_exec.js
+	@ls -la $(WASM_DIR)
 
 test: ## Run the tests
 	go test ./...
