@@ -212,7 +212,7 @@ func TestFixDryRunMatchesWhatWriteDoes(t *testing.T) {
 	}
 
 	// The dry run's diff is exactly the change --write then made.
-	if got := diffUnified(path, []byte(brokenX12), written); got != dryDiff {
+	if got := edilint.UnifiedDiff(path, []byte(brokenX12), written); got != dryDiff {
 		t.Errorf("dry-run diff:\n%q\nbut --write produced:\n%q", dryDiff, got)
 	}
 	// And the library agrees byte for byte.

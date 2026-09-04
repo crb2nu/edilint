@@ -1,8 +1,8 @@
-package main
+package edilint
 
 import "testing"
 
-func TestDiffUnified(t *testing.T) {
+func TestUnifiedDiff(t *testing.T) {
 	tests := []struct {
 		name string
 		old  string
@@ -62,7 +62,7 @@ func TestDiffUnified(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := diffUnified("f", []byte(tc.old), []byte(tc.new))
+			got := UnifiedDiff("f", []byte(tc.old), []byte(tc.new))
 			if got != tc.want {
 				t.Errorf("diff:\n%q\nwant:\n%q", got, tc.want)
 			}
@@ -70,7 +70,7 @@ func TestDiffUnified(t *testing.T) {
 	}
 }
 
-func TestDiffUnifiedLargeChangeFallsBackToOneHunk(t *testing.T) {
+func TestUnifiedDiffLargeChangeFallsBackToOneHunk(t *testing.T) {
 	// Beyond the comparison budget the changed region is emitted wholesale.
 	// The output must still be a valid diff: every old line deleted, every new
 	// line added, headers accounting for all of them.
@@ -79,7 +79,7 @@ func TestDiffUnifiedLargeChangeFallsBackToOneHunk(t *testing.T) {
 		oldB = append(oldB, "old line\r\n"...)
 		newB = append(newB, "old line\n"...)
 	}
-	got := diffUnified("f", oldB, newB)
+	got := UnifiedDiff("f", oldB, newB)
 	if got == "" {
 		t.Fatal("expected a diff")
 	}

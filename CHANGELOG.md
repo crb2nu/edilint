@@ -8,6 +8,18 @@ from its first tag.
 
 ## [Unreleased]
 
+### Added
+
+- A WebAssembly build, `cmd/edilint-wasm`, so a web page can lint pasted
+  X12, HL7v2, EDIFACT and delimited text without sending it anywhere. It
+  exposes `edilintLint`, `edilintFmt`, `edilintFix`, `edilintRules`,
+  `edilintExplain` and `edilintVersion` on the page's global object, every
+  one a JSON-string-in, JSON-string-out function, and shares the command
+  line's option vocabulary and report document. `make wasm` builds
+  `dist/wasm/edilint.wasm` next to the Go runtime's `wasm_exec.js`.
+- `UnifiedDiff`, the diff renderer the fix dry run prints, is now part of the
+  library so that every front end renders the same diff.
+
 ### Fixed
 
 - `--version`, the SARIF tool version and the MCP server's reported version

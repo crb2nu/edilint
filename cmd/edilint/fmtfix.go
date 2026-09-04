@@ -143,7 +143,7 @@ func runFix(args []string, stdout, stderr io.Writer) int {
 
 		if !cfg.write {
 			pending += len(repairs)
-			if _, err := io.WriteString(stdout, diffUnified(path, data, out)); err != nil {
+			if _, err := io.WriteString(stdout, edilint.UnifiedDiff(path, data, out)); err != nil {
 				diagf(stderr, "edilint fix: %v\n", err)
 				return exitUsage
 			}
@@ -159,7 +159,7 @@ func runFix(args []string, stdout, stderr io.Writer) int {
 		// An unsafe repair rewrites content bytes on a visual judgment, so its
 		// run always shows the operator the resulting diff, applied or not.
 		if unsafeApplied {
-			if _, err := io.WriteString(stdout, diffUnified(path, data, out)); err != nil {
+			if _, err := io.WriteString(stdout, edilint.UnifiedDiff(path, data, out)); err != nil {
 				diagf(stderr, "edilint fix: %v\n", err)
 				return exitUsage
 			}

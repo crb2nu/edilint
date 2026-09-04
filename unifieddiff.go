@@ -1,8 +1,9 @@
-// Unified diff rendering for the fix subcommand's dry runs and unsafe repairs.
-// Implemented here rather than imported: the standard library has no diff, and
-// a linter that runs inside locked-down healthcare shops takes no dependencies
-// for presentation.
-package main
+// Unified diff rendering for fix dry runs and unsafe repairs. Implemented here
+// rather than imported: the standard library has no diff, and a linter that
+// runs inside locked-down healthcare shops takes no dependencies for
+// presentation. Exported so that every front end (the command line, the MCP
+// server, the WebAssembly build) renders the same diff.
+package edilint
 
 import (
 	"fmt"
@@ -25,9 +26,9 @@ type diffOp struct {
 	text string
 }
 
-// diffUnified renders old and new as a unified diff with conventional a/ b/
-// headers. It returns "" when the two are byte-identical.
-func diffUnified(path string, oldData, newData []byte) string {
+// UnifiedDiff renders oldData and newData as a unified diff with conventional
+// a/ b/ headers naming path. It returns "" when the two are byte-identical.
+func UnifiedDiff(path string, oldData, newData []byte) string {
 	if string(oldData) == string(newData) {
 		return ""
 	}
