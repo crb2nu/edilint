@@ -12,6 +12,11 @@ record counts that disagree with the records actually present.
 Single static binary, exit codes, and JSON output, so it works as a gate in a
 send script or a CI job.
 
+To try it without installing anything, open
+**[edilint in the browser](https://flexinfer.ai/playground/edilint)**: the same
+binary compiled to WebAssembly, with sample files, a fix preview, and the TA1/999
+codes. Nothing you paste leaves the page.
+
 ## Install
 
 ```sh
@@ -864,7 +869,10 @@ below or a commercial validator.
   transactions with, where edilint inspects bytes on the way out.
 - **[Stedi EDI Inspector](https://www.stedi.com/edi/inspector)** — a free
   browser tool for reading and validating an interchange interactively. Good for
-  investigating one file; not scriptable, so it does not gate a pipeline.
+  investigating one file; not scriptable, so it does not gate a pipeline. For the
+  same one-file investigation with edilint's rules, use
+  [edilint in the browser](https://flexinfer.ai/playground/edilint), which runs
+  the CLI's WebAssembly build locally in the page.
 - **[fi-fhir](https://github.com/crb2nu/fi-fhir)** — from the same author. edilint
   checks files at the gate; fi-fhir parses the same formats (HL7v2, X12, CSV) into
   semantic events, maps them in a studio UI, and routes them through configurable
