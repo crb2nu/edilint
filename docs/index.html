@@ -1,0 +1,80 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="edilint rule reference: examples, fixes, and limits for EDI and healthcare flat-file checks.">
+  <title>edilint · rule reference</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><a href="index.html">edilint / rule reference</a><a href="https://github.com/crb2nu/edilint">Source &amp; releases</a></header>
+<main>
+  <p class="eyebrow">EDI and healthcare flat files</p>
+  <h1>Understand the finding.<br>Fix the source.</h1>
+  <p class="intro">edilint checks X12, HL7v2, EDIFACT, delimited, and fixed-width files for envelope defects and file hygiene problems. Each rule below explains what it catches, how to repair it, and when to adjust the check.</p>
+  <pre>go install github.com/crb2nu/edilint/cmd/edilint@latest
+edilint your-file.x12</pre>
+  <p>The CLI runs locally with no network calls or telemetry. A clean file produces no output. This reference describes the current main branch; older releases may contain fewer rules. See the <a href="https://github.com/crb2nu/edilint#scope">scope and limits</a>.</p>
+  <h2 id="rules">Rule catalog <span class="count">48 rules</span></h2>
+  <p>Find the <code>EL####</code> identifier from your diagnostic. Use your browser's find command to search by identifier, name, or format.</p>
+  <div class="table-wrap"><table>
+  <thead><tr><th scope="col">Rule</th><th scope="col">Default</th><th scope="col">Applies to</th></tr></thead>
+  <tbody>
+    <tr><td><a href="rules/EL1001.html">EL1001</a><br><code>charset.bom</code></td><td>error</td><td>all (warning for delimited)</td></tr>
+    <tr><td><a href="rules/EL1002.html">EL1002</a><br><code>charset.invalid-utf8</code></td><td>error</td><td>all</td></tr>
+    <tr><td><a href="rules/EL1003.html">EL1003</a><br><code>charset.nonprintable</code></td><td>error</td><td>all</td></tr>
+    <tr><td><a href="rules/EL1004.html">EL1004</a><br><code>charset.zero-width</code></td><td>error</td><td>all</td></tr>
+    <tr><td><a href="rules/EL1005.html">EL1005</a><br><code>charset.homoglyph</code></td><td>error</td><td>all</td></tr>
+    <tr><td><a href="rules/EL1006.html">EL1006</a><br><code>charset.nonascii</code></td><td>warning</td><td>all</td></tr>
+    <tr><td><a href="rules/EL1007.html">EL1007</a><br><code>charset.x12-basic</code></td><td>warning</td><td>x12 (requires --charset basic)</td></tr>
+    <tr><td><a href="rules/EL1008.html">EL1008</a><br><code>charset.x12-extended</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL2001.html">EL2001</a><br><code>terminator.mixed</code></td><td>error</td><td>hl7v2, delimited, fixed, text</td></tr>
+    <tr><td><a href="rules/EL2002.html">EL2002</a><br><code>terminator.missing-final</code></td><td>warning</td><td>hl7v2, delimited, fixed, text</td></tr>
+    <tr><td><a href="rules/EL2003.html">EL2003</a><br><code>terminator.x12-segment</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL2004.html">EL2004</a><br><code>terminator.x12-padding</code></td><td>warning</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL2005.html">EL2005</a><br><code>terminator.x12-separator</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL2006.html">EL2006</a><br><code>terminator.edifact-segment</code></td><td>error</td><td>edifact</td></tr>
+    <tr><td><a href="rules/EL3001.html">EL3001</a><br><code>envelope.isa-length</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL3002.html">EL3002</a><br><code>envelope.nesting</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL3003.html">EL3003</a><br><code>envelope.unclosed</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL3004.html">EL3004</a><br><code>envelope.unopened</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL3005.html">EL3005</a><br><code>envelope.control-number</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL3006.html">EL3006</a><br><code>envelope.segment-count</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL3007.html">EL3007</a><br><code>envelope.group-count</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL3008.html">EL3008</a><br><code>envelope.interchange-count</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL3009.html">EL3009</a><br><code>envelope.duplicate-control-number</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL3010.html">EL3010</a><br><code>envelope.datetime</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL3011.html">EL3011</a><br><code>envelope.missing-control-id</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL3012.html">EL3012</a><br><code>envelope.trailing-data</code></td><td>error</td><td>x12</td></tr>
+    <tr><td><a href="rules/EL4001.html">EL4001</a><br><code>counts.mismatch</code></td><td>error</td><td>all (requires --count-rule)</td></tr>
+    <tr><td><a href="rules/EL4002.html">EL4002</a><br><code>counts.unparsable</code></td><td>error</td><td>all (requires --count-rule)</td></tr>
+    <tr><td><a href="rules/EL4003.html">EL4003</a><br><code>counts.missing-field</code></td><td>error</td><td>all (requires --count-rule)</td></tr>
+    <tr><td><a href="rules/EL4004.html">EL4004</a><br><code>counts.no-declaring-record</code></td><td>warning</td><td>all (requires --count-rule)</td></tr>
+    <tr><td><a href="rules/EL4101.html">EL4101</a><br><code>fields.count-outlier</code></td><td>error</td><td>delimited, hl7v2 (warning)</td></tr>
+    <tr><td><a href="rules/EL5001.html">EL5001</a><br><code>layout.length</code></td><td>error</td><td>fixed (requires --layout)</td></tr>
+    <tr><td><a href="rules/EL5002.html">EL5002</a><br><code>layout.padding</code></td><td>warning</td><td>fixed (requires --layout)</td></tr>
+    <tr><td><a href="rules/EL6001.html">EL6001</a><br><code>hl7batch.unclosed</code></td><td>error</td><td>hl7v2</td></tr>
+    <tr><td><a href="rules/EL6002.html">EL6002</a><br><code>hl7batch.unopened</code></td><td>error</td><td>hl7v2</td></tr>
+    <tr><td><a href="rules/EL6003.html">EL6003</a><br><code>hl7batch.message-count</code></td><td>error</td><td>hl7v2</td></tr>
+    <tr><td><a href="rules/EL6004.html">EL6004</a><br><code>hl7batch.batch-count</code></td><td>error</td><td>hl7v2</td></tr>
+    <tr><td><a href="rules/EL6005.html">EL6005</a><br><code>hl7batch.separator</code></td><td>error</td><td>hl7v2</td></tr>
+    <tr><td><a href="rules/EL6006.html">EL6006</a><br><code>hl7batch.stray-message</code></td><td>warning</td><td>hl7v2</td></tr>
+    <tr><td><a href="rules/EL7001.html">EL7001</a><br><code>edifact.unclosed</code></td><td>error</td><td>edifact</td></tr>
+    <tr><td><a href="rules/EL7002.html">EL7002</a><br><code>edifact.unopened</code></td><td>error</td><td>edifact</td></tr>
+    <tr><td><a href="rules/EL7003.html">EL7003</a><br><code>edifact.segment-count</code></td><td>error</td><td>edifact</td></tr>
+    <tr><td><a href="rules/EL7004.html">EL7004</a><br><code>edifact.group-count</code></td><td>error</td><td>edifact</td></tr>
+    <tr><td><a href="rules/EL7005.html">EL7005</a><br><code>edifact.interchange-count</code></td><td>error</td><td>edifact</td></tr>
+    <tr><td><a href="rules/EL7006.html">EL7006</a><br><code>edifact.control-reference</code></td><td>error</td><td>edifact</td></tr>
+    <tr><td><a href="rules/EL7007.html">EL7007</a><br><code>edifact.service-string</code></td><td>error</td><td>edifact</td></tr>
+    <tr><td><a href="rules/EL7008.html">EL7008</a><br><code>edifact.nesting</code></td><td>error</td><td>edifact</td></tr>
+    <tr><td><a href="rules/EL7009.html">EL7009</a><br><code>edifact.trailing-data</code></td><td>error</td><td>edifact</td></tr>
+  </tbody>
+  </table></div>
+  <h2>Adopt checks gradually</h2>
+  <p>Use <code>--disable EL3006</code> for a rule that does not fit your feed. Use <code>--write-baseline</code> and <code>--baseline</code> to accept existing findings while catching new ones. Per-rule pages explain the tradeoffs; the <a href="https://github.com/crb2nu/edilint#configuration-file">configuration guide</a> covers severity overrides and file settings.</p>
+</main>
+<footer>Generated from the shipped rule catalog. All examples are synthetic.</footer>
+</body>
+</html>

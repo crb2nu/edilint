@@ -1,0 +1,37 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Segments appear outside any interchange.">
+  <title>EL3012 · envelope.trailing-data · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL3012.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">envelope / error</p>
+  <h1>EL3012</h1>
+  <p class="rule-name"><code>envelope.trailing-data</code></p>
+  <p class="formats">Applies to: x12</p>
+  <h2>What it catches and why it matters</h2>
+  <p>Segments appear outside any interchange.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>IEA*1*000000001~NTE*ADD*EXTRA~</pre>
+  <h2>How to fix it</h2>
+  <p>Move the extra segment into its intended transaction or remove an accidental suffix in the exporting system. Keep complete interchanges bounded by ISA and IEA.</p>
+  <h2>False positives and limits</h2>
+  <p>A transport wrapper appended outside X12 can trigger this rule. Remove the transport framing before linting the EDI payload.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">A trading partner&#39;s front end reports this defect as:
+  TA1 code 022 (TA105): invalid control structure, for segments after the IEA
+Suppress the rule with --disable EL3012, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL3012.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

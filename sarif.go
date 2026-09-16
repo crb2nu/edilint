@@ -16,8 +16,7 @@ const (
 	sarifSchemaURI = "https://json.schemastore.org/sarif-2.1.0.json"
 	sarifVersion   = "2.1.0"
 	// sarifInformationURI is where a result's tool link points. It is the
-	// repository rather than a rule page; per-rule URLs arrive with the rule
-	// reference site.
+	// repository rather than a rule page; each rule has its own helpUri.
 	sarifInformationURI = "https://github.com/crb2nu/edilint"
 )
 
@@ -52,7 +51,8 @@ type sarifRule struct {
 	// Help is what a viewer shows when a reader asks what to do about the
 	// rule: the acknowledgment the trading partner would have returned, and
 	// how to suppress the rule.
-	Help *sarifMessage `json:"help,omitempty"`
+	Help    *sarifMessage `json:"help,omitempty"`
+	HelpURI string        `json:"helpUri,omitempty"`
 }
 
 type sarifConfiguration struct {
@@ -168,6 +168,7 @@ func sarifRuleFor(id string, f Finding) sarifRule {
 	rule := sarifRule{
 		ID:                   doc.ID,
 		Name:                 doc.Name,
+		HelpURI:              RuleURL(doc.ID),
 		ShortDescription:     sarifMessage{Text: firstSentence(doc.Summary)},
 		DefaultConfiguration: sarifConfiguration{Level: sarifLevel(doc.Severity)},
 	}
@@ -195,6 +196,9 @@ func RuleHelp(doc RuleDoc) string {
 	fmt.Fprintf(&b, "Suppress the rule with --disable %s, or list it under \"disable\" in .edilint.yml. "+
 		"To accept the occurrences a file already has without suppressing the rule, record them "+
 		"with --write-baseline and run with --baseline.", doc.ID)
+	if url := RuleURL(doc.ID); url != "" {
+		fmt.Fprintf(&b, "\nReference: %s", url)
+	}
 	return b.String()
 }
 

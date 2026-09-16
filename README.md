@@ -681,6 +681,20 @@ currently version 1, whose shape is committed as
 
 ## Rules
 
+The [rule reference](https://crb2nu.github.io/edilint/) has a page for every rule,
+with a synthetic failing example, repair guidance, false-positive notes, and
+acknowledgment mappings. Text diagnostics, GitHub annotations, JUnit findings,
+and SARIF rules link to those pages. The JSON report remains version 3; resolve
+its identifiers with `https://crb2nu.github.io/edilint/rules/EL####.html` or the
+library's `RuleURL` helper.
+
+The reference follows `main`. To rebuild it locally, run `make docs`; open
+`docs/index.html` in a browser. Edit the catalog in `rules.go`, acknowledgments
+in `acks.go`, and examples and guidance in `cmd/edilint-docs/guidance.json`.
+`make docs-check` and the test suite reject missing or stale generated pages.
+The GitHub Pages workflow publishes the checked files from the GitHub mirror.
+
+
 Rule identifiers and names are both stable and both appear in the text and JSON
 output. `edilint --list-rules` prints this catalog at runtime.
 

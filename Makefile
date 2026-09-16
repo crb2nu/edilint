@@ -1,4 +1,4 @@
-.PHONY: help build install wasm test test-race fuzz cover lint fmt fmt-check vet tidy clean ci
+.PHONY: help build install wasm test test-race fuzz cover lint fmt fmt-check vet tidy clean ci docs docs-check
 
 # Keep this pinned to the version .github/workflows/ci.yml uses, so `make lint`
 # and CI cannot disagree.
@@ -71,5 +71,11 @@ tidy: ## Tidy go.mod
 clean: ## Remove build and coverage output
 	rm -rf bin coverage.out coverage.html
 
-ci: fmt-check vet lint test-race fuzz ## Run everything CI runs
+docs: ## Generate the static rule reference
+	go run ./cmd/edilint-docs
+
+docs-check: ## Reject missing or stale rule reference pages
+	go run ./cmd/edilint-docs --check
+
+ci: fmt-check vet lint test-race fuzz docs-check ## Run everything CI runs
 	@echo "All checks passed."

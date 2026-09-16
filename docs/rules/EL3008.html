@@ -1,0 +1,37 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="IEA01 does not match the recounted functional groups in the interchange.">
+  <title>EL3008 · envelope.interchange-count · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL3008.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">envelope / error</p>
+  <h1>EL3008</h1>
+  <p class="rule-name"><code>envelope.interchange-count</code></p>
+  <p class="formats">Applies to: x12</p>
+  <h2>What it catches and why it matters</h2>
+  <p>IEA01 does not match the recounted functional groups in the interchange.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>An ISA contains one GS/GE group but ends with IEA*2*000000001~.</pre>
+  <h2>How to fix it</h2>
+  <p>Set IEA01 to the number of functional groups in that interchange. Preview edilint fix after confirming the export is complete.</p>
+  <h2>False positives and limits</h2>
+  <p>Malformed or missing group headers can affect the observed total. A corrected count alone does not establish that the file contains every intended group.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">A trading partner&#39;s front end reports this defect as:
+  TA1 code 021 (TA105): invalid number of included groups value
+Suppress the rule with --disable EL3008, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL3008.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

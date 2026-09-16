@@ -31,6 +31,7 @@ lint:
     CGO_ENABLED: "0"
   script:
     - make fmt-check
+    - make docs-check
     - make vet
     - make lint
 

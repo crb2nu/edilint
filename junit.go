@@ -78,6 +78,9 @@ func (rr *RunReport) WriteJUnit(w io.Writer) error {
 				msg += " (" + ctx + ")"
 			}
 			if f.Severity == SeverityInfo {
+				if url := RuleURL(f.Rule); url != "" {
+					msg += " " + url
+				}
 				c.Skipped = &junitSkipped{Message: msg}
 			} else {
 				c.Failure = &junitFailure{

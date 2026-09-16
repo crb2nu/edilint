@@ -1,0 +1,36 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The field a count rule points at is not an integer.">
+  <title>EL4002 · counts.unparsable · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL4002.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">counts / error</p>
+  <h1>EL4002</h1>
+  <p class="rule-name"><code>counts.unparsable</code></p>
+  <p class="formats">Applies to: all (requires --count-rule)</p>
+  <h2>What it catches and why it matters</h2>
+  <p>The field a count rule points at is not an integer.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>With --count-rule TRL:2:DTL: TRL|MANY</pre>
+  <h2>How to fix it</h2>
+  <p>Write an integer in the declared count field, or correct the count rule if it points at a label rather than the count.</p>
+  <h2>False positives and limits</h2>
+  <p>The configured field index or delimiter may be wrong. Check how the record was split before replacing the value.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+Suppress the rule with --disable EL4002, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL4002.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

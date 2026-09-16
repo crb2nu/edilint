@@ -1,0 +1,37 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Character outside the X12 basic character set but inside the extended set. Off by default; the default profile is extended.">
+  <title>EL1007 · charset.x12-basic · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL1007.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">charset / warning</p>
+  <h1>EL1007</h1>
+  <p class="rule-name"><code>charset.x12-basic</code></p>
+  <p class="formats">Applies to: x12 (requires --charset basic)</p>
+  <h2>What it catches and why it matters</h2>
+  <p>Character outside the X12 basic character set but inside the extended set. Off by default; the default profile is extended.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>With --charset basic: N1*PR*Acme~  (lowercase letters are outside the basic profile)</pre>
+  <h2>How to fix it</h2>
+  <p>Use the receiver&#39;s agreed profile. If basic is required, correct the generator to emit permitted characters; if extended is accepted, use the default extended profile.</p>
+  <h2>False positives and limits</h2>
+  <p>The basic profile is opt-in. A file accepted under the extended profile can trigger this warning when checked with --charset basic.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">A trading partner&#39;s front end reports this defect as:
+  999 code 6 (IK403): invalid character in a data element, when the partner accepts only the basic set
+Suppress the rule with --disable EL1007, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL1007.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

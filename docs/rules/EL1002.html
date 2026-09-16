@@ -1,0 +1,36 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Byte sequence is not valid UTF-8.">
+  <title>EL1002 · charset.invalid-utf8 · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL1002.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">charset / error</p>
+  <h1>EL1002</h1>
+  <p class="rule-name"><code>charset.invalid-utf8</code></p>
+  <p class="formats">Applies to: all</p>
+  <h2>What it catches and why it matters</h2>
+  <p>Byte sequence is not valid UTF-8.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>A text field contains the standalone byte 0xFF, which is not a valid UTF-8 sequence.</pre>
+  <h2>How to fix it</h2>
+  <p>Decode the file using its actual source encoding and export valid UTF-8, or regenerate it from the source. Do not replace undecodable bytes blindly; the original value may be lost.</p>
+  <h2>False positives and limits</h2>
+  <p>A feed intentionally encoded in a legacy character set can trigger this rule. Convert it according to the agreed encoding before linting. Dense binary input is reported once and is not parsed as an interchange.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+Suppress the rule with --disable EL1002, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL1002.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

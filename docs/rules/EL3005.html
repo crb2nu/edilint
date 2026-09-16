@@ -1,0 +1,39 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Header and trailer control numbers differ (ISA13/IEA02, GS06/GE02, ST02/SE02). A leading-zero-only difference is reported as a warning.">
+  <title>EL3005 · envelope.control-number · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL3005.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">envelope / error</p>
+  <h1>EL3005</h1>
+  <p class="rule-name"><code>envelope.control-number</code></p>
+  <p class="formats">Applies to: x12</p>
+  <h2>What it catches and why it matters</h2>
+  <p>Header and trailer control numbers differ (ISA13/IEA02, GS06/GE02, ST02/SE02). A leading-zero-only difference is reported as a warning.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>ST*835*0001~SE*2*0002~</pre>
+  <h2>How to fix it</h2>
+  <p>Make each trailer reference its actual header: ST02/SE02, GS06/GE02, and ISA13/IEA02. Determine the correct value from the source; do not guess between conflicting identifiers.</p>
+  <h2>False positives and limits</h2>
+  <p>Pairs differing only in leading zeros are warnings. Some receivers compare numerically, while others require exact text, so confirm the contract before accepting the difference.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">A trading partner&#39;s front end reports this defect as:
+  TA1 code 001 (TA105): interchange control numbers in the header and trailer do not match
+  999 code 4 (AK905): group control numbers in the header and trailer do not agree
+  999 code 3 (IK502): transaction set control numbers in the header and trailer do not match
+Suppress the rule with --disable EL3005, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL3005.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

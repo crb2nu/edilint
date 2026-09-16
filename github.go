@@ -33,6 +33,9 @@ func (rr *RunReport) WriteGitHubAnnotations(w io.Writer) error {
 			if ctx := findingContext(f, r.Format); ctx != "" {
 				msg += " (" + ctx + ")"
 			}
+			if url := RuleURL(f.Rule); url != "" {
+				msg += " " + url
+			}
 			if _, err := fmt.Fprintf(w, "::%s %s::%s\n",
 				githubCommand(f.Severity), strings.Join(props, ","), escapeGitHubData(msg)); err != nil {
 				return err
