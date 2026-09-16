@@ -1,0 +1,39 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ISA, GS or ST has no matching IEA, GE or SE.">
+  <title>EL3003 · envelope.unclosed · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL3003.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">envelope / error</p>
+  <h1>EL3003</h1>
+  <p class="rule-name"><code>envelope.unclosed</code></p>
+  <p class="formats">Applies to: x12</p>
+  <h2>What it catches and why it matters</h2>
+  <p>ISA, GS or ST has no matching IEA, GE or SE.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>ISA*...~GS*...~ST*835*0001~  (file ends before SE, GE, and IEA)</pre>
+  <h2>How to fix it</h2>
+  <p>Recover the full export and restore matching trailers with correct counts and control numbers. Do not fabricate trailers if payload may have been truncated.</p>
+  <h2>False positives and limits</h2>
+  <p>A deliberate partial interchange or a missing segment terminator can look unclosed. Check file completeness and terminators first.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">A trading partner&#39;s front end reports this defect as:
+  TA1 code 023 (TA105): premature end of file, for an ISA with no IEA
+  999 code 3 (AK905): functional group trailer missing
+  999 code 2 (IK502): transaction set trailer missing
+Suppress the rule with --disable EL3003, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL3003.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

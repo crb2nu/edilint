@@ -36,6 +36,9 @@ jobs:
             exit 1
           fi
 
+      - name: rule reference drift
+        run: make docs-check
+
       - name: go vet
         run: go vet ./...
 

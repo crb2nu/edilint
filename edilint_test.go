@@ -464,7 +464,7 @@ func TestFormatFindingLine(t *testing.T) {
 		ID: "EL1005", Severity: SeverityError, Rule: RuleHomoglyph, Message: "looks like ASCII",
 	}
 	got := FormatFinding(f, FormatX12)
-	want := "claims.x12:12:5: error: [EL1005 charset.homoglyph] looks like ASCII (record 7, segment CLP)"
+	want := "claims.x12:12:5: error: [EL1005 charset.homoglyph] looks like ASCII (record 7, segment CLP) https://crb2nu.github.io/edilint/rules/EL1005.html"
 	if got != want {
 		t.Errorf("got  %q\nwant %q", got, want)
 	}
@@ -486,7 +486,7 @@ func TestFormatFindingLine(t *testing.T) {
 		File: "a.txt", ID: "EL4004", Severity: SeverityWarning,
 		Rule: RuleCountNoDeclarer, Message: "m",
 	}
-	if got := FormatFinding(bare, FormatText); got != "a.txt: warning: [EL4004 counts.no-declaring-record] m" {
+	if got := FormatFinding(bare, FormatText); got != "a.txt: warning: [EL4004 counts.no-declaring-record] m https://crb2nu.github.io/edilint/rules/EL4004.html" {
 		t.Errorf("bare rendering = %q", got)
 	}
 }

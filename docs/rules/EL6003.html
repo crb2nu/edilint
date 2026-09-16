@@ -1,0 +1,36 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="BTS-1 does not match the recounted MSH messages in the batch. An empty BTS-1 is not checked; the field is optional.">
+  <title>EL6003 · hl7batch.message-count · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL6003.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">hl7batch / error</p>
+  <h1>EL6003</h1>
+  <p class="rule-name"><code>hl7batch.message-count</code></p>
+  <p class="formats">Applies to: hl7v2</p>
+  <h2>What it catches and why it matters</h2>
+  <p>BTS-1 does not match the recounted MSH messages in the batch. An empty BTS-1 is not checked; the field is optional.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>BHS|^~\&amp;MSH|^~\&amp;|EXAMPLEBTS|2  (one MSH, declared as two)</pre>
+  <h2>How to fix it</h2>
+  <p>Count MSH messages in the batch and write that number to BTS-1. Preview edilint fix after verifying that no messages were lost.</p>
+  <h2>False positives and limits</h2>
+  <p>Empty BTS-1 is optional and is not checked. Malformed batch structure can affect the recount; fix envelope errors first.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+Suppress the rule with --disable EL6003, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL6003.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

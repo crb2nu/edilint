@@ -1,0 +1,242 @@
+{
+  "EL1001": {
+    "example": "\\xEF\\xBB\\xBFISA*00*...",
+    "fix": "Remove the byte order mark at the start of the file. Preview edilint fix before using --write; fix removes a UTF-8 BOM.",
+    "false_positives": "Some delimited-file consumers accept a BOM from spreadsheet exports, so this rule is a warning for that format. Confirm the receiver's encoding contract before suppressing it."
+  },
+  "EL1002": {
+    "example": "A text field contains the standalone byte 0xFF, which is not a valid UTF-8 sequence.",
+    "fix": "Decode the file using its actual source encoding and export valid UTF-8, or regenerate it from the source. Do not replace undecodable bytes blindly; the original value may be lost.",
+    "false_positives": "A feed intentionally encoded in a legacy character set can trigger this rule. Convert it according to the agreed encoding before linting. Dense binary input is reported once and is not parsed as an interchange."
+  },
+  "EL1003": {
+    "example": "NTE*ADD*EXAMPLE\\x00TEXT~",
+    "fix": "Remove the unintended control byte in the exporting system. Preserve declared field and record separators. Check whether tabs came from spreadsheet or copy-and-paste processing.",
+    "false_positives": "Tabs in record content are warnings. A nonstandard feed may intentionally carry control bytes; suppress the rule only when the consumer explicitly accepts them. Declared separators are exempt."
+  },
+  "EL1004": {
+    "example": "An identifier reads ACME but contains AC\\u200BME (a zero-width space).",
+    "fix": "Regenerate the identifier without the formatting character. Inspect the source bytes, since the character may be invisible in the editor.",
+    "false_positives": "Bidirectional formatting can be intentional in free text. Check the field's purpose and receiver support before removing it; an identifier should be reviewed separately from prose."
+  },
+  "EL1005": {
+    "example": "N1*PR*АCME~  (the first letter is Cyrillic U+0410, not Latin A)",
+    "fix": "Confirm the intended value with the source. For accidental lookalikes, preview edilint fix --unsafe, which proposes substitutions; inspect the diff before adding --write.",
+    "false_positives": "A legitimate name in another alphabet may contain a character resembling an ASCII letter. Do not transliterate names merely to clear a warning. The unsafe fix tier requires deliberate review."
+  },
+  "EL1006": {
+    "example": "N1*PR*CAFÉ~  (É is non-ASCII)",
+    "fix": "Confirm the feed's allowed character set. If it requires ASCII, correct the export using an agreed transliteration policy rather than silently dropping characters.",
+    "false_positives": "Unicode names and free text may be intentional. This is a warning for review; an agreed Unicode feed can disable or downgrade it."
+  },
+  "EL1007": {
+    "example": "With --charset basic: N1*PR*Acme~  (lowercase letters are outside the basic profile)",
+    "fix": "Use the receiver's agreed profile. If basic is required, correct the generator to emit permitted characters; if extended is accepted, use the default extended profile.",
+    "false_positives": "The basic profile is opt-in. A file accepted under the extended profile can trigger this warning when checked with --charset basic."
+  },
+  "EL1008": {
+    "example": "N1*PR*AC`ME~  (backtick in a data element)",
+    "fix": "Replace the unintended character at the source with the intended permitted value. Verify ISA separator declarations before editing characters used structurally.",
+    "false_positives": "A caret is allowed when ISA11 declares it as the repetition separator. A partner-specific character agreement may differ from this profile; document that agreement before overriding the rule."
+  },
+  "EL2001": {
+    "example": "HDR|EXAMPLE\\r\\nDTL|1\\nTRL|1\\r\\n",
+    "fix": "Choose the receiver's required record terminator and export it consistently. edilint fix normalizes to the dominant observed style; review the diff before writing.",
+    "false_positives": "A receiver may tolerate mixed endings, but other tools may not. The majority style is not proof of the intended style, especially for short files."
+  },
+  "EL2002": {
+    "example": "HDR|EXAMPLE\\nDTL|1  (end of file immediately after 1)",
+    "fix": "Append the agreed final record terminator. edilint fix can add it when the existing records establish a style.",
+    "false_positives": "Some line-oriented formats permit an unterminated final record. This is a warning; suppress it if the consumer's contract permits that form."
+  },
+  "EL2003": {
+    "example": "An ISA declares ~ as the segment terminator, but the file ends with IEA*1*000000001 and no ~.",
+    "fix": "Check for truncation and regenerate missing data first. If only the final terminator is missing, preview edilint fix; it can append the declared terminator.",
+    "false_positives": "Incorrect ISA separator declarations can make otherwise visible terminators look missing. Check ISA before assuming the last byte is the only problem."
+  },
+  "EL2004": {
+    "example": "GS*...~\\nST*...~SE*...~\\nGE*...~",
+    "fix": "Use edilint fmt for consistent segment-per-line output, or preview edilint fix to normalize padding to the dominant style.",
+    "false_positives": "Many X12 readers ignore inter-segment whitespace. This warning catches inconsistent serialization; the majority style may not be the partner's required style."
+  },
+  "EL2005": {
+    "example": "ISA declares * as both the element separator and the component separator.",
+    "fix": "Regenerate the interchange with distinct, non-alphanumeric separators and ensure the body uses those declarations. Editing only ISA can change how existing data is parsed.",
+    "false_positives": "A malformed or incorrectly padded ISA can shift separator positions and cause this secondary finding. Correct the ISA structure first."
+  },
+  "EL2006": {
+    "example": "UNZ+1+EXAMPLE  (end of file without the declared apostrophe terminator)",
+    "fix": "Check for truncation. Restore the complete export, or append the active segment terminator if that is the only missing byte. Respect the UNA release character.",
+    "false_positives": "A malformed UNA declaration or a released apostrophe can change where a segment ends. Verify the service string before editing terminators."
+  },
+  "EL3001": {
+    "example": "ISA*00*~  (far shorter than the fixed ISA envelope header)",
+    "fix": "Regenerate ISA with the required fixed-width fields and separators. Do not trim its space-padded fields. Remove a leading BOM if one displaced the header.",
+    "false_positives": "Forcing --type x12 on a non-X12 file also triggers this rule. Confirm format detection before repairing the input."
+  },
+  "EL3002": {
+    "example": "ISA*...~ST*835*0001~  (ST occurs before any GS)",
+    "fix": "Restore the missing parent envelope or correct segment ordering in the exporter. Ensure GS is inside ISA and ST is inside GS.",
+    "false_positives": "An extracted transaction fragment lacks its parent envelopes. Lint the complete interchange when checking envelope integrity."
+  },
+  "EL3003": {
+    "example": "ISA*...~GS*...~ST*835*0001~  (file ends before SE, GE, and IEA)",
+    "fix": "Recover the full export and restore matching trailers with correct counts and control numbers. Do not fabricate trailers if payload may have been truncated.",
+    "false_positives": "A deliberate partial interchange or a missing segment terminator can look unclosed. Check file completeness and terminators first."
+  },
+  "EL3004": {
+    "example": "SE*2*0001~  (no preceding ST in the active group)",
+    "fix": "Restore the corresponding header or remove an unintended duplicate trailer at the source. Recheck nesting after repairing the file.",
+    "false_positives": "A fragment starting in the middle of an interchange can contain a trailer without its header. Use the full interchange for this check."
+  },
+  "EL3005": {
+    "example": "ST*835*0001~SE*2*0002~",
+    "fix": "Make each trailer reference its actual header: ST02/SE02, GS06/GE02, and ISA13/IEA02. Determine the correct value from the source; do not guess between conflicting identifiers.",
+    "false_positives": "Pairs differing only in leading zeros are warnings. Some receivers compare numerically, while others require exact text, so confirm the contract before accepting the difference."
+  },
+  "EL3006": {
+    "example": "ST*835*0001~SE*9*0001~  (two segments, declared as nine)",
+    "fix": "Count every segment from ST through SE, including both. Preview edilint fix to replace SE01 with the observed count after confirming the transaction is complete.",
+    "false_positives": "A missing terminator can merge segments and change the observed count. Fix segmentation first. A recount cannot prove that no payload was lost."
+  },
+  "EL3007": {
+    "example": "A GS contains one ST/SE transaction set but ends with GE*2*1~.",
+    "fix": "Set GE01 to the number of transaction sets in that group. Preview edilint fix after checking that all intended transactions are present.",
+    "false_positives": "Broken transaction nesting can distort the recount. Repair structural findings before trusting a replacement count."
+  },
+  "EL3008": {
+    "example": "An ISA contains one GS/GE group but ends with IEA*2*000000001~.",
+    "fix": "Set IEA01 to the number of functional groups in that interchange. Preview edilint fix after confirming the export is complete.",
+    "false_positives": "Malformed or missing group headers can affect the observed total. A corrected count alone does not establish that the file contains every intended group."
+  },
+  "EL3009": {
+    "example": "Two interchanges in the same run both use ISA13 = 000000001.",
+    "fix": "Assign unique interchange controls, group controls within each interchange, and transaction controls within each group. Update matching trailers together.",
+    "false_positives": "Linting an original and its intentional retransmission together can report a duplicate ISA13. Run those files separately if duplicate detection is not intended across them."
+  },
+  "EL3010": {
+    "example": "ISA09 = 260231  (February 31); ISA10 = 930  (three-digit time)",
+    "fix": "Emit valid envelope dates and times in their required widths. edilint fix can zero-pad selected short times, but invalid calendar values must be corrected from the source.",
+    "false_positives": "Partner-specific shorthand is still nonconforming to the checked envelope representation. Dates are checked structurally, not for business plausibility or freshness."
+  },
+  "EL3011": {
+    "example": "ISA13 is empty or contains only spaces.",
+    "fix": "Populate the interchange control number from the sender's control sequence and use the same value in IEA02.",
+    "false_positives": "A shifted or short ISA can make the control field appear empty. Repair ISA length and separators before assigning a new control value."
+  },
+  "EL3012": {
+    "example": "IEA*1*000000001~NTE*ADD*EXTRA~",
+    "fix": "Move the extra segment into its intended transaction or remove an accidental suffix in the exporting system. Keep complete interchanges bounded by ISA and IEA.",
+    "false_positives": "A transport wrapper appended outside X12 can trigger this rule. Remove the transport framing before linting the EDI payload."
+  },
+  "EL4001": {
+    "example": "With --count-rule TRL:2:DTL:\nDTL|EXAMPLE\nTRL|2\n(one DTL record, declared as two)",
+    "fix": "Verify the count rule's declaring field, counted record types, and scope. Then correct the exporter or declared total to match the intended records.",
+    "false_positives": "A wrong count-rule expression can count a different population than the sender intended. Explicitly define whether headers, trailers, and other record types belong in the total."
+  },
+  "EL4002": {
+    "example": "With --count-rule TRL:2:DTL: TRL|MANY",
+    "fix": "Write an integer in the declared count field, or correct the count rule if it points at a label rather than the count.",
+    "false_positives": "The configured field index or delimiter may be wrong. Check how the record was split before replacing the value."
+  },
+  "EL4003": {
+    "example": "With --count-rule TRL:3:DTL: TRL|1  (field 3 is absent)",
+    "fix": "Supply the missing declaring field or correct the configured count-field index. Field indexes are 1-based, so the record type occupies field 1.",
+    "false_positives": "An incorrect delimiter, record-type field, or count index can make a present field look missing. Verify the layout against the rule expression."
+  },
+  "EL4004": {
+    "example": "With --count-rule TRL:2:DTL, the file contains DTL records but no TRL record.",
+    "fix": "Restore the declaring record if the feed requires it. Otherwise remove the count assertion or use the actual declaring record type.",
+    "false_positives": "A count rule shared across feeds can name a trailer that some feeds do not have. This warning means that the assertion was not checked, not that a total was proved incorrect."
+  },
+  "EL4101": {
+    "example": "DTL|A|1\nDTL|B|2\nDTL|C\n(the last DTL has fewer fields)",
+    "fix": "Restore missing delimiters or fields, or remove an unintended delimiter in data. Compare records of the same type and verify the configured type field.",
+    "false_positives": "Optional trailing fields and variable-length record types can be intentional. HL7v2 findings are warnings for this reason. Disable or downgrade this heuristic for known variable layouts."
+  },
+  "EL5001": {
+    "example": "A layout declares field widths 3 and 5, but the record contains only seven bytes.",
+    "fix": "Regenerate each record at the total width declared by its layout, padding each field as specified. Check that the supplied layout describes this feed version.",
+    "false_positives": "A stale layout can report valid data. Widths are measured in bytes, so multibyte UTF-8 characters occupy more than one position. Confirm that the layout describes this feed before adding padding."
+  },
+  "EL5002": {
+    "example": "A width-5, right-aligned, space-padded field contains \"AB   \" instead of \"   AB\".",
+    "fix": "Apply padding on the side opposite the field's declared alignment. Fix the generator or update the layout if the alignment declaration is incorrect.",
+    "false_positives": "Only unambiguous opposite-side padding is reported. Significant leading or trailing pad characters may be data rather than padding; inspect the field's meaning before changing them."
+  },
+  "EL6001": {
+    "example": "BHS|^~\\&\rMSH|^~\\&|EXAMPLE\r  (no BTS follows)",
+    "fix": "Restore the complete batch or file envelope, including BTS for BHS and FTS for FHS. Confirm completeness before recounting trailers.",
+    "false_positives": "Bare MSH message streams are valid without batch headers. This pairing rule applies when envelope segments are present; partial captures may omit the closing segment."
+  },
+  "EL6002": {
+    "example": "BTS|1\r  (no preceding BHS)",
+    "fix": "Restore the missing envelope header or remove an accidental extra trailer. Keep each BTS inside its corresponding BHS batch and each FTS paired with FHS.",
+    "false_positives": "A capture starting midway through a batch may lack the header. Check the complete file before changing the sender."
+  },
+  "EL6003": {
+    "example": "BHS|^~\\&\rMSH|^~\\&|EXAMPLE\rBTS|2\r  (one MSH, declared as two)",
+    "fix": "Count MSH messages in the batch and write that number to BTS-1. Preview edilint fix after verifying that no messages were lost.",
+    "false_positives": "Empty BTS-1 is optional and is not checked. Malformed batch structure can affect the recount; fix envelope errors first."
+  },
+  "EL6004": {
+    "example": "FHS|^~\\&\rBHS|^~\\&\rBTS|0\rFTS|2\r  (one batch, declared as two)",
+    "fix": "Count BHS batches in the file and write that number to FTS-1. Preview edilint fix after confirming the file contains all intended batches.",
+    "false_positives": "Empty FTS-1 is optional and is not checked. A count change cannot recover a batch missing from a truncated export."
+  },
+  "EL6005": {
+    "example": "BHS|^~\\&\rMSH*^~\\&*EXAMPLE\r  (field separator changes from | to *)",
+    "fix": "Use consistent declared separators and well-formed encoding characters throughout each enclosing batch/file context. Regenerate payload fields with the same declarations.",
+    "false_positives": "Separately valid messages concatenated under one batch header may disagree. Validate them separately or normalize their serialization before batching; changing only the header is insufficient."
+  },
+  "EL6006": {
+    "example": "BHS|^~\\&\rBTS|0\rMSH|^~\\&|EXAMPLE\r  (message is outside the closed batch)",
+    "fix": "Place the message inside its intended BHS/BTS batch and update the trailer count, or export a bare message stream if batching is not intended.",
+    "false_positives": "Bare message streams without BHS are not checked for stray messages. A feed intentionally mixing batched and bare messages may need a documented exception."
+  },
+  "EL7001": {
+    "example": "UNH+1+INVOIC:D:96A:UN'  (inside UNB, but no UNT follows)",
+    "fix": "Restore the matching UNT, UNE, and UNZ trailers for open headers after confirming the export is complete. Recheck counts and control references.",
+    "false_positives": "Message fragments and incomplete captures can lack closing envelopes. A bad service string or terminator can also hide an otherwise present trailer."
+  },
+  "EL7002": {
+    "example": "UNT+2+1'  (no open UNH message)",
+    "fix": "Restore the missing header or remove an unintended duplicate trailer at the source. Check UNH/UNT, UNG/UNE, and UNB/UNZ pairing.",
+    "false_positives": "A fragment extracted from the middle of a message can start with an unmatched trailer. Check the full interchange."
+  },
+  "EL7003": {
+    "example": "UNH+1+INVOIC:D:96A:UN'UNT+9+1'  (two segments, declared as nine)",
+    "fix": "Count segments from UNH through UNT inclusive and correct UNT-1 after confirming message completeness. Released terminators inside data do not end segments.",
+    "false_positives": "Malformed release sequences or missing terminators can affect the observed count. Resolve tokenizer and service-string findings before recounting."
+  },
+  "EL7004": {
+    "example": "A UNG contains one UNH/UNT message but ends with UNE+2+GROUP1'.",
+    "fix": "Set UNE-1 to the number of messages in that functional group after checking that all intended messages are present.",
+    "false_positives": "Bad nesting or missing message headers can change the observed total. A corrected trailer count does not prove payload completeness."
+  },
+  "EL7005": {
+    "example": "An ungrouped UNB contains one message but ends with UNZ+2+EXAMPLE'.",
+    "fix": "Set UNZ-1 to the number of messages in an ungrouped interchange, or to the number of functional groups when UNG groups are used.",
+    "false_positives": "Counting messages instead of groups in a grouped interchange causes a mismatch. Confirm the envelope form before changing the trailer."
+  },
+  "EL7006": {
+    "example": "UNH+1+INVOIC:D:96A:UN'UNT+2+2'",
+    "fix": "Match UNH-1/UNT-2, UNG-5/UNE-2, and UNB-5/UNZ-2 exactly. Fill empty header references from the source's control sequence.",
+    "false_positives": "Numerically equal references with different leading zeros are warnings. A receiver may compare text exactly, so do not assume numeric equality is sufficient."
+  },
+  "EL7007": {
+    "example": "UNA++.? '  (component and element separators both use +)",
+    "fix": "Emit a nine-character UNA with distinct permitted service characters and a period or comma decimal mark. Ensure the payload uses those declarations.",
+    "false_positives": "Truncated or incorrectly decoded UNA bytes can create secondary separator errors. Verify the original export before rewriting the service string."
+  },
+  "EL7008": {
+    "example": "UNH+1+INVOIC:D:96A:UN'UNT+2+1'  (no enclosing UNB)",
+    "fix": "Place messages and groups inside the required interchange envelope, or lint the complete interchange instead of a standalone fragment.",
+    "false_positives": "Forcing --type edifact on another format, or checking only an extracted message, can trigger missing-envelope findings. Confirm the input scope and format."
+  },
+  "EL7009": {
+    "example": "UNZ+1+EXAMPLE'FTX+AAI+++EXTRA'",
+    "fix": "Remove an accidental transport suffix or place the segment inside its intended message. Keep all EDIFACT segments inside an interchange.",
+    "false_positives": "Transport framing outside the interchange may be deliberate. Strip the wrapper and lint only the EDI payload."
+  }
+}

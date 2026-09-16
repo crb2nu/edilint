@@ -1,0 +1,36 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Header and trailer control references differ (UNB-5/UNZ-2, UNG-5/UNE-2, UNH-1/UNT-2), or a header&#39;s reference is empty.">
+  <title>EL7006 · edifact.control-reference · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL7006.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">edifact / error</p>
+  <h1>EL7006</h1>
+  <p class="rule-name"><code>edifact.control-reference</code></p>
+  <p class="formats">Applies to: edifact</p>
+  <h2>What it catches and why it matters</h2>
+  <p>Header and trailer control references differ (UNB-5/UNZ-2, UNG-5/UNE-2, UNH-1/UNT-2), or a header&#39;s reference is empty.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>UNH&#43;1&#43;INVOIC:D:96A:UN&#39;UNT&#43;2&#43;2&#39;</pre>
+  <h2>How to fix it</h2>
+  <p>Match UNH-1/UNT-2, UNG-5/UNE-2, and UNB-5/UNZ-2 exactly. Fill empty header references from the source&#39;s control sequence.</p>
+  <h2>False positives and limits</h2>
+  <p>Numerically equal references with different leading zeros are warnings. A receiver may compare text exactly, so do not assume numeric equality is sufficient.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+Suppress the rule with --disable EL7006, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL7006.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

@@ -142,6 +142,9 @@ func FormatFinding(f Finding, format Format) string {
 	if ctx := findingContext(f, format); ctx != "" {
 		fmt.Fprintf(&b, " (%s)", ctx)
 	}
+	if url := RuleURL(f.Rule); url != "" {
+		fmt.Fprintf(&b, " %s", url)
+	}
 	return b.String()
 }
 

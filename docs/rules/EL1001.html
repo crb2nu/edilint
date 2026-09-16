@@ -1,0 +1,36 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="File starts with a byte order mark. An error for X12, HL7v2 and fixed-width, where a BOM before ISA or MSH shifts every fixed position in the file; a warning for delimited, because spreadsheet exports emit one routinely and most CSV readers cope.">
+  <title>EL1001 · charset.bom · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL1001.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">charset / error</p>
+  <h1>EL1001</h1>
+  <p class="rule-name"><code>charset.bom</code></p>
+  <p class="formats">Applies to: all (warning for delimited)</p>
+  <h2>What it catches and why it matters</h2>
+  <p>File starts with a byte order mark. An error for X12, HL7v2 and fixed-width, where a BOM before ISA or MSH shifts every fixed position in the file; a warning for delimited, because spreadsheet exports emit one routinely and most CSV readers cope.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>\xEF\xBB\xBFISA*00*...</pre>
+  <h2>How to fix it</h2>
+  <p>Remove the byte order mark at the start of the file. Preview edilint fix before using --write; fix removes a UTF-8 BOM.</p>
+  <h2>False positives and limits</h2>
+  <p>Some delimited-file consumers accept a BOM from spreadsheet exports, so this rule is a warning for that format. Confirm the receiver&#39;s encoding contract before suppressing it.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+Suppress the rule with --disable EL1001, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL1001.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

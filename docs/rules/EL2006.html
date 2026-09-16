@@ -1,0 +1,36 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Segment is not closed by the segment terminator in force, which in practice means the file was truncated mid-segment.">
+  <title>EL2006 · terminator.edifact-segment · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL2006.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">terminator / error</p>
+  <h1>EL2006</h1>
+  <p class="rule-name"><code>terminator.edifact-segment</code></p>
+  <p class="formats">Applies to: edifact</p>
+  <h2>What it catches and why it matters</h2>
+  <p>Segment is not closed by the segment terminator in force, which in practice means the file was truncated mid-segment.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>UNZ&#43;1&#43;EXAMPLE  (end of file without the declared apostrophe terminator)</pre>
+  <h2>How to fix it</h2>
+  <p>Check for truncation. Restore the complete export, or append the active segment terminator if that is the only missing byte. Respect the UNA release character.</p>
+  <h2>False positives and limits</h2>
+  <p>A malformed UNA declaration or a released apostrophe can change where a segment ends. Verify the service string before editing terminators.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+Suppress the rule with --disable EL2006, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL2006.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

@@ -265,6 +265,16 @@ func RuleName(id string) string {
 	return ruleIndex.byID[strings.ToUpper(strings.TrimSpace(id))].Name
 }
 
+// RuleURL returns the reference page for a rule identifier or dotted name.
+// Unknown selectors return an empty string rather than a broken link.
+func RuleURL(selector string) string {
+	name := canonicalRule(selector)
+	if name == "" {
+		return ""
+	}
+	return "https://crb2nu.github.io/edilint/rules/" + RuleID(name) + ".html"
+}
+
 // RuleClasses lists the check classes, sorted. Each is a valid rule selector.
 func RuleClasses() []string {
 	out := make([]string, len(ruleIndex.classes))

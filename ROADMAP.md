@@ -1,6 +1,6 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
-> Last Updated: 2026-09-03
+> Last Updated: 2026-09-16
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
 > Tracking Issue: none open — backlog is the
 > [issues list](https://github.com/crb2nu/edilint/issues)
@@ -22,9 +22,10 @@ and D (release engineering), completing v0.2, and E (`fmt` + `fix`, !2), F
 (`diff` + `stats`, !1) and I (MCP server, !8; acknowledgment cross-reference,
 !9), all merged 2026-09-03, completing v0.3 and the first piece of v1.0. None
 of v0.2 or v0.3 has been tagged: `v0.1.0` is still the only release, so the
-next tag publishes every subcommand at once. Workstreams G and H have not
-started; G is the natural next slice, since `RuleHelp` and the acknowledgment
-table now give every rule page real content.
+next tag publishes every subcommand at once. Workstream G now provides generated pages for all 48 rules, examples and repair
+guidance, diagnostic URLs, a drift check, and a GitHub Pages workflow
+([tracking issue #10](https://github.com/crb2nu/edilint/issues/10)). Workstream H
+remains the next unstarted workstream.
 
 The canonical repository is `gitlab.flexinfer.ai/libs/edilint`; README
 `Repository` documents GitHub as its push mirror. GitLab CI runs on merge

@@ -1,0 +1,37 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="GE01 does not match the recounted transaction sets in the group.">
+  <title>EL3007 · envelope.group-count · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL3007.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">envelope / error</p>
+  <h1>EL3007</h1>
+  <p class="rule-name"><code>envelope.group-count</code></p>
+  <p class="formats">Applies to: x12</p>
+  <h2>What it catches and why it matters</h2>
+  <p>GE01 does not match the recounted transaction sets in the group.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>A GS contains one ST/SE transaction set but ends with GE*2*1~.</pre>
+  <h2>How to fix it</h2>
+  <p>Set GE01 to the number of transaction sets in that group. Preview edilint fix after checking that all intended transactions are present.</p>
+  <h2>False positives and limits</h2>
+  <p>Broken transaction nesting can distort the recount. Repair structural findings before trusting a replacement count.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">A trading partner&#39;s front end reports this defect as:
+  999 code 5 (AK905): number of included transaction sets does not match the actual count
+Suppress the rule with --disable EL3007, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL3007.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="FHS, BHS and MSH headers disagree on the field separator or the encoding characters, or a header&#39;s encoding characters are malformed. Split-and-merge tooling reads every message with the first header&#39;s separators, so a disagreeing message is misparsed.">
+  <title>EL6005 · hl7batch.separator · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL6005.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">hl7batch / error</p>
+  <h1>EL6005</h1>
+  <p class="rule-name"><code>hl7batch.separator</code></p>
+  <p class="formats">Applies to: hl7v2</p>
+  <h2>What it catches and why it matters</h2>
+  <p>FHS, BHS and MSH headers disagree on the field separator or the encoding characters, or a header&#39;s encoding characters are malformed. Split-and-merge tooling reads every message with the first header&#39;s separators, so a disagreeing message is misparsed.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>BHS|^~\&amp;MSH*^~\&amp;*EXAMPLE  (field separator changes from | to *)</pre>
+  <h2>How to fix it</h2>
+  <p>Use consistent declared separators and well-formed encoding characters throughout each enclosing batch/file context. Regenerate payload fields with the same declarations.</p>
+  <h2>False positives and limits</h2>
+  <p>Separately valid messages concatenated under one batch header may disagree. Validate them separately or normalize their serialization before batching; changing only the header is insufficient.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+Suppress the rule with --disable EL6005, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL6005.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

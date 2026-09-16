@@ -10,6 +10,12 @@ from its first tag.
 
 ### Added
 
+- A generated [rule reference](https://crb2nu.github.io/edilint/) covering every
+  rule with a failing example, repair guidance, and false-positive notes.
+  `make docs` rebuilds it and `make docs-check` detects drift. Text diagnostics,
+  GitHub annotations, JUnit findings, and SARIF rules link to the reference;
+  `RuleURL` resolves rule identifiers and names without changing JSON reports.
+
 - A WebAssembly build, `cmd/edilint-wasm`, so a web page can lint pasted
   X12, HL7v2, EDIFACT and delimited text without sending it anywhere. It
   exposes `edilintLint`, `edilintFmt`, `edilintFix`, `edilintRules`,

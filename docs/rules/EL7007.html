@@ -1,0 +1,36 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="UNA is not the fixed nine characters, its service characters collide or are alphanumeric, or its decimal mark is not a period or a comma.">
+  <title>EL7007 · edifact.service-string · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL7007.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">edifact / error</p>
+  <h1>EL7007</h1>
+  <p class="rule-name"><code>edifact.service-string</code></p>
+  <p class="formats">Applies to: edifact</p>
+  <h2>What it catches and why it matters</h2>
+  <p>UNA is not the fixed nine characters, its service characters collide or are alphanumeric, or its decimal mark is not a period or a comma.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>UNA&#43;&#43;.? &#39;  (component and element separators both use &#43;)</pre>
+  <h2>How to fix it</h2>
+  <p>Emit a nine-character UNA with distinct permitted service characters and a period or comma decimal mark. Ensure the payload uses those declarations.</p>
+  <h2>False positives and limits</h2>
+  <p>Truncated or incorrectly decoded UNA bytes can create secondary separator errors. Verify the original export before rewriting the service string.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+Suppress the rule with --disable EL7007, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL7007.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

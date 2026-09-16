@@ -1,0 +1,36 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MSH appears outside any open batch in a file that uses batch envelopes, so batch-aware readers will not process it. Files with no BHS at all are not checked; bare message streams are valid without an envelope.">
+  <title>EL6006 · hl7batch.stray-message · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL6006.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">hl7batch / warning</p>
+  <h1>EL6006</h1>
+  <p class="rule-name"><code>hl7batch.stray-message</code></p>
+  <p class="formats">Applies to: hl7v2</p>
+  <h2>What it catches and why it matters</h2>
+  <p>MSH appears outside any open batch in a file that uses batch envelopes, so batch-aware readers will not process it. Files with no BHS at all are not checked; bare message streams are valid without an envelope.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>BHS|^~\&amp;BTS|0MSH|^~\&amp;|EXAMPLE  (message is outside the closed batch)</pre>
+  <h2>How to fix it</h2>
+  <p>Place the message inside its intended BHS/BTS batch and update the trailer count, or export a bare message stream if batching is not intended.</p>
+  <h2>False positives and limits</h2>
+  <p>Bare message streams without BHS are not checked for stray messages. A feed intentionally mixing batched and bare messages may need a documented exception.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+Suppress the rule with --disable EL6006, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL6006.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

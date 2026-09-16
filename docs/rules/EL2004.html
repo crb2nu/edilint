@@ -1,0 +1,37 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Whitespace between segment terminators is applied inconsistently.">
+  <title>EL2004 · terminator.x12-padding · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL2004.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">terminator / warning</p>
+  <h1>EL2004</h1>
+  <p class="rule-name"><code>terminator.x12-padding</code></p>
+  <p class="formats">Applies to: x12</p>
+  <h2>What it catches and why it matters</h2>
+  <p>Whitespace between segment terminators is applied inconsistently.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>GS*...~\nST*...~SE*...~\nGE*...~</pre>
+  <h2>How to fix it</h2>
+  <p>Use edilint fmt for consistent segment-per-line output, or preview edilint fix to normalize padding to the dominant style.</p>
+  <h2>False positives and limits</h2>
+  <p>Many X12 readers ignore inter-segment whitespace. This warning catches inconsistent serialization; the majority style may not be the partner&#39;s required style.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">A trading partner&#39;s front end reports this defect as:
+  999 code 1 (IK304): unrecognized segment identifier, because the padding is read as part of the next segment&#39;s identifier
+Suppress the rule with --disable EL2004, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL2004.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

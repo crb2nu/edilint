@@ -1,0 +1,38 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="IEA, GE or SE appears without its header.">
+  <title>EL3004 · envelope.unopened · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL3004.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">envelope / error</p>
+  <h1>EL3004</h1>
+  <p class="rule-name"><code>envelope.unopened</code></p>
+  <p class="formats">Applies to: x12</p>
+  <h2>What it catches and why it matters</h2>
+  <p>IEA, GE or SE appears without its header.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>SE*2*0001~  (no preceding ST in the active group)</pre>
+  <h2>How to fix it</h2>
+  <p>Restore the corresponding header or remove an unintended duplicate trailer at the source. Recheck nesting after repairing the file.</p>
+  <h2>False positives and limits</h2>
+  <p>A fragment starting in the middle of an interchange can contain a trailer without its header. Use the full interchange for this check.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">A trading partner&#39;s front end reports this defect as:
+  TA1 code 022 (TA105): invalid control structure
+  999 code 2 (IK304): unexpected segment
+Suppress the rule with --disable EL3004, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL3004.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>
