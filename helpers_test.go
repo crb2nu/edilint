@@ -7,7 +7,7 @@ import (
 )
 
 // readFixture loads a synthetic fixture from testdata.
-func readFixture(t *testing.T, name string) []byte {
+func readFixture(t testing.TB, name string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("testdata", name))
 	if err != nil {

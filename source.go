@@ -202,7 +202,7 @@ func (s *source) tokenizeSegments(term byte) {
 			Offset:  pos,
 			Line:    s.LineAt(pos),
 			Ordinal: ordinal,
-			Term:    string(term),
+			Term:    string(body[end : end+1]),
 		}
 		// Consume inter-segment whitespace so the next segment starts on content.
 		p := end + 1

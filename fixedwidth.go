@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -76,6 +77,7 @@ func (l *Layout) Validate() error {
 	if len(l.Fields) == 0 {
 		return fmt.Errorf("layout has no fields")
 	}
+	total := 0
 	for i, f := range l.Fields {
 		if f.Name == "" {
 			return fmt.Errorf("field %d has no name", i+1)
@@ -83,6 +85,10 @@ func (l *Layout) Validate() error {
 		if f.Width < 1 {
 			return fmt.Errorf("field %q has width %d; widths must be at least 1", f.Name, f.Width)
 		}
+		if f.Width > math.MaxInt-total {
+			return fmt.Errorf("field %q makes the total layout width overflow an int", f.Name)
+		}
+		total += f.Width
 		switch f.Pad {
 		case "", PadLeft, PadRight:
 		default:

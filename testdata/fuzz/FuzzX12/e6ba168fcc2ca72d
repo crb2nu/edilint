@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("ISA*0*0*******0*****0**0A")

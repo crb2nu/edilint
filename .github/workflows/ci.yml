@@ -72,14 +72,11 @@ jobs:
       - name: go build
         run: go build ./cmd/edilint
 
-  # A bounded fuzz pass over the restricted YAML reader, which is the one
-  # component that parses arbitrary user bytes with hand-written code. Ten
-  # seconds finds the classic scanner mistakes (index arithmetic, quote
-  # tracking) without holding the pipeline hostage; the seed corpus alone
-  # already runs in every plain `go test`.
+  # Every parser gets ten seconds with two workers; seeds also run in go test.
   fuzz:
     name: fuzz (bounded)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
@@ -88,7 +85,36 @@ jobs:
           go-version: stable
 
       - name: go test -fuzz
-        run: go test -run '^$' -fuzz '^FuzzParseYAML$' -fuzztime 10s .
+        run: make fuzz
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-failures
+          path: testdata/fuzz/
+          retention-days: 7
+
+  benchmark:
+    name: lint performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      - name: allocation budgets and benchmarks
+        shell: bash
+        run: make bench | tee benchmark.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-benchmarks
+          path: benchmark.txt
+          retention-days: 30
 
   # The release configuration is only exercised on tag pushes, which is the
   # worst possible moment to learn it has drifted. This job validates it on
