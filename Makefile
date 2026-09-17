@@ -1,4 +1,4 @@
-.PHONY: help build install wasm test test-race fuzz bench cover lint fmt fmt-check vet tidy clean ci docs docs-check
+.PHONY: help build install wasm test test-race fuzz bench stream-check cover lint fmt fmt-check vet tidy clean ci docs docs-check
 
 # Keep this pinned to the version .github/workflows/ci.yml uses, so `make lint`
 # and CI cannot disagree.
@@ -36,7 +36,7 @@ test-race: ## Run the tests with the race detector, as CI does
 
 FUZZ_TIME ?= 10s
 FUZZ_WORKERS ?= 2
-FUZZ_TARGETS ?= FuzzParseYAML FuzzX12 FuzzHL7Batch FuzzEdifact FuzzDelimited FuzzFixedWidth FuzzDetectAndLint
+FUZZ_TARGETS ?= FuzzParseYAML FuzzX12 FuzzHL7Batch FuzzEdifact FuzzDelimited FuzzFixedWidth FuzzDetectAndLint FuzzStreamParity
 
 fuzz: ## Fuzz every parser (10s each, two workers; override FUZZ_TIME/FUZZ_TARGETS)
 	@set -e; for target in $(FUZZ_TARGETS); do \
@@ -44,7 +44,10 @@ fuzz: ## Fuzz every parser (10s each, two workers; override FUZZ_TIME/FUZZ_TARGE
 	done
 
 bench: ## Check allocation budgets and measure lint throughput and memory
-	go test -run '^TestLintAllocationBudget$$' -bench '^BenchmarkLint$$' -benchmem -benchtime 100ms -count 3 -timeout 2m .
+	go test -run '^TestLintAllocationBudget$$' -bench '^BenchmarkLint(Reader)?$$' -benchmem -benchtime 100ms -count 3 -timeout 2m .
+
+stream-check: ## Lint a synthetic 2 GiB file under a 128 MiB heap budget
+	EDILINT_STREAM_ACCEPTANCE=1 go test -run '^TestStreamMemoryBound$$' -count 1 -v -timeout 15m .
 
 cover: ## Write and open an HTML coverage report
 	go test -coverprofile=coverage.out ./...

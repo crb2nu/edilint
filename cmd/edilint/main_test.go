@@ -52,6 +52,32 @@ func exec(args ...string) (code int, stdout, stderr string) {
 	return code, out.String(), errBuf.String()
 }
 
+func TestStreamLimitFlags(t *testing.T) {
+	path := write(t, t.TempDir(), "large-record.txt", strings.Repeat("X", 64)+"\n")
+	code, _, stderr := exec("--format", "text", "--max-record-bytes", "32", path)
+	if code != exitUsage || !strings.Contains(stderr, "record bytes limit") {
+		t.Fatalf("code=%d error=%s", code, stderr)
+	}
+	if code, _, errText := exec("--format", "text", "--max-record-bytes=128", path); code != exitClean {
+		t.Fatalf("raised limit: %d %s", code, errText)
+	}
+	for _, flag := range []string{"--max-record-bytes", "--max-state-entries", "--max-state-bytes"} {
+		for _, value := range []string{"-1", "many"} {
+			if code, _, _ := exec(flag, value, path); code != exitUsage {
+				t.Fatalf("accepted %s %s", flag, value)
+			}
+		}
+	}
+	cfg, err := parseArgs([]string{"--max-state-entries", "10", "--max-state-bytes", "2048", "--no-config", path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := resolve(cfg)
+	if err != nil || resolved.opts.StreamLimits.MaxStateEntries != 10 || resolved.opts.StreamLimits.MaxStateBytes != 2048 {
+		t.Fatalf("limits lost: %+v %v", resolved.opts.StreamLimits, err)
+	}
+}
+
 func TestExitCodes(t *testing.T) {
 	dir := t.TempDir()
 	clean := write(t, dir, "clean.x12", cleanX12)

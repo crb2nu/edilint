@@ -1,8 +1,8 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
-> Last Updated: 2026-09-16
+> Last Updated: 2026-09-17
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
-> Tracking Issue: [H parser robustness #11](https://github.com/crb2nu/edilint/issues/11)
+> Tracking Issue: [H bounded-memory linting #12](https://github.com/crb2nu/edilint/issues/12)
 
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
@@ -25,8 +25,9 @@ next tag publishes every subcommand at once. Workstream G now provides generated
 guidance, diagnostic URLs, a drift check, and a GitHub Pages workflow
 ([tracking issue #10](https://github.com/crb2nu/edilint/issues/10)). Workstream H
 now has seeded parser fuzzing, bounded CI fuzz passes, and lint benchmarks with
-allocation regression budgets. Its streaming architecture and 2 GB
-bounded-memory acceptance remain open.
+allocation regression budgets, bounded-memory reader/file linting, and
+reader parity fuzzing. The 2 GiB acceptance test passed under a 128 MiB sampled
+Go heap ceiling ([tracking issue #12](https://github.com/crb2nu/edilint/issues/12)).
 
 The canonical repository is `gitlab.flexinfer.ai/libs/edilint`; README
 `Repository` documents GitHub as its push mirror. GitLab CI runs on merge
@@ -200,8 +201,17 @@ root-package Go fuzz targets for every parser and auto detection, report and
 formatting invariants, and clean/malformed/scaling benchmarks. Both CI systems
 retain benchmark output and gate allocation counts; minimized fuzz failures are
 retained for reproduction. Fixed-width integer overflow and ambiguous X12
-formatting found during the work are covered by regressions. The existing
-whole-file engine still needs the streaming refactor below.
+formatting found during the work are covered by regressions.
+
+**Delivered streaming slice:** [#12](https://github.com/crb2nu/edilint/issues/12)
+adds `LintReader`, moves `LintFile` and the lint CLI to bounded record iterators,
+and replays input for whole-file statistics. Nonseekable inputs spool to a private
+temporary file. Record and state limits fail explicitly without a partial report.
+Fixture, baseline, error-path, and fuzz tests compare reader diagnostics with
+`Lint`; both APIs have tracked benchmarks. `make stream-check` processed a
+2 GiB synthetic X12 file (523,012 content segments) with about 4 MiB sampled Go
+heap, below its 128 MiB ceiling. The ordinary suite runs an 8 MiB version.
+`fmt`, `fix`, `diff`, `stats`, and browser/MCP text inputs remain in-memory.
 
 **Goal:** streaming check architecture for multi-GB files (bounded memory,
 single pass where the check allows), benchmarks in CI with regression thresholds,

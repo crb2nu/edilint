@@ -14,7 +14,7 @@ type envelopeLevel struct {
 	// children counts the enclosed envelopes (GS in ISA, ST in GS) or, for a
 	// transaction set, the segments from ST through SE inclusive.
 	children int
-	seen     map[string]int
+	seen     *controlIndex
 }
 
 // checkX12Envelope verifies ISA/IEA, GS/GE and ST/SE pairing, recounts the
@@ -25,16 +25,24 @@ func checkX12Envelope(s *source, opts Options, rep *Report) {
 		return
 	}
 
+	if s.stream != nil {
+		for key, name := range opts.SeenISA13 {
+			s.stream.externalBytes += len(key) + len(name)
+		}
+		if !s.acceptState(len(opts.SeenISA13), s.stream.externalBytes) {
+			return
+		}
+	}
+
 	var isa, gs, st envelopeLevel
 	// Each control number lives in its own scope, and the scopes are tracked
 	// separately: an ISA13 of "1" and a GS06 of "1" are not duplicates of each
 	// other, and generators routinely emit exactly that pair.
-	seenISA13 := map[string]int{} // file scope
-	seenGS06 := map[string]int{}  // reset per interchange
+	seenISA13 := newControlIndex() // file scope
+	seenGS06 := newControlIndex()  // reset per interchange
 	trailingReported := false
 
-	for i := range s.Records {
-		r := s.Records[i]
+	for r := range s.records() {
 		if strings.TrimSpace(r.Text) == "" {
 			continue
 		}
@@ -53,7 +61,7 @@ func checkX12Envelope(s *source, opts Options, rep *Report) {
 				}
 			}
 			isa = envelopeLevel{open: true, rec: r, control: elem(f, 13)}
-			seenGS06 = map[string]int{}
+			seenGS06 = newControlIndex()
 			checkISA(s, opts, rep, r, f, isa.control, seenISA13)
 			trailingReported = false
 
@@ -83,8 +91,8 @@ func checkX12Envelope(s *source, opts Options, rep *Report) {
 				reportUnclosed(rep, gs.rec, "GS", "GE")
 			}
 			isa.children++
-			gs = envelopeLevel{open: true, rec: r, control: elem(f, 6), seen: map[string]int{}}
-			checkDuplicate(rep, r, "GS06", gs.control, seenGS06, "interchange")
+			gs = envelopeLevel{open: true, rec: r, control: elem(f, 6), seen: newControlIndex()}
+			checkDuplicate(s, rep, r, "GS06", gs.control, seenGS06, "interchange")
 			checkDate(rep, r, "GS04", elem(f, 4), 8)
 			checkTime(rep, r, "GS05", elem(f, 5))
 
@@ -116,7 +124,7 @@ func checkX12Envelope(s *source, opts Options, rep *Report) {
 			gs.children++
 			st = envelopeLevel{open: true, rec: r, control: elem(f, 2), children: 1}
 			if gs.seen != nil {
-				checkDuplicate(rep, r, "ST02", st.control, gs.seen, "functional group")
+				checkDuplicate(s, rep, r, "ST02", st.control, gs.seen, "functional group")
 			}
 
 		case "SE":
@@ -155,7 +163,7 @@ func checkX12Envelope(s *source, opts Options, rep *Report) {
 }
 
 // checkISA validates the interchange header's control number, date and time.
-func checkISA(s *source, opts Options, rep *Report, r record, f []string, control string, seenISA13 map[string]int) {
+func checkISA(s *source, opts Options, rep *Report, r record, f []string, control string, seenISA13 *controlIndex) {
 	ctl := strings.TrimSpace(control)
 	if ctl == "" {
 		rep.add(Finding{
@@ -165,7 +173,7 @@ func checkISA(s *source, opts Options, rep *Report, r record, f []string, contro
 			Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 		})
 	} else {
-		checkDuplicate(rep, r, "ISA13", ctl, seenISA13, "file")
+		checkDuplicate(s, rep, r, "ISA13", ctl, seenISA13, "file")
 		if opts.SeenISA13 != nil {
 			if prev, ok := opts.SeenISA13[ctl]; ok && prev != s.Name {
 				rep.add(Finding{
@@ -178,7 +186,13 @@ func checkISA(s *source, opts Options, rep *Report, r record, f []string, contro
 					Actual:   ctl,
 				})
 			} else if !ok {
-				opts.SeenISA13[ctl] = s.Name
+				if s.stream != nil {
+					s.stream.externalBytes += len(ctl) + len(s.Name)
+					if !s.acceptState(len(opts.SeenISA13)+1, s.stream.externalBytes) {
+						return
+					}
+				}
+				opts.SeenISA13[strings.Clone(ctl)] = s.Name
 			}
 		}
 	}
@@ -187,12 +201,12 @@ func checkISA(s *source, opts Options, rep *Report, r record, f []string, contro
 }
 
 // checkDuplicate records a control number and reports a repeat within scope.
-func checkDuplicate(rep *Report, r record, element, value string, seen map[string]int, scope string) {
+func checkDuplicate(s *source, rep *Report, r record, element, value string, seen *controlIndex, scope string) {
 	value = strings.TrimSpace(value)
 	if value == "" || seen == nil {
 		return
 	}
-	if prev, ok := seen[value]; ok {
+	if prev, ok := seen.values[value]; ok {
 		rep.add(Finding{
 			Rule:     RuleDupControl,
 			Severity: SeverityError,
@@ -204,7 +218,11 @@ func checkDuplicate(rep *Report, r record, element, value string, seen map[strin
 		})
 		return
 	}
-	seen[value] = r.Ordinal
+	if !s.acceptState(len(seen.values)+1, seen.bytes+len(value)) {
+		return
+	}
+	seen.bytes += len(value)
+	seen.values[strings.Clone(value)] = r.Ordinal
 }
 
 // compareControl matches a trailer control number against its header.
@@ -426,3 +444,10 @@ func daysInMonth(year, month int) int {
 	}
 	return 0
 }
+
+type controlIndex struct {
+	values map[string]int
+	bytes  int
+}
+
+func newControlIndex() *controlIndex { return &controlIndex{values: map[string]int{}} }

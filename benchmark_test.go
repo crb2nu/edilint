@@ -1,6 +1,7 @@
 package edilint
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
@@ -75,6 +76,23 @@ func BenchmarkLint(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				Lint("benchmark", tc.data, tc.opts)
+			}
+		})
+	}
+}
+
+// Reader benchmarks report total allocation traffic, not peak live memory.
+// TestStreamMemoryBound separately checks that memory stays bounded with size.
+func BenchmarkLintReader(b *testing.B) {
+	for _, tc := range lintWorkloads(b) {
+		b.Run(tc.name, func(b *testing.B) {
+			b.SetBytes(int64(len(tc.data)))
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if _, err := LintReader("benchmark", bytes.NewReader(tc.data), tc.opts); err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 	}

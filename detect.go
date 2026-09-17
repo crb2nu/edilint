@@ -76,21 +76,33 @@ func detectDelimiter(body []byte) byte {
 		return 0
 	}
 
-	var (
-		best      byte
-		bestScore float64
-	)
-	for _, d := range candidateDelimiters {
-		counts := make([]int, 0, len(lines))
+	counts := make([][]int, len(lines))
+	for i, line := range lines {
+		counts[i] = make([]int, len(candidateDelimiters))
+		for j, d := range candidateDelimiters {
+			counts[i][j] = bytes.Count(line, []byte{d})
+		}
+	}
+	return delimiterFromCounts(counts)
+}
+
+func delimiterFromCounts(samples [][]int) byte {
+	if len(samples) == 0 {
+		return 0
+	}
+	var best byte
+	var bestScore float64
+	for i, d := range candidateDelimiters {
+		counts := make([]int, 0, len(samples))
 		covered := 0
-		for _, ln := range lines {
-			n := bytes.Count(ln, []byte{d})
+		for _, sample := range samples {
+			n := sample[i]
 			counts = append(counts, n)
 			if n > 0 {
 				covered++
 			}
 		}
-		coverage := float64(covered) / float64(len(lines))
+		coverage := float64(covered) / float64(len(samples))
 		if coverage < minDelimiterCoverage {
 			continue
 		}

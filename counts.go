@@ -96,14 +96,14 @@ func matchesType(s *source, r record, want string) bool {
 
 func applyCountRule(s *source, rule CountRule, rep *Report) {
 	actual := 0
-	for _, r := range s.Records {
+	for r := range s.records() {
 		if matchesType(s, r, rule.Counted) {
 			actual++
 		}
 	}
 
 	declarers := 0
-	for _, r := range s.Records {
+	for r := range s.records() {
 		if !matchesType(s, r, rule.Declaring) {
 			continue
 		}

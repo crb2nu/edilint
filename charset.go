@@ -144,8 +144,12 @@ type charBucket struct {
 
 // charAggregator collects the high-volume character rules.
 type charAggregator struct {
-	buckets map[string]*charBucket
-	next    int
+	buckets     map[string]*charBucket
+	next        int
+	outsideOnly bool
+	keyBytes    int
+	entries     int
+	hits        bool
 }
 
 func newCharAggregator() *charAggregator {
@@ -156,10 +160,19 @@ func newCharAggregator() *charAggregator {
 // charset.nonascii) are routed here; the sharp, rare rules such as
 // charset.homoglyph stay per-occurrence so the exact position is available.
 func (a *charAggregator) add(s *source, rule string, sev Severity, r rune, line, col, off int) {
+	a.hits = true
 	f := s.locate(off, Finding{Line: line, Column: col})
+	if a.outsideOnly && f.RecordNumber != 0 {
+		return
+	}
 	key := fmt.Sprintf("%s|%d|%d", rule, f.RecordNumber, line)
 	b, ok := a.buckets[key]
 	if !ok {
+		a.keyBytes += len(key) + len(f.Record)
+		a.entries++
+		if !s.acceptState(a.entries, a.keyBytes) {
+			return
+		}
 		b = &charBucket{
 			order: a.next, rule: rule, severity: sev,
 			line: line, column: col, record: f.RecordNumber, segment: f.Record,
@@ -170,6 +183,11 @@ func (a *charAggregator) add(s *source, rule string, sev Severity, r rune, line,
 	}
 	b.count++
 	if !b.seen[r] {
+		a.entries++
+		a.keyBytes += 4
+		if !s.acceptState(a.entries, a.keyBytes) {
+			return
+		}
 		b.seen[r] = true
 		b.chars = append(b.chars, r)
 	}

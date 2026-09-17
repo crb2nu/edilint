@@ -913,8 +913,47 @@ for _, f := range rep.Findings {
 }
 ```
 
-A nil error from `LintFile` means the input was read and analyzed, not that it
-was clean. Check `Report.OK` or inspect `Report.Findings`.
+`LintReader` and `LintFile` use bounded record and index storage. The lint CLI
+uses this path for files and standard input. For example:
+
+```go
+rep, err := edilint.LintReader("claims.x12", reader, edilint.Options{
+    StreamLimits: edilint.StreamLimits{MaxRecordBytes: 2 << 20},
+})
+if err != nil {
+    return err
+}
+// A successful analysis can still contain findings.
+if !rep.OK(edilint.SeverityError) {
+    // Handle validation findings.
+}
+```
+
+Regular files and other seekable `io.ReaderAt` inputs are replayed directly from
+their current position, which is preserved. Other readers, including pipes, are
+copied to a private temporary file (mode `0600`) and replayed there; the file is
+closed and removed before the call returns. This needs temporary disk space
+proportional to the input size. File-wide checks make multiple passes to preserve
+counts, modal field widths, and diagnostic locations.
+
+The default limits are 1 MiB per record including trailing segment padding,
+100,000 distinct entries per tracking index, and 16 MiB of accounted storage per
+index and for retained findings. The byte budget includes a fixed overhead per
+entry; it is not a measurement of total process memory. Configure them through
+`Options.StreamLimits`, or with `--max-record-bytes`, `--max-state-entries`, and
+`--max-state-bytes`. Zero selects the default; negative values are rejected.
+These flags are lint options, not configuration-file keys. If an expected input
+exceeds a limit, raise that limit for the run.
+
+A read, spool, or resource-limit failure returns an error and no partial report;
+the CLI exits with code 2. Use `errors.As` with `*edilint.ResourceLimitError` to
+identify a limit failure. Caller-owned baselines and cross-file control-number
+maps may have been updated before an error and should be discarded in that case.
+A nil error means the input was analyzed; check `Report.OK` or inspect its
+findings to decide whether it is clean.
+
+`Lint` remains available for caller-owned byte slices. `fmt`, `fix`, `diff`,
+`stats`, and the browser/MCP text APIs still operate on in-memory input.
 
 ## Repository
 
@@ -922,7 +961,8 @@ Run `make ci` for formatting, lint, race tests, bounded fuzzing, allocation
 budgets, benchmarks, and rule-reference drift checks.
 
 `make fuzz` exercises YAML, X12, HL7v2 batches, EDIFACT, delimited and
-fixed-width parsing, plus automatic format detection. Each target gets ten
+fixed-width parsing, automatic format detection, and reader/byte-slice report
+parity. Each target gets ten
 seconds and two workers; parser mutation inputs are limited to 64 KiB. To focus
 a longer run, use `make fuzz FUZZ_TARGETS=FuzzX12 FUZZ_TIME=60s` (each target has
 a two-minute test timeout). Seed corpora also run in ordinary `go test`.
@@ -930,7 +970,9 @@ Minimized failures land in `testdata/fuzz/`; reproduce them with the command Go
 prints and commit the seed with the fix. CI retains failure corpora for a week.
 
 `make bench` runs clean and malformed fixtures for every format and synthetic
-X12 transactions with 100, 1,000 and 10,000 content segments, three times each.
+X12 transactions with 100, 1,000 and 10,000 content segments, three times each,
+for both `Lint` and `LintReader`. Reader allocations measure total allocation
+traffic across passes, not peak live memory.
 CI retains throughput, bytes/op and allocations/op in `benchmark.txt` for 30
 days. `TestLintAllocationBudget` rejects allocation-count regressions with
 roughly 30% headroom over the measured Go 1.26 baseline (small workloads have
@@ -938,9 +980,12 @@ a few extra allocations of tolerance). Shared-runner timing is recorded but
 does not gate CI. Compare like toolchains and machines before changing a
 budget, and document the reason for any increase.
 
-These checks establish regression coverage for the current whole-file engine.
-They do not measure peak memory or provide bounded-memory streaming; that
-remains the next part of roadmap workstream H.
+`make stream-check` writes and lints a synthetic 2 GiB X12 file, sampling Go heap
+usage during reads and rejecting a peak above 128 MiB. It needs at least 2 GiB
+of temporary disk space and has a 15-minute timeout. Ordinary tests run an 8 MiB
+version of the same check. The final 2 GiB acceptance run processed 523,012
+content segments in about 69 seconds with about 4 MiB of sampled heap; this is
+heap evidence on that machine, not an RSS or throughput guarantee.
 
 The canonical repository is `gitlab.flexinfer.ai/libs/edilint`, where merge requests
 run the GitLab CI in `.gitlab-ci.yml`; `github.com/crb2nu/edilint` is a push mirror

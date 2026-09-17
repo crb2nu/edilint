@@ -240,7 +240,7 @@ func edifactSplit(text string, element, release byte) []string {
 // final segment can be unterminated, because tokenization splits on the
 // terminator everywhere else.
 func checkEdifactSegmentTerms(s *source, rep *Report) {
-	for _, r := range s.Records {
+	for r := range s.records() {
 		if r.Term != "" || strings.TrimSpace(r.Text) == "" {
 			continue
 		}
@@ -272,8 +272,7 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 	messages, groups := 0, 0
 	trailingReported := false
 
-	for i := range s.Records {
-		r := s.Records[i]
+	for r := range s.records() {
 		if strings.TrimSpace(r.Text) == "" {
 			continue
 		}

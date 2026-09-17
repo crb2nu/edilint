@@ -191,6 +191,11 @@ type Report struct {
 	// ceiling, which is only appropriate for a caller that built the report
 	// itself. Lint always sets a finite value.
 	retain int
+	// Streaming also caps retained payload bytes; a small number of findings
+	// can otherwise retain many megabytes of quoted record content.
+	findingBytes int
+	findingLimit int
+	limitError   func(error)
 }
 
 // MaxRetainedFindings is the number of findings Lint keeps in memory for one
@@ -279,6 +284,19 @@ func (r *Report) add(f Finding) {
 
 	if r.retain > 0 && len(r.Findings) >= r.retain {
 		return
+	}
+	if r.findingLimit > 0 {
+		n := 256 + len(f.ID) + len(f.Rule) + len(f.Class) + len(f.Message) + len(f.File) + len(f.Record) + len(f.CodePoint) + len(f.Expected) + len(f.Actual)
+		if n > r.findingLimit-r.findingBytes {
+			r.limitError(&ResourceLimitError{"finding bytes", r.findingLimit})
+			return
+		}
+		r.findingBytes += n
+		// These fields can be tiny substrings of a megabyte record. Copy them
+		// so retention accounting reflects the memory the report really owns.
+		f.Record = strings.Clone(f.Record)
+		f.Expected = strings.Clone(f.Expected)
+		f.Actual = strings.Clone(f.Actual)
 	}
 	r.Findings = append(r.Findings, f)
 }

@@ -6,14 +6,13 @@
 // knowledge of any particular trading partner, so it can be embedded in a build
 // pipeline, a send script, or a larger integration engine.
 //
-// The entry points are LintFile and Lint. Both return a Report holding zero or
-// more Findings; a nil error means the input was read and analyzed, not that it
-// was clean.
+// Lint analyzes a byte slice; LintReader and LintFile bound record and tracking
+// storage while replaying the input for file-wide checks. A successful analysis
+// returns a Report holding zero or more Findings; check Report.OK for cleanliness.
 package edilint
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"unicode/utf8"
 )
@@ -56,6 +55,9 @@ func ParseFormat(s string) (Format, error) {
 
 // Options configures a lint run.
 type Options struct {
+	// StreamLimits bounds LintReader and LintFile; zero selects documented defaults.
+	StreamLimits StreamLimits
+
 	// Format forces an input format. The zero value (FormatAuto) detects it.
 	Format Format
 
@@ -133,32 +135,22 @@ func (o Options) charset() CharsetProfile {
 }
 
 // LintFile reads path and lints it. A path of "-" reads standard input.
-// The returned error is non-nil only for I/O problems.
+// I/O failures and stream resource limits return an error and no report.
 func LintFile(path string, opts Options) (*Report, error) {
 	if path == "-" {
-		data, err := io.ReadAll(os.Stdin)
-		if err != nil {
-			return nil, fmt.Errorf("read stdin: %w", err)
-		}
-		return Lint("-", data, opts), nil
+		return LintReader("-", os.Stdin, opts)
 	}
-	data, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	return Lint(path, data, opts), nil
+	defer func() { _ = f.Close() }()
+	return LintReader(path, f, opts)
 }
 
 // Lint analyzes data and returns a report. name is used only for display.
 func Lint(name string, data []byte, opts Options) *Report {
-	rep := &Report{
-		File:       name,
-		Format:     FormatText,
-		disabled:   opts.Disabled,
-		severities: normalizeSeverities(opts.Severities),
-		baseline:   opts.Baseline,
-		retain:     retentionFor(opts),
-	}
+	rep := newReport(name, opts)
 
 	body, bom := splitBOM(data)
 
@@ -191,38 +183,12 @@ func Lint(name string, data []byte, opts Options) *Report {
 		return rep
 	}
 
-	// Options.Layout is exported and reachable from a caller-built value, so it
-	// cannot be assumed valid the way the CLI's LoadLayout guarantees.
-	if opts.Layout != nil {
-		if err := opts.Layout.Validate(); err != nil {
-			rep.add(Finding{
-				Rule:     RuleLayoutLength,
-				Severity: SeverityError,
-				Message:  fmt.Sprintf("layout is unusable, so no fixed-width checks were run: %v", err),
-				Line:     1,
-			})
-			opts.Layout = nil
-		}
-	}
+	validateLayout(&opts, rep)
 
 	src := newSource(name, body, format, opts, rep)
 
 	checkCharset(src, rep)
-	checkTerminators(src, rep)
-	if src.Format == FormatX12 {
-		checkX12Envelope(src, opts, rep)
-	}
-	if src.Format == FormatHL7v2 {
-		checkHL7Batch(src, rep)
-	}
-	if src.Format == FormatEdifact {
-		checkEdifactEnvelope(src, rep)
-	}
-	checkCountRules(src, opts, rep)
-	checkFieldCounts(src, opts, rep)
-	if src.Format == FormatFixed {
-		checkLayout(src, opts, rep)
-	}
+	checkSource(src, opts, rep)
 
 	rep.finalize(opts.maxFindings())
 	return rep
@@ -313,4 +279,49 @@ func describeSample(body []byte) string {
 		return fmt.Sprintf("%d KB", binarySampleBytes>>10)
 	}
 	return "file"
+}
+
+func newReport(name string, opts Options) *Report {
+	return &Report{
+		File:       name,
+		Format:     FormatText,
+		disabled:   opts.Disabled,
+		severities: normalizeSeverities(opts.Severities),
+		baseline:   opts.Baseline,
+		retain:     retentionFor(opts),
+	}
+}
+
+func validateLayout(opts *Options, rep *Report) {
+	// Options.Layout is exported and reachable from a caller-built value, so it
+	// cannot be assumed valid the way the CLI's LoadLayout guarantees.
+	if opts.Layout != nil {
+		if err := opts.Layout.Validate(); err != nil {
+			rep.add(Finding{
+				Rule:     RuleLayoutLength,
+				Severity: SeverityError,
+				Message:  fmt.Sprintf("layout is unusable, so no fixed-width checks were run: %v", err),
+				Line:     1,
+			})
+			opts.Layout = nil
+		}
+	}
+}
+
+func checkSource(s *source, opts Options, rep *Report) {
+	checkTerminators(s, rep)
+	if s.Format == FormatX12 {
+		checkX12Envelope(s, opts, rep)
+	}
+	if s.Format == FormatHL7v2 {
+		checkHL7Batch(s, rep)
+	}
+	if s.Format == FormatEdifact {
+		checkEdifactEnvelope(s, rep)
+	}
+	checkCountRules(s, opts, rep)
+	checkFieldCounts(s, opts, rep)
+	if s.Format == FormatFixed {
+		checkLayout(s, opts, rep)
+	}
 }
