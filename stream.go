@@ -296,10 +296,10 @@ func (st *streamSource) prepare(name string, opts Options, rep *Report) (*source
 
 // Detection needs counts, not sampled record contents. This also preserves
 // format inference on binary files without retaining very long sample lines.
-func (st *streamSource) delimiterSamples() [][]int {
+func (st *streamSource) delimiterSamples() []delimiterCounts {
 	br := st.reader()
-	var samples [][]int
-	counts := make([]int, len(candidateDelimiters))
+	var samples []delimiterCounts
+	var counts delimiterCounts
 	nonempty, width := false, 0
 	for len(samples) < 200 && st.err == nil {
 		r, size, err := br.ReadRune()
@@ -311,7 +311,7 @@ func (st *streamSource) delimiterSamples() [][]int {
 			if nonempty {
 				samples = append(samples, counts)
 			}
-			counts = make([]int, len(candidateDelimiters))
+			counts = delimiterCounts{}
 			nonempty, width = false, 0
 			if err != nil {
 				break

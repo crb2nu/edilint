@@ -13,11 +13,16 @@ import (
 
 func equalStreamReport(t testing.TB, data []byte, opts Options) {
 	t.Helper()
-	want := Lint("stream", data, opts)
 	got, err := LintReader("stream", bytes.NewReader(data), opts)
 	if err != nil {
 		t.Fatalf("LintReader: %v", err)
 	}
+	compareStreamReport(t, data, opts, got)
+}
+
+func compareStreamReport(t testing.TB, data []byte, opts Options, got *Report) {
+	t.Helper()
+	want := Lint("stream", data, opts)
 	if got.Format != want.Format || !reflect.DeepEqual(got.Summary, want.Summary) || len(got.Findings) != len(want.Findings) {
 		t.Fatalf("stream differs: format %s/%s; summaries %+v/%+v; findings %d/%d; input prefix %q", got.Format, want.Format, got.Summary, want.Summary, len(got.Findings), len(want.Findings), data[:min(512, len(data))])
 	}
@@ -180,6 +185,8 @@ func FuzzStreamParity(f *testing.F) {
 		f.Add(readFixture(f, name), uint8(0))
 	}
 	f.Add([]byte("\r\n\xef\xbb\xbfDTL|é\rTRL|1"), uint8(1))
+	// A malformed record can repeat a large record ID in hundreds of findings.
+	f.Add([]byte(strings.Repeat("A", 50000)+strings.Repeat("\x01", 500)), uint8(2))
 	f.Fuzz(func(t *testing.T, data []byte, mode uint8) {
 		if len(data) > maxFuzzInput {
 			t.Skip()
@@ -189,7 +196,17 @@ func FuzzStreamParity(f *testing.F) {
 		if opts.Format == FormatFixed {
 			opts.Layout = remitLayout()
 		}
-		equalStreamReport(t, data, opts)
+		got, err := LintReader("stream", bytes.NewReader(data), opts)
+		if err != nil {
+			var limit *ResourceLimitError
+			// Bounded rejection is valid for pathological inputs; never accept
+			// a partial report or an unrelated reader error as parity.
+			if got == nil && errors.As(err, &limit) {
+				return
+			}
+			t.Fatalf("LintReader: report=%+v error=%v", got, err)
+		}
+		compareStreamReport(t, data, opts, got)
 	})
 }
 
