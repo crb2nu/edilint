@@ -2,8 +2,7 @@
 
 > Last Updated: 2026-09-16
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
-> Tracking Issue: none open — backlog is the
-> [issues list](https://github.com/crb2nu/edilint/issues)
+> Tracking Issue: [H parser robustness #11](https://github.com/crb2nu/edilint/issues/11)
 
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
@@ -25,7 +24,9 @@ of v0.2 or v0.3 has been tagged: `v0.1.0` is still the only release, so the
 next tag publishes every subcommand at once. Workstream G now provides generated pages for all 48 rules, examples and repair
 guidance, diagnostic URLs, a drift check, and a GitHub Pages workflow
 ([tracking issue #10](https://github.com/crb2nu/edilint/issues/10)). Workstream H
-remains the next unstarted workstream.
+now has seeded parser fuzzing, bounded CI fuzz passes, and lint benchmarks with
+allocation regression budgets. Its streaming architecture and 2 GB
+bounded-memory acceptance remain open.
 
 The canonical repository is `gitlab.flexinfer.ai/libs/edilint`; README
 `Repository` documents GitHub as its push mirror. GitLab CI runs on merge
@@ -193,6 +194,14 @@ tree rendered to GitHub Pages, plus a landing page. Every finding prints its rul
 output links resolve.
 
 ## Workstream H — performance + robustness
+
+**Delivered slice:** [#11](https://github.com/crb2nu/edilint/issues/11) adds
+root-package Go fuzz targets for every parser and auto detection, report and
+formatting invariants, and clean/malformed/scaling benchmarks. Both CI systems
+retain benchmark output and gate allocation counts; minimized fuzz failures are
+retained for reproduction. Fixed-width integer overflow and ambiguous X12
+formatting found during the work are covered by regressions. The existing
+whole-file engine still needs the streaming refactor below.
 
 **Goal:** streaming check architecture for multi-GB files (bounded memory,
 single pass where the check allows), benchmarks in CI with regression thresholds,

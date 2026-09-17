@@ -1,11 +1,24 @@
 package edilint
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestFixedWidthRejectsOverflowingLayout(t *testing.T) {
+	rep := Lint("overflow.txt", []byte("DTL00001\nTRL00001\n"), Options{
+		Format: FormatFixed,
+		Layout: &Layout{Fields: []LayoutField{
+			{Name: "type", Width: 3},
+			{Name: "count", Width: math.MaxInt},
+		}},
+		CountRules: []CountRule{{Declaring: "TRL", Field: 2, Counted: "DTL"}},
+	})
+	requireRule(t, rep, RuleLayoutLength, 1)
+}
 
 // remitLayout mirrors testdata/remit_layout.json: 3+12+16+10+8 = 49 characters.
 func remitLayout() *Layout {
@@ -30,6 +43,15 @@ func TestLayoutValidate(t *testing.T) {
 		{
 			name:   "valid",
 			layout: *remitLayout(),
+		},
+		{
+			name:   "largest representable record",
+			layout: Layout{Fields: []LayoutField{{Name: "a", Width: 3}, {Name: "b", Width: math.MaxInt - 3}}},
+		},
+		{
+			name:    "total width overflows",
+			layout:  Layout{Fields: []LayoutField{{Name: "a", Width: 3}, {Name: "b", Width: math.MaxInt - 2}}},
+			wantErr: "total layout width overflow",
 		},
 		{
 			name:    "no fields",

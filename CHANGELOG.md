@@ -10,6 +10,11 @@ from its first tag.
 
 ### Added
 
+- Seeded parser fuzz tests and bounded CI mutation runs for X12, HL7v2 batches,
+  EDIFACT, delimited and fixed-width files, and automatic format detection.
+  `make bench` records lint throughput and memory allocations; allocation
+  budgets gate regressions on clean, malformed, and scaling workloads.
+
 - A generated [rule reference](https://crb2nu.github.io/edilint/) covering every
   rule with a failing example, repair guidance, and false-positive notes.
   `make docs` rebuilds it and `make docs-check` detects drift. Text diagnostics,
@@ -27,6 +32,12 @@ from its first tag.
   library so that every front end renders the same diff.
 
 ### Fixed
+
+- Fixed-width layouts whose combined field widths overflow an integer now
+  produce a layout error instead of crashing when a count rule reads a field.
+- X12 formatting rejects ISA headers that contain their declared segment
+  terminator inside the header, avoiding output that cannot be formatted again.
+  Non-ASCII terminator bytes are preserved instead of being re-encoded as UTF-8.
 
 - `--version`, the SARIF tool version and the MCP server's reported version
   now fall back to the module build information when the binary was built

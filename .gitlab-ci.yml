@@ -45,17 +45,34 @@ test:
   script:
     - make test-race
 
-# Bounded fuzz pass over the restricted YAML reader — the one component that
-# parses arbitrary user bytes with hand-written code. Ten seconds, as in
-# .github/workflows/ci.yml.
+# Every parser gets ten seconds with two workers. Retain minimized failures so
+# they can be reproduced and committed as regression seeds.
 fuzz:
   extends: .go-base
   stage: test
   interruptible: true
+  timeout: 10m
   variables:
     CGO_ENABLED: "1"
   script:
     - make fuzz
+  artifacts:
+    when: on_failure
+    paths: [testdata/fuzz/]
+    expire_in: 1 week
+
+benchmark:
+  extends: .go-base
+  stage: test
+  interruptible: true
+  timeout: 10m
+  script:
+    - make bench > benchmark.txt
+    - cat benchmark.txt
+  artifacts:
+    when: always
+    paths: [benchmark.txt]
+    expire_in: 1 month
 
 # go.mod claims a Go 1.23 floor for locked-down healthcare toolchains.
 # GOTOOLCHAIN=local turns any accidental upward drift into a hard failure.

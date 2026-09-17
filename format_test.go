@@ -217,6 +217,8 @@ func TestCanonicalErrors(t *testing.T) {
 		{"empty input", "", FormatAuto, "fmt supports x12 and hl7v2"},
 		{"forced x12 without an ISA", "HDR|A|B\n", FormatX12, "no usable ISA segment"},
 		{"forced x12 with a truncated ISA", "ISA*00*x", FormatX12, "no usable ISA segment"},
+		{"terminator occurs inside ISA", "ISA*0*0*******0*****0**0A", FormatX12, "terminator before the end of the header"},
+		{"non-ASCII terminator collides with ISA16", "ISA~~~~~~~~~~~~~~~~\xb2\xb2", FormatX12, "terminator before the end of the header"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -228,6 +230,17 @@ func TestCanonicalErrors(t *testing.T) {
 				t.Errorf("error = %q, want it to contain %q", err, tc.wantErr)
 			}
 		})
+	}
+}
+
+func TestCanonicalPreservesNonASCIITerminatorBytes(t *testing.T) {
+	input := []byte(strings.ReplaceAll(interchange("ST*835*0001~", "SE*2*0001~"), "~", "\xb2"))
+	output, err := Canonical(input, FormatX12)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(input, output) {
+		t.Fatalf("formatter changed separator bytes: got %q, want %q", output, input)
 	}
 }
 

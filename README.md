@@ -918,6 +918,30 @@ was clean. Check `Report.OK` or inspect `Report.Findings`.
 
 ## Repository
 
+Run `make ci` for formatting, lint, race tests, bounded fuzzing, allocation
+budgets, benchmarks, and rule-reference drift checks.
+
+`make fuzz` exercises YAML, X12, HL7v2 batches, EDIFACT, delimited and
+fixed-width parsing, plus automatic format detection. Each target gets ten
+seconds and two workers; parser mutation inputs are limited to 64 KiB. To focus
+a longer run, use `make fuzz FUZZ_TARGETS=FuzzX12 FUZZ_TIME=60s` (each target has
+a two-minute test timeout). Seed corpora also run in ordinary `go test`.
+Minimized failures land in `testdata/fuzz/`; reproduce them with the command Go
+prints and commit the seed with the fix. CI retains failure corpora for a week.
+
+`make bench` runs clean and malformed fixtures for every format and synthetic
+X12 transactions with 100, 1,000 and 10,000 content segments, three times each.
+CI retains throughput, bytes/op and allocations/op in `benchmark.txt` for 30
+days. `TestLintAllocationBudget` rejects allocation-count regressions with
+roughly 30% headroom over the measured Go 1.26 baseline (small workloads have
+a few extra allocations of tolerance). Shared-runner timing is recorded but
+does not gate CI. Compare like toolchains and machines before changing a
+budget, and document the reason for any increase.
+
+These checks establish regression coverage for the current whole-file engine.
+They do not measure peak memory or provide bounded-memory streaming; that
+remains the next part of roadmap workstream H.
+
 The canonical repository is `gitlab.flexinfer.ai/libs/edilint`, where merge requests
 run the GitLab CI in `.gitlab-ci.yml`; `github.com/crb2nu/edilint` is a push mirror
 of `main` and tags. The GitHub Actions workflow still runs on the mirror and adds the

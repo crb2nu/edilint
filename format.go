@@ -44,6 +44,12 @@ func Canonical(data []byte, format Format) ([]byte, error) {
 		if !s.Delims.Declared {
 			return nil, fmt.Errorf("no usable ISA segment, so the segment terminator cannot be derived")
 		}
+		// A malformed ISA can name a terminator that already occurs inside its
+		// header. Formatting those fragments would change the separator positions
+		// and make the result unreadable on the next pass.
+		if len(s.Records) == 0 || len(s.Records[0].Text)+len(s.Records[0].Term) != s.Delims.ISALen {
+			return nil, fmt.Errorf("ISA contains its declared segment terminator before the end of the header")
+		}
 		out = canonicalRecords(s)
 	case FormatHL7v2:
 		s := newSource("", body, FormatHL7v2, Options{}, &Report{})
