@@ -3,7 +3,7 @@ package edilint
 import "bytes"
 
 // candidateDelimiters are tried, in order, when detecting a delimited file.
-var candidateDelimiters = []byte{'|', ',', '\t', ';', 0x1f}
+var candidateDelimiters = [...]byte{'|', ',', '\t', ';', 0x1f}
 
 // Detect infers the structural format of body. It never returns FormatAuto.
 func Detect(body []byte, opts Options) Format {
@@ -64,6 +64,8 @@ func leadingSpace(body []byte) int {
 // appear on before it is accepted as the field delimiter.
 const minDelimiterCoverage = 0.8
 
+type delimiterCounts [len(candidateDelimiters)]int
+
 // detectDelimiter picks the field delimiter of a line-oriented file.
 //
 // The primary signal is coverage: a real delimiter appears on nearly every
@@ -76,21 +78,32 @@ func detectDelimiter(body []byte) byte {
 		return 0
 	}
 
-	var (
-		best      byte
-		bestScore float64
-	)
-	for _, d := range candidateDelimiters {
-		counts := make([]int, 0, len(lines))
+	counts := make([]delimiterCounts, len(lines))
+	for i, line := range lines {
+		for j, d := range candidateDelimiters {
+			counts[i][j] = bytes.Count(line, []byte{d})
+		}
+	}
+	return delimiterFromCounts(counts)
+}
+
+func delimiterFromCounts(samples []delimiterCounts) byte {
+	if len(samples) == 0 {
+		return 0
+	}
+	var best byte
+	var bestScore float64
+	for i, d := range candidateDelimiters {
+		counts := make([]int, 0, len(samples))
 		covered := 0
-		for _, ln := range lines {
-			n := bytes.Count(ln, []byte{d})
+		for _, sample := range samples {
+			n := sample[i]
 			counts = append(counts, n)
 			if n > 0 {
 				covered++
 			}
 		}
-		coverage := float64(covered) / float64(len(lines))
+		coverage := float64(covered) / float64(len(samples))
 		if coverage < minDelimiterCoverage {
 			continue
 		}

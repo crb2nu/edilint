@@ -147,7 +147,7 @@ func checkLayout(s *source, opts Options, rep *Report) {
 	}
 	want := l.RecordLength()
 
-	for _, r := range s.Records {
+	for r := range s.records() {
 		if strings.TrimSpace(r.Text) == "" {
 			continue
 		}

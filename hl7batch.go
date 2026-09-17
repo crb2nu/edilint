@@ -21,7 +21,7 @@ func checkHL7Batch(s *source, rep *Report) {
 	checkHL7HeaderSeparators(s, rep)
 
 	hasBatch := false
-	for _, r := range s.Records {
+	for r := range s.records() {
 		switch r.ID {
 		case "FHS", "BHS", "BTS", "FTS":
 			hasBatch = true
@@ -35,8 +35,7 @@ func checkHL7Batch(s *source, rep *Report) {
 	batches := 0
 	strayReported := false
 
-	for i := range s.Records {
-		r := s.Records[i]
+	for r := range s.records() {
 		if strings.TrimSpace(r.Text) == "" {
 			continue
 		}
@@ -117,33 +116,26 @@ type hl7Header struct {
 // every message with the separators of the header it saw first, so a message
 // that declares different ones is misparsed, not honored.
 func checkHL7HeaderSeparators(s *source, rep *Report) {
-	var headers []hl7Header
-	for _, r := range s.Records {
-		switch r.ID {
-		case "FHS", "BHS", "MSH":
-		default:
+	var first hl7Header
+	found := false
+	for r := range s.records() {
+		h, ok := parseHL7Header(r)
+		if !ok {
 			continue
 		}
-		if len(r.Text) < 4 {
-			continue
+		checkHL7Encoding(rep, h)
+		if !found {
+			first, found = h, true
 		}
-		sep := r.Text[3]
-		rest := r.Text[4:]
-		if i := strings.IndexByte(rest, sep); i >= 0 {
-			rest = rest[:i]
-		}
-		headers = append(headers, hl7Header{rec: r, sep: sep, encoding: rest})
 	}
-	if len(headers) == 0 {
+	if !found {
 		return
 	}
-
-	for _, h := range headers {
-		checkHL7Encoding(rep, h)
-	}
-
-	first := headers[0]
-	for _, h := range headers[1:] {
+	for r := range s.records() {
+		h, ok := parseHL7Header(r)
+		if !ok || h.rec.Ordinal == first.rec.Ordinal {
+			continue
+		}
 		if h.sep != first.sep {
 			rep.add(Finding{
 				Rule:     RuleBatchSeparator,
@@ -167,6 +159,17 @@ func checkHL7HeaderSeparators(s *source, rep *Report) {
 			})
 		}
 	}
+}
+
+func parseHL7Header(r record) (hl7Header, bool) {
+	if len(r.Text) < 4 || (r.ID != "FHS" && r.ID != "BHS" && r.ID != "MSH") {
+		return hl7Header{}, false
+	}
+	sep, rest := r.Text[3], r.Text[4:]
+	if i := strings.IndexByte(rest, sep); i >= 0 {
+		rest = rest[:i]
+	}
+	return hl7Header{rec: r, sep: sep, encoding: rest}, true
 }
 
 // checkHL7Encoding validates one header's encoding characters: four of them

@@ -251,6 +251,7 @@ func resolve(cfg config) (settings, error) {
 	if cfg.set["max-findings"] {
 		set.opts.MaxFindings = cfg.opts.MaxFindings
 	}
+	set.opts.StreamLimits = cfg.opts.StreamLimits
 	set.opts.Disabled = append(set.opts.Disabled, cfg.opts.Disabled...)
 	set.opts.CountRules = append(set.opts.CountRules, cfg.opts.CountRules...)
 
@@ -347,7 +348,8 @@ var valueFlags = map[string]bool{
 	"--layout": true, "--charset": true, "--type-field": true,
 	"--count-rule": true, "--disable": true, "--max-findings": true,
 	"--config": true, "--baseline": true, "--write-baseline": true,
-	"--output": true,
+	"--output":           true,
+	"--max-record-bytes": true, "--max-state-entries": true, "--max-state-bytes": true,
 }
 
 // boolFlags lists the flags that take no value.
@@ -375,11 +377,12 @@ func parseArgs(args []string) (config, error) {
 	cfg := config{set: map[string]bool{}}
 	cfg.opts.Format = edilint.FormatAuto
 
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
+	for len(args) > 0 {
+		arg := args[0]
+		args = args[1:]
 
 		if arg == "--" {
-			cfg.files = append(cfg.files, args[i+1:]...)
+			cfg.files = append(cfg.files, args...)
 			break
 		}
 		if arg == "-" || !strings.HasPrefix(arg, "-") {
@@ -398,11 +401,11 @@ func parseArgs(args []string) (config, error) {
 		switch {
 		case valueFlags[name]:
 			if !hasInline {
-				if i+1 >= len(args) {
+				if len(args) == 0 {
 					return cfg, fmt.Errorf("%s requires a value", name)
 				}
-				i++
-				val = args[i]
+				val = args[0]
+				args = args[1:]
 			}
 		case hasInline:
 			return cfg, fmt.Errorf("%s does not take a value", name)
@@ -474,6 +477,21 @@ func parseArgs(args []string) (config, error) {
 			for _, part := range strings.Split(val, ",") {
 				if part = strings.TrimSpace(part); part != "" {
 					cfg.opts.Disabled = append(cfg.opts.Disabled, part)
+				}
+			}
+
+		case "--max-record-bytes", "--max-state-entries", "--max-state-bytes":
+			n, convErr := strconv.Atoi(val)
+			if convErr != nil || n < 0 {
+				err = fmt.Errorf("%s must be a non-negative integer, got %q", name, val)
+			} else {
+				switch name {
+				case "--max-record-bytes":
+					cfg.opts.StreamLimits.MaxRecordBytes = n
+				case "--max-state-entries":
+					cfg.opts.StreamLimits.MaxStateEntries = n
+				case "--max-state-bytes":
+					cfg.opts.StreamLimits.MaxStateBytes = n
 				}
 			}
 
@@ -561,6 +579,10 @@ Flags:
       --baseline <file>   report only findings absent from this baseline
       --write-baseline <file>
                           record this run's findings as a baseline and exit 0
+      --max-record-bytes <n>   stream record/padding limit (default 1048576).
+      --max-state-entries <n>  distinct keys per index (default 100000).
+      --max-state-bytes <n>    bytes per index/report (default 16777216).
+                              Zero selects defaults; exceeding a limit exits 2.
       --max-findings <n>  print at most n findings per file (default unlimited).
                           The exit status always reflects every finding.
       --allow-warnings    exit 0 when only warnings were found

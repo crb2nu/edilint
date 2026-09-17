@@ -37,14 +37,13 @@ func checkFieldCounts(s *source, opts Options, rep *Report) {
 	}
 
 	type group struct {
-		counts  map[int]int
-		records []record
-		widths  []int
+		counts map[int]int
+		total  int
 	}
 	groups := map[string]*group{}
-	var order []string
+	entries, keyBytes := 0, 0
 
-	for _, r := range s.Records {
+	for r := range s.records() {
 		if strings.TrimSpace(r.Text) == "" {
 			continue
 		}
@@ -55,40 +54,57 @@ func checkFieldCounts(s *source, opts Options, rep *Report) {
 		}
 		g, ok := groups[key]
 		if !ok {
+			entries++
+			keyBytes += len(key)
+			if !s.acceptState(entries, keyBytes) {
+				return
+			}
 			g = &group{counts: map[int]int{}}
-			groups[key] = g
-			order = append(order, key)
+			groups[strings.Clone(key)] = g
+		}
+		if _, exists := g.counts[len(fields)]; !exists {
+			entries++
+			if !s.acceptState(entries, keyBytes) {
+				return
+			}
 		}
 		g.counts[len(fields)]++
-		g.records = append(g.records, r)
-		g.widths = append(g.widths, len(fields))
+		g.total++
 	}
 
-	sort.Strings(order)
-	for _, key := range order {
-		g := groups[key]
-		if len(g.records) < minGroupForOutlier || len(g.counts) < 2 {
+	modals := map[string]int{}
+	for key, g := range groups {
+		modals[key] = modalInt(g.counts)
+	}
+	for r := range s.records() {
+		if strings.TrimSpace(r.Text) == "" {
 			continue
 		}
-		modal := modalInt(g.counts)
-		for i, r := range g.records {
-			if g.widths[i] == modal {
-				continue
-			}
-			label := key
-			if label == "" {
-				label = "(untyped)"
-			}
-			rep.add(Finding{
-				Rule:     RuleFieldOutlier,
-				Severity: severity,
-				Message: fmt.Sprintf("record type %q has %d field(s) here but %d in %d of %d record(s) "+
-					"of this type; a shifted field count moves every value after the break",
-					label, g.widths[i], modal, g.counts[modal], len(g.records)),
-				Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
-				Expected: strconv.Itoa(modal), Actual: strconv.Itoa(g.widths[i]),
-			})
+		fields := s.Fields(r)
+		key := ""
+		if typeField <= len(fields) {
+			key = strings.TrimSpace(fields[typeField-1])
 		}
+		g := groups[key]
+		if g == nil || g.total < minGroupForOutlier || len(g.counts) < 2 {
+			continue
+		}
+		modal := modals[key]
+		if len(fields) == modal {
+			continue
+		}
+		label := key
+		if label == "" {
+			label = "(untyped)"
+		}
+		rep.add(Finding{
+			Rule: RuleFieldOutlier, Severity: severity,
+			Message: fmt.Sprintf("record type %q has %d field(s) here but %d in %d of %d record(s) "+
+				"of this type; a shifted field count moves every value after the break",
+				label, len(fields), modal, g.counts[modal], g.total),
+			Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
+			Expected: strconv.Itoa(modal), Actual: strconv.Itoa(len(fields)),
+		})
 	}
 }
 

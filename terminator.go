@@ -32,19 +32,17 @@ func checkTerminators(s *source, rep *Report) {
 
 // checkLineEndings reports mixed CR/LF/CRLF usage and a missing final terminator.
 func checkLineEndings(s *source, rep *Report) {
-	if len(s.Records) == 0 {
-		return
-	}
-
+	var last record
 	counts := map[string]int{}
-	for _, r := range s.Records {
+	for r := range s.records() {
+		last = r
 		if r.Term != "" {
 			counts[r.Term]++
 		}
 	}
 	if len(counts) > 1 {
 		dominant := modalKey(counts)
-		for _, r := range s.Records {
+		for r := range s.records() {
 			if r.Term == "" || r.Term == dominant {
 				continue
 			}
@@ -63,7 +61,6 @@ func checkLineEndings(s *source, rep *Report) {
 		}
 	}
 
-	last := s.Records[len(s.Records)-1]
 	if last.Term == "" && strings.TrimSpace(last.Text) != "" {
 		rep.add(Finding{
 			Rule:     RuleMissingFinal,
@@ -152,7 +149,7 @@ func checkX12Separators(s *source, rep *Report) {
 // checkX12SegmentTerms reports segments that are not closed by the declared
 // terminator, which in practice means a truncated file.
 func checkX12SegmentTerms(s *source, rep *Report) {
-	for _, r := range s.Records {
+	for r := range s.records() {
 		if r.Term != "" || strings.TrimSpace(r.Text) == "" {
 			continue
 		}
@@ -174,21 +171,23 @@ func checkX12SegmentTerms(s *source, rep *Report) {
 // A file that puts a line break after some segments but not others is usually
 // the result of two generators writing into the same stream.
 func checkX12Padding(s *source, rep *Report) {
-	if len(s.Records) < 3 {
-		return
-	}
-	// The final segment's trailing whitespace is not an inter-segment separator.
-	body := s.Records[:len(s.Records)-1]
-
 	counts := map[string]int{}
-	for _, r := range body {
+	keyBytes := 0
+	for r := range s.interiorRecords() {
+		if _, exists := counts[r.Pad]; !exists {
+			keyBytes += len(r.Pad)
+			if !s.acceptState(len(counts)+1, keyBytes) {
+				return
+			}
+			counts[strings.Clone(r.Pad)] = 0
+		}
 		counts[r.Pad]++
 	}
 	if len(counts) < 2 {
 		return
 	}
 	dominant := modalKey(counts)
-	for _, r := range body {
+	for r := range s.interiorRecords() {
 		if r.Pad == dominant {
 			continue
 		}

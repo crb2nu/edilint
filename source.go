@@ -3,6 +3,7 @@ package edilint
 import (
 	"bytes"
 	"fmt"
+	"iter"
 	"sort"
 	"strings"
 )
@@ -55,6 +56,35 @@ type source struct {
 	Charset CharsetProfile
 
 	lineStarts []int
+	stream     *streamSource
+}
+
+// records replays a source without requiring its records to reside in memory.
+func (s *source) records() iter.Seq[record] {
+	return func(yield func(record) bool) {
+		if s.stream != nil {
+			s.stream.records(s, yield)
+			return
+		}
+		for _, r := range s.Records {
+			if !yield(r) {
+				return
+			}
+		}
+	}
+}
+
+// interiorRecords omits the last record, whose padding is not a separator.
+func (s *source) interiorRecords() iter.Seq[record] {
+	return func(yield func(record) bool) {
+		var prev record
+		for r := range s.records() {
+			if prev.Ordinal != 0 && !yield(prev) {
+				return
+			}
+			prev = r
+		}
+	}
 }
 
 // newSource builds the shared parsed view. Structural problems discovered while
@@ -301,6 +331,9 @@ func (s *source) Fields(r record) []string {
 
 // LineAt returns the 1-based physical line containing the given byte offset.
 func (s *source) LineAt(offset int) int {
+	if s.stream != nil && offset == s.ISAOffset {
+		return s.stream.isaLine
+	}
 	if offset < 0 {
 		return 0
 	}
@@ -313,6 +346,9 @@ func (s *source) LineAt(offset int) int {
 
 // RecordAt returns the record containing offset, or nil.
 func (s *source) RecordAt(offset int) *record {
+	if s.stream != nil && s.stream.locate != nil {
+		return s.stream.locate(offset)
+	}
 	i := sort.Search(len(s.Records), func(i int) bool {
 		return s.Records[i].Offset > offset
 	})

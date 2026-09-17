@@ -10,6 +10,14 @@ from its first tag.
 
 ### Added
 
+- Bounded-memory linting through `LintReader`, `LintFile`, and the lint CLI.
+  File-wide checks replay regular files; nonseekable readers use a private,
+  temporary disk spool that is removed before returning. Configurable record,
+  index-entry, and state-byte limits return an operational error rather than a
+  partial report (`--max-record-bytes`, `--max-state-entries`,
+  `--max-state-bytes`). Reader parity fuzzing and benchmarks run in CI;
+  `make stream-check` verifies a synthetic 2 GiB input under a 128 MiB heap budget.
+
 - Seeded parser fuzz tests and bounded CI mutation runs for X12, HL7v2 batches,
   EDIFACT, delimited and fixed-width files, and automatic format detection.
   `make bench` records lint throughput and memory allocations; allocation
