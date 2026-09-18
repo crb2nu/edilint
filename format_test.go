@@ -141,6 +141,31 @@ func TestCanonicalX12Layout(t *testing.T) {
 	}
 }
 
+func TestCanonicalHL7EmbeddedBOM(t *testing.T) {
+	for _, bom := range []string{"\xef\xbb\xbf", "\xff\xfe", "\xfe\xff"} {
+		for _, data := range []string{"\n" + bom, "\r\n \t\n" + bom + "\nMSH|A\r", "\n" + bom + "MSH|A"} {
+			original := []byte(data)
+			out, err := Canonical(original, FormatHL7v2)
+			if err == nil || out != nil || !strings.Contains(err.Error(), "byte order mark") {
+				t.Fatalf("ambiguous input %q: output=%q error=%v", data, out, err)
+			}
+			if string(original) != data {
+				t.Fatal("Canonical changed its input")
+			}
+		}
+		for _, data := range []string{bom, bom + "\nMSH|A\r", "MSH|A\r" + bom + "\r", bom + "\n" + bom} {
+			out, err := Canonical([]byte(data), FormatHL7v2)
+			if err != nil || bytes.Count(out, []byte(bom)) != strings.Count(data, bom) {
+				t.Fatalf("BOM preservation for %q: output=%q error=%v", data, out, err)
+			}
+			again, err := Canonical(out, FormatHL7v2)
+			if err != nil || !bytes.Equal(out, again) {
+				t.Fatalf("unstable formatting for %q: %q then %q, error=%v", data, out, again, err)
+			}
+		}
+	}
+}
+
 func TestCanonicalHL7Layout(t *testing.T) {
 	msh := "MSH|^~\\&|A|B|C|D|20260115||ADT^A08|1|P|2.5.1"
 	tests := []struct {

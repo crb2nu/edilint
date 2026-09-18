@@ -387,6 +387,8 @@ repair it either. A byte order mark, a wrong count and a homoglyph all pass
 through and still lint as findings; so does an X12 file whose last segment is
 missing the declared terminator, because that missing terminator is how a
 truncated interchange announces itself. Repairs are `edilint fix`.
+Formatting rejects an embedded byte order mark when removing preceding blank
+lines would turn it into a file header and change how a second pass reads it.
 
 Formats other than X12 and HL7v2 have no canonical layout defined, and are a
 usage error rather than a guess.

@@ -59,6 +59,11 @@ func Canonical(data []byte, format Format) ([]byte, error) {
 	}
 
 	if len(prefix) == 0 {
+		// Dropping blank lines must not promote a record's bytes into a file
+		// header. A second pass would strip that BOM before splitting records.
+		if _, bom := splitBOM(out); bom != "" {
+			return nil, fmt.Errorf("formatting would move a byte order mark from a record to the file prefix")
+		}
 		return out, nil
 	}
 	return append(append([]byte{}, prefix...), out...), nil
