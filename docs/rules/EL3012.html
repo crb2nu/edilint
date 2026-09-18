@@ -26,7 +26,7 @@
   <h2>False positives and limits</h2>
   <p>A transport wrapper appended outside X12 can trigger this rule. Remove the transport framing before linting the EDI payload.</p>
   <h2>Acknowledgments and suppression</h2>
-  <pre class="prose">A trading partner&#39;s front end reports this defect as:
+  <pre class="prose">Related acknowledgment codes (apply only to the described defect):
   TA1 code 022 (TA105): invalid control structure, for segments after the IEA
 Suppress the rule with --disable EL3012, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
 Reference: https://crb2nu.github.io/edilint/rules/EL3012.html</pre>

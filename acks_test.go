@@ -9,10 +9,9 @@ import (
 )
 
 // The acknowledgment table is documentation with a contract: every entry names
-// a real rule, applies only where an X12 receiver would answer, and carries a
-// code in the shape its element uses.
+// a real rule, matches its format, and carries a code in the shape its element uses.
 
-func TestAcknowledgmentsNameRealX12Rules(t *testing.T) {
+func TestAcknowledgmentsNameRealRules(t *testing.T) {
 	byID := map[string]RuleDoc{}
 	for _, r := range Rules() {
 		byID[r.ID] = r
@@ -26,9 +25,6 @@ func TestAcknowledgmentsNameRealX12Rules(t *testing.T) {
 			t.Errorf("ruleAcks has an entry for %q, which is not in the catalog", id)
 			continue
 		}
-		if !strings.Contains(doc.Formats, "x12") {
-			t.Errorf("%s applies to %q, not X12, yet has acknowledgments", id, doc.Formats)
-		}
 		if len(acks) == 0 {
 			t.Errorf("%s has an empty acknowledgment list; drop the entry instead", id)
 		}
@@ -41,8 +37,12 @@ func TestAcknowledgmentsNameRealX12Rules(t *testing.T) {
 			if a.Type() != ackType {
 				t.Errorf("%s: %s reports Type %q, want %q", id, a.Element, a.Type(), ackType)
 			}
+			format := map[string]string{"TA1": "x12", "999": "x12", "CONTRL": "edifact", "ACK": "hl7v2"}[ackType]
+			if !strings.Contains(doc.Formats, format) {
+				t.Errorf("%s applies to %q but references %s", id, doc.Formats, ackType)
+			}
 			wantShape := short
-			if a.Element == "TA105" {
+			if a.Element == "TA105" || a.Element == "ERR-3" {
 				wantShape = threeDigits
 			}
 			if !wantShape.MatchString(a.Code) {
@@ -90,7 +90,7 @@ func TestRulesAttachAcknowledgments(t *testing.T) {
 		t.Errorf("RuleAcks by identifier is case-insensitive, got %+v", acks)
 	}
 	if acks := RuleAcks(RuleBatchUnclosed); len(acks) != 0 {
-		t.Errorf("an HL7 rule has no acknowledgments, got %+v", acks)
+		t.Errorf("a batch envelope has no universal ACK code, got %+v", acks)
 	}
 	if acks := RuleAcks("nope"); acks == nil || len(acks) != 0 {
 		t.Errorf("an unknown selector yields an empty, non-nil slice, got %#v", acks)
@@ -121,14 +121,82 @@ func TestRuleHelpNamesAcknowledgmentsAndSuppression(t *testing.T) {
 		}
 	}
 	help = RuleHelp(batch)
-	if !strings.Contains(help, "No X12 acknowledgment") || !strings.Contains(help, "--disable "+batch.ID) {
+	if !strings.Contains(help, "no universal ACK code") || !strings.Contains(help, "--disable "+batch.ID) {
 		t.Errorf("help for %s = %q", batch.ID, help)
+	}
+}
+
+func TestCrossFormatAcknowledgmentReferences(t *testing.T) {
+	for _, tc := range []struct {
+		id, element, code, qualification string
+	}{
+		{"EL7001", "UCI.0085", "13", "UNZ"},
+		{"EL7001", "UCF.0085", "13", "UNE"},
+		{"EL7001", "UCM.0085", "13", "UNT"},
+		{"EL7003", "UCM.0085", "29", "UNT-1"},
+		{"EL7004", "UCF.0085", "29", "UNE-1"},
+		{"EL7005", "UCI.0085", "29", "UNZ-1"},
+		{"EL7003", "UCM.0085", "37", "letters"},
+		{"EL7004", "UCF.0085", "13", "missing"},
+		{"EL7006", "UCI.0085", "28", "UNB-5"},
+		{"EL7006", "UCF.0085", "28", "UNG-5"},
+		{"EL7006", "UCM.0085", "28", "UNH-1"},
+		{"EL7007", "UCI.0085", "19", "decimal"},
+		{"EL7007", "UCI.0085", "20", "does not cover every"},
+		{"EL6005", "ERR-3", "101", "only when this finding reports empty MSH-2"},
+	} {
+		t.Run(tc.id+"/"+tc.element+"/"+tc.code, func(t *testing.T) {
+			for _, a := range RuleAcks(tc.id) {
+				if a.Element == tc.element && a.Code == tc.code && strings.Contains(a.Meaning, tc.qualification) {
+					return
+				}
+			}
+			t.Fatalf("missing qualified reference: %+v", tc)
+		})
+	}
+	for _, id := range []string{"EL6001", "EL6002", "EL6003", "EL6004", "EL6006", "EL2006", "EL7002", "EL7008", "EL7009"} {
+		if len(RuleAcks(id)) != 0 {
+			t.Errorf("%s must not promise a universal acknowledgment", id)
+		}
+	}
+	for _, id := range []string{"EL6005", "EL7003"} {
+		acks := RuleAcks(id)
+		original := acks[0]
+		acks[0].Code = "changed"
+		if RuleAcks(RuleName(id))[0] != original {
+			t.Errorf("%s returned shared storage or name lookup differs", id)
+		}
+	}
+	if (Ack{Element: "unknown"}).Type() != "999" {
+		t.Error("unknown elements must retain the historical fallback")
+	}
+}
+
+func TestAcknowledgmentHelpLimitations(t *testing.T) {
+	for _, doc := range Rules() {
+		help := RuleHelp(doc)
+		switch {
+		case doc.Class == ClassHL7Batch:
+			for _, want := range []string{"individual messages", "no universal ACK code", "Table 0357", "MSA-1", "https://www.hl7.eu/"} {
+				if !strings.Contains(help, want) {
+					t.Errorf("%s help lacks %q", doc.ID, want)
+				}
+			}
+		case doc.Formats == "edifact":
+			for _, want := range []string{"0085, not action element 0083", "prevent a valid CONTRL", "https://service.gefeg.com/"} {
+				if !strings.Contains(help, want) {
+					t.Errorf("%s help lacks %q", doc.ID, want)
+				}
+			}
+		}
 	}
 }
 
 func TestSARIFRulesCarryHelp(t *testing.T) {
 	rr := NewRunReport()
 	rr.Add(Lint("dup.x12", []byte(dupControlX12()), Options{}))
+	rr.Add(lintFixture(t, "edifact_broken.edi", Options{}))
+	rr.Add(lintFixture(t, "hl7v2_batch_broken.hl7", Options{}))
 	var out bytes.Buffer
 	if err := rr.WriteSARIF(&out, "test"); err != nil {
 		t.Fatal(err)
@@ -150,18 +218,20 @@ func TestSARIFRulesCarryHelp(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &doc); err != nil {
 		t.Fatalf("SARIF is not JSON: %v", err)
 	}
-	var seen bool
+	wants := map[string]string{
+		"EL3009": "TA1 code 025", "EL7003": "CONTRL code 29 (UCM.0085)",
+		"EL6005": "ACK code 101 (ERR-3)", "EL6003": "no universal ACK code",
+	}
 	for _, r := range doc.Runs[0].Tool.Driver.Rules {
-		if r.ID != "EL3009" {
-			continue
-		}
-		seen = true
-		if r.Help == nil || !strings.Contains(r.Help.Text, "TA1 code 025") {
-			t.Errorf("EL3009 help = %v", r.Help)
+		if want, ok := wants[r.ID]; ok {
+			if r.Help == nil || !strings.Contains(r.Help.Text, want) {
+				t.Errorf("%s help = %v, want %q", r.ID, r.Help, want)
+			}
+			delete(wants, r.ID)
 		}
 	}
-	if !seen {
-		t.Fatalf("SARIF has no EL3009 rule; findings were %v", rr.Files[0].Findings)
+	if len(wants) != 0 {
+		t.Fatalf("SARIF missing rules: %v", wants)
 	}
 }
 

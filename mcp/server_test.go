@@ -546,14 +546,35 @@ func TestExplainRule(t *testing.T) {
 		})
 	}
 
-	// A rule outside X12 has no acknowledgment, and says so rather than
-	// omitting the field.
+	// Batch envelope errors have no universal ACK code; keep the empty field.
 	r := result(t, one(t, &Server{}, call(1, "explain_rule", map[string]any{"rule": "EL6001"})))
 	if acks := arr(t, obj(t, r["structuredContent"])["acknowledgments"]); len(acks) != 0 {
 		t.Errorf("EL6001 acknowledgments = %v, want []", acks)
 	}
-	if !strings.Contains(toolText(t, r), "No X12 acknowledgment") {
+	if !strings.Contains(toolText(t, r), "no universal ACK code") {
 		t.Errorf("EL6001 text should say there is no acknowledgment: %q", toolText(t, r))
+	}
+	for _, tc := range []struct{ rule, element, code, text string }{
+		{"EL7003", "UCM.0085", "29", "CONTRL code 29 (UCM.0085)"},
+		{"edifact.group-count", "UCF.0085", "29", "CONTRL code 29 (UCF.0085)"},
+		{"el7005", "UCI.0085", "29", "CONTRL code 29 (UCI.0085)"},
+		{"EL6005", "ERR-3", "101", "only when this finding reports empty MSH-2"},
+	} {
+		r = result(t, one(t, &Server{}, call(1, "explain_rule", map[string]any{"rule": tc.rule})))
+		if isError(r) {
+			t.Fatalf("%s: %v", tc.rule, r)
+		}
+		acks := arr(t, obj(t, r["structuredContent"])["acknowledgments"])
+		if len(acks) == 0 {
+			t.Fatalf("%s has no references", tc.rule)
+		}
+		a := obj(t, acks[0])
+		if a["element"] != tc.element || a["code"] != tc.code || len(a) != 3 {
+			t.Errorf("%s acknowledgment shape = %v", tc.rule, a)
+		}
+		if !strings.Contains(toolText(t, r), tc.text) || !strings.Contains(toolText(t, r), "Sources:") {
+			t.Errorf("%s lacks qualified, sourced help: %s", tc.rule, toolText(t, r))
+		}
 	}
 	r = result(t, one(t, &Server{}, call(1, "explain_rule", map[string]any{"rule": "EL9999"})))
 	if !isError(r) || !strings.Contains(toolText(t, r), "list_rules") {

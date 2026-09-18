@@ -26,7 +26,12 @@
   <h2>False positives and limits</h2>
   <p>Message fragments and incomplete captures can lack closing envelopes. A bad service string or terminator can also hide an otherwise present trailer.</p>
   <h2>Acknowledgments and suppression</h2>
-  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+  <pre class="prose">Related acknowledgment codes (apply only to the described defect):
+  CONTRL code 13 (UCI.0085): UNZ is missing
+  CONTRL code 13 (UCF.0085): UNE is missing
+  CONTRL code 13 (UCM.0085): UNT is missing
+CONTRL references use syntax-error element 0085, not action element 0083. UCI, UCF and UCM report interchange, group and message service-segment errors respectively. A missing or unreadable header can prevent a valid CONTRL response. Truncation, orphaned envelopes and data outside an interchange have no single mapping here.
+Sources: https://service.gefeg.com/jwg1/Archive/v3/mt/m01.htm https://service.gefeg.com/jwg1/Archive/cl/v3/21a/cl16.htm
 Suppress the rule with --disable EL7001, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
 Reference: https://crb2nu.github.io/edilint/rules/EL7001.html</pre>
   <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>

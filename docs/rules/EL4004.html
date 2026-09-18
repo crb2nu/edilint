@@ -26,7 +26,7 @@
   <h2>False positives and limits</h2>
   <p>A count rule shared across feeds can name a trailer that some feeds do not have. This warning means that the assertion was not checked, not that a total was proved incorrect.</p>
   <h2>Acknowledgments and suppression</h2>
-  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+  <pre class="prose">No direct acknowledgment code is mapped for this rule.
 Suppress the rule with --disable EL4004, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
 Reference: https://crb2nu.github.io/edilint/rules/EL4004.html</pre>
   <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>

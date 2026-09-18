@@ -26,7 +26,12 @@
   <h2>False positives and limits</h2>
   <p>Counting messages instead of groups in a grouped interchange causes a mismatch. Confirm the envelope form before changing the trailer.</p>
   <h2>Acknowledgments and suppression</h2>
-  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+  <pre class="prose">Related acknowledgment codes (apply only to the described defect):
+  CONTRL code 29 (UCI.0085): UNZ-1 differs from the received message or group count
+  CONTRL code 13 (UCI.0085): UNZ-1 is missing
+  CONTRL code 37 (UCI.0085): UNZ-1 contains letters where digits are required
+CONTRL references use syntax-error element 0085, not action element 0083. UCI, UCF and UCM report interchange, group and message service-segment errors respectively. A missing or unreadable header can prevent a valid CONTRL response. Truncation, orphaned envelopes and data outside an interchange have no single mapping here.
+Sources: https://service.gefeg.com/jwg1/Archive/v3/mt/m01.htm https://service.gefeg.com/jwg1/Archive/cl/v3/21a/cl16.htm
 Suppress the rule with --disable EL7005, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
 Reference: https://crb2nu.github.io/edilint/rules/EL7005.html</pre>
   <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>

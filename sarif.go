@@ -49,7 +49,7 @@ type sarifRule struct {
 	FullDescription      *sarifMessage      `json:"fullDescription,omitempty"`
 	DefaultConfiguration sarifConfiguration `json:"defaultConfiguration"`
 	// Help is what a viewer shows when a reader asks what to do about the
-	// rule: the acknowledgment the trading partner would have returned, and
+	// rule: related acknowledgment codes and their limitations, and
 	// how to suppress the rule.
 	Help    *sarifMessage `json:"help,omitempty"`
 	HelpURI string        `json:"helpUri,omitempty"`
@@ -180,19 +180,19 @@ func sarifRuleFor(id string, f Finding) sarifRule {
 }
 
 // RuleHelp renders the guidance shared by the SARIF help text and the MCP
-// server's explain_rule tool: which acknowledgment a trading partner returns
-// for the defect, and how to suppress or baseline the rule.
+// server's explain_rule tool: related acknowledgment codes and their limitations,
+// and how to suppress or baseline the rule.
 func RuleHelp(doc RuleDoc) string {
 	var b strings.Builder
 	if len(doc.Acks) > 0 {
-		b.WriteString("A trading partner's front end reports this defect as:\n")
+		b.WriteString("Related acknowledgment codes (apply only to the described defect):\n")
 		for _, a := range doc.Acks {
 			b.WriteString("  " + a.String() + "\n")
 		}
 	} else {
-		b.WriteString("No X12 acknowledgment code names this defect; it is caught by the parser " +
-			"or the hygiene layer before an acknowledgment is produced.\n")
+		b.WriteString("No direct acknowledgment code is mapped for this rule.\n")
 	}
+	b.WriteString(ackGuidance(doc))
 	fmt.Fprintf(&b, "Suppress the rule with --disable %s, or list it under \"disable\" in .edilint.yml. "+
 		"To accept the occurrences a file already has without suppressing the rule, record them "+
 		"with --write-baseline and run with --baseline.", doc.ID)

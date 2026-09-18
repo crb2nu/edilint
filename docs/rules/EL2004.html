@@ -26,7 +26,7 @@
   <h2>False positives and limits</h2>
   <p>Many X12 readers ignore inter-segment whitespace. This warning catches inconsistent serialization; the majority style may not be the partner&#39;s required style.</p>
   <h2>Acknowledgments and suppression</h2>
-  <pre class="prose">A trading partner&#39;s front end reports this defect as:
+  <pre class="prose">Related acknowledgment codes (apply only to the described defect):
   999 code 1 (IK304): unrecognized segment identifier, because the padding is read as part of the next segment&#39;s identifier
 Suppress the rule with --disable EL2004, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
 Reference: https://crb2nu.github.io/edilint/rules/EL2004.html</pre>
