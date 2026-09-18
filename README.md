@@ -224,7 +224,7 @@ exit status is never affected by truncation.
 ```
 edilint [flags] <file>...
 edilint diff [--strict] [--json] <a> <b>
-edilint stats [--json] <file>...
+edilint stats [options] <file>...
 ```
 
 Use `-` to read standard input. Passing several files enables duplicate
@@ -674,10 +674,26 @@ numerically when they parse as integers, so control number 2 sits below 10;
 and only well-formed all-digit dates are sampled into the date ranges, because
 reporting malformed ones is the linter's job, not the census's.
 
-stats is a report, not a gate. It exits 0 whatever the files contain and 2
-only when a file could not be read. `--json` writes a versioned document,
+Stats produces a census even when text contains lint defects. It exits 0 when
+every file was analyzed and 2 on usage, binary-input, I/O, or resource-limit
+errors. Failed files have no partial census; other successful files are still
+reported. `--json` writes a versioned document,
 currently version 1, whose shape is committed as
 [`schema/stats.v1.schema.json`](schema/stats.v1.schema.json).
+
+Files and standard input (`-`) use bounded record and index storage. Seekable
+files are read directly; pipes use a private temporary spool removed before
+return. The defaults are 1 MiB per record/padding, 100,000 distinct keys per
+index, and 16 MiB of accounted storage per index and for range values. Set
+`--max-record-bytes`, `--max-state-entries`, and `--max-state-bytes` to raise
+these limits; zero selects the default. Exact record-type inference for
+delimited files also tracks distinct leading fields, even if the final census
+omits the histogram because those fields are data rather than record types.
+
+```sh
+edilint stats --json --max-record-bytes 2097152 claims.x12
+cat claims.x12 | edilint stats -
+```
 
 ## Rules
 
@@ -942,7 +958,7 @@ index and for retained findings. The byte budget includes a fixed overhead per
 entry; it is not a measurement of total process memory. Configure them through
 `Options.StreamLimits`, or with `--max-record-bytes`, `--max-state-entries`, and
 `--max-state-bytes`. Zero selects the default; negative values are rejected.
-These flags are lint options, not configuration-file keys. If an expected input
+These flags apply to lint and stats; they are not configuration-file keys. If an expected input
 exceeds a limit, raise that limit for the run.
 
 A read, spool, or resource-limit failure returns an error and no partial report;
@@ -952,8 +968,14 @@ maps may have been updated before an error and should be discarded in that case.
 A nil error means the input was analyzed; check `Report.OK` or inspect its
 findings to decide whether it is clean.
 
-`Lint` remains available for caller-owned byte slices. `fmt`, `fix`, `diff`,
-`stats`, and the browser/MCP text APIs still operate on in-memory input.
+`StatsReader(name, reader, limits)` and `StatsFile(path, limits)` provide the
+same bounded storage, replay, spool cleanup, and operational-error behavior
+for file statistics. Pass `edilint.StreamLimits{}` for the defaults. They
+preserve the census produced by `Stats`, including its tolerant counting of
+malformed envelopes, while retaining only histograms and range endpoints.
+
+`Lint` and `Stats` remain available for caller-owned byte slices. `fmt`, `fix`,
+`diff`, and the browser/MCP text APIs still operate on in-memory input.
 
 ## Repository
 
@@ -961,9 +983,8 @@ Run `make ci` for formatting, lint, race tests, bounded fuzzing, allocation
 budgets, benchmarks, and rule-reference drift checks.
 
 `make fuzz` exercises YAML, X12, HL7v2 batches, EDIFACT, delimited and
-fixed-width parsing, automatic format detection, and reader/byte-slice report
-parity. Each target gets ten
-seconds and two workers; parser mutation inputs are limited to 64 KiB. To focus
+fixed-width parsing, automatic format detection, and reader/byte-slice lint
+report and statistics parity. Each target gets ten seconds and two workers; parser mutation inputs are limited to 64 KiB. To focus
 a longer run, use `make fuzz FUZZ_TARGETS=FuzzX12 FUZZ_TIME=60s` (each target has
 a two-minute test timeout). Seed corpora also run in ordinary `go test`.
 Minimized failures land in `testdata/fuzz/`; reproduce them with the command Go
@@ -986,6 +1007,8 @@ of temporary disk space and has a 15-minute timeout. Ordinary tests run an 8 MiB
 version of the same check. The final 2 GiB acceptance run processed 523,012
 content segments in about 69 seconds with about 4 MiB of sampled heap; this is
 heap evidence on that machine, not an RSS or throughput guarantee.
+`make stats-stream-check` runs the same 2 GiB/128 MiB acceptance for the
+statistics API and verifies the resulting counts; its ordinary test uses 8 MiB.
 
 The canonical repository is `gitlab.flexinfer.ai/libs/edilint`, where merge requests
 run the GitLab CI in `.gitlab-ci.yml`; `github.com/crb2nu/edilint` is a push mirror

@@ -11,13 +11,13 @@ import (
 	"unicode"
 )
 
-// StreamLimits bounds individual records and tracking indexes in LintReader
-// and LintFile. Zero fields select the defaults; negative values are invalid.
-// Limits do not apply to the caller-owned byte slice passed to Lint.
+// StreamLimits bounds individual records and tracking indexes in the reader
+// and file lint/statistics APIs. Zero fields select the defaults; negative values
+// are invalid. Limits do not apply to the byte-slice APIs Lint and Stats.
 type StreamLimits struct {
 	MaxRecordBytes  int // Default: 1 MiB, including a segment's trailing padding.
 	MaxStateEntries int // Default: 100,000 distinct keys per tracking index.
-	MaxStateBytes   int // Default: 16 MiB per index and for retained findings.
+	MaxStateBytes   int // Default: 16 MiB per index, retained findings, or stats ranges.
 }
 
 // ResourceLimitError means an input cannot be analyzed within its stream limits.
@@ -53,11 +53,18 @@ func (l StreamLimits) defaults() (StreamLimits, error) {
 // because file-wide statistics require replay. The caller retains ownership of
 // r. A read or resource-limit error returns no report. Like Lint, this may
 // consume Baseline entries and update SeenISA13; discard those on an error.
-func LintReader(name string, r io.Reader, opts Options) (rep *Report, err error) {
+func LintReader(name string, r io.Reader, opts Options) (*Report, error) {
 	limits, err := opts.StreamLimits.defaults()
 	if err != nil {
 		return nil, err
 	}
+	return withStreamInput(name, r, func(input io.ReaderAt, size int64) (*Report, error) {
+		return lintStream(name, input, size, opts, limits)
+	})
+}
+
+// withStreamInput preserves seekable inputs and owns the spool for other readers.
+func withStreamInput[T any](name string, r io.Reader, analyze func(io.ReaderAt, int64) (*T, error)) (result *T, err error) {
 	if ra, ok := r.(interface {
 		io.ReaderAt
 		io.Seeker
@@ -69,7 +76,7 @@ func LintReader(name string, r io.Reader, opts Options) (rep *Report, err error)
 				return nil, restoreErr
 			}
 			if endErr == nil {
-				return lintStream(name, io.NewSectionReader(ra, start, end-start), end-start, opts, limits)
+				return analyze(io.NewSectionReader(ra, start, end-start), end-start)
 			}
 		}
 	}
@@ -79,7 +86,7 @@ func LintReader(name string, r io.Reader, opts Options) (rep *Report, err error)
 	}
 	defer func() {
 		if cleanupErr := errors.Join(f.Close(), os.Remove(f.Name())); cleanupErr != nil {
-			rep = nil
+			result = nil
 			err = errors.Join(err, fmt.Errorf("clean up stream spool: %w", cleanupErr))
 		}
 	}()
@@ -87,7 +94,7 @@ func LintReader(name string, r io.Reader, opts Options) (rep *Report, err error)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", name, err)
 	}
-	return lintStream(name, f, n, opts, limits)
+	return analyze(f, n)
 }
 
 type streamSource struct {
@@ -168,6 +175,19 @@ func lintStream(name string, input io.ReaderAt, size int64, opts Options, limits
 	for _, f := range parseReport.Findings {
 		rep.add(f)
 	}
+	s.assignStreamIDs()
+	checkStreamCharset(s, rep)
+	checkSource(s, opts, rep)
+	if st.err != nil {
+		return nil, fmt.Errorf("read %s: %w", name, st.err)
+	}
+	rep.finalize(opts.maxFindings())
+	return rep, nil
+}
+
+// assignStreamIDs applies the same whole-file record-type heuristic as assignIDs.
+func (s *source) assignStreamIDs() {
+	st := s.stream
 	if s.Format == FormatDelimited || s.Format == FormatFixed {
 		st.typed = false
 		ids := map[string]bool{}
@@ -185,13 +205,6 @@ func lintStream(name string, input io.ReaderAt, size int64, opts Options, limits
 		}
 		st.typed = len(ids) <= max(3, n/3)
 	}
-	checkStreamCharset(s, rep)
-	checkSource(s, opts, rep)
-	if st.err != nil {
-		return nil, fmt.Errorf("read %s: %w", name, st.err)
-	}
-	rep.finalize(opts.maxFindings())
-	return rep, nil
 }
 
 // prepare inspects only the header and bounded line samples. Diagnostic checks

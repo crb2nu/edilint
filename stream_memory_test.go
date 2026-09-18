@@ -13,6 +13,15 @@ import (
 // Run the 2 GiB acceptance explicitly with make stream-check. The ordinary
 // suite uses 8 MiB, exercising the same path on every supported CI platform.
 func TestStreamMemoryBound(t *testing.T) {
+	testStreamMemoryBound(t, false)
+}
+
+func TestStatsStreamMemoryBound(t *testing.T) {
+	testStreamMemoryBound(t, true)
+}
+
+func testStreamMemoryBound(t *testing.T, stats bool) {
+	t.Helper()
 	const heapBudget = 128 << 20
 	target := int64(8 << 20)
 	if os.Getenv("EDILINT_STREAM_ACCEPTANCE") == "1" {
@@ -45,16 +54,27 @@ func TestStreamMemoryBound(t *testing.T) {
 	chunk = nil
 	runtime.GC()
 	r := &heapGuardReader{File: f, limit: heapBudget}
-	rep, err := LintReader("large.x12", r, Options{})
-	if err != nil {
-		t.Fatal(err)
+	if stats {
+		fs, statsErr := StatsReader("large.x12", r, StreamLimits{})
+		if statsErr != nil {
+			t.Fatal(statsErr)
+		}
+		if fs.Records != int(count)+6 || fs.RecordsByID["NTE"] != int(count) ||
+			fs.Envelope.Interchanges != 1 || fs.Envelope.Groups != 1 || fs.Envelope.Transactions != 1 {
+			t.Fatalf("incorrect census: %+v", fs)
+		}
+	} else {
+		rep, lintErr := LintReader("large.x12", r, Options{})
+		if lintErr != nil {
+			t.Fatal(lintErr)
+		}
+		requireClean(t, rep)
 	}
-	requireClean(t, rep)
 	info, err := f.Stat()
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("linted %d bytes, %d content segments; peak sampled heap %d bytes (budget %d)", info.Size(), count, r.peak, heapBudget)
+	t.Logf("stats=%t: analyzed %d bytes, %d content segments; peak sampled heap %d bytes (budget %d)", stats, info.Size(), count, r.peak, heapBudget)
 }
 
 func interchangeHeader() string {
