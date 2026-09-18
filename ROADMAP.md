@@ -1,8 +1,8 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
-> Last Updated: 2026-09-17
+> Last Updated: 2026-09-18
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
-> Tracking Issue: [H bounded-memory linting #12](https://github.com/crb2nu/edilint/issues/12)
+> Tracking Issue: [Bounded-memory statistics #13](https://github.com/crb2nu/edilint/issues/13)
 
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
@@ -211,7 +211,15 @@ Fixture, baseline, error-path, and fuzz tests compare reader diagnostics with
 `Lint`; both APIs have tracked benchmarks. `make stream-check` processed a
 2 GiB synthetic X12 file (523,012 content segments) with about 4 MiB sampled Go
 heap, below its 128 MiB ceiling. The ordinary suite runs an 8 MiB version.
-`fmt`, `fix`, `diff`, `stats`, and browser/MCP text inputs remain in-memory.
+`fmt`, `fix`, `diff`, and browser/MCP text inputs remain in-memory.
+
+**Streaming statistics follow-up:** [#13](https://github.com/crb2nu/edilint/issues/13)
+adds `StatsReader`, `StatsFile`, and bounded-memory `edilint stats`, preserving
+version 1 output. Record histograms, envelope counts, control/date ranges, and
+character profiles use bounded iterators and retained state instead of a full
+X12 tree. The CLI exposes the same record and state limits as linting. Fixture
+and fuzz parity guard malformed-input behavior; `make stats-stream-check`
+verifies counts and sampled heap on a synthetic 2 GiB file.
 
 **Goal:** streaming check architecture for multi-GB files (bounded memory,
 single pass where the check allows), benchmarks in CI with regression thresholds,
