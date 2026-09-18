@@ -33,6 +33,11 @@ GoReleaser, golangci-lint, govulncheck, and actionlint versions are pinned in
 the workflows or Makefile. A new reachable vulnerability blocks publication
 until the compiler or dependency is fixed and all checks pass again.
 
+GitLab caches only the lint job's tools and compiled packages, keyed by the
+compiler and Makefile tool versions. Ordinary test/build jobs start without
+shared Go caches: for this stdlib-only application, transferring accumulated
+caches can take longer than compiling and can exhaust the test-job deadlines.
+
 ## Rehearse without publishing
 
 Run the GitHub `ci` workflow manually on main (Actions → ci → Run workflow),

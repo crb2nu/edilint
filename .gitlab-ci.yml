@@ -23,16 +23,25 @@ variables:
 # Keep aligned with .go-version; Go 1.23 below is compatibility only.
 .go-base:
   image: registry.harbor.lan/dockerhub-cache/library/golang:1.26.8
+  # The application has no module dependencies. Restoring and re-uploading the
+  # fleet Go caches consumed entire test-job budgets after a toolchain update.
+  cache: []
 
 # The shared .go-lint template installs its own golangci-lint version. This
 # repo pins the version in the Makefile so `make lint` and CI are identical;
-# reuse the template's cache and checkout handling but run the Makefile target.
+# reuse checkout handling but keep a cache only for these substantial tools.
 lint:
   extends: .go-base
   stage: lint
   interruptible: true
   variables:
     CGO_ENABLED: "0"
+  cache:
+    key:
+      files: [.go-version, Makefile]
+      prefix: edilint-lint-v1
+    paths: [.go/pkg/mod/, .go-build/]
+    policy: pull-push
   script:
     - make fmt-check
     - make docs-check
