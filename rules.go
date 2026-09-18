@@ -60,8 +60,8 @@ type RuleDoc struct {
 	Formats string `json:"formats"`
 	// Summary is the one-line rationale printed by --list-rules.
 	Summary string `json:"summary"`
-	// Acks are the acknowledgment codes a trading partner returns for the
-	// defect, for X12 rules. Nil for every other rule.
+	// Acks are related acknowledgment codes, qualified by each entry's Meaning.
+	// Empty when no direct mapping is documented; RuleHelp explains limitations.
 	Acks []Ack `json:"acknowledgments,omitempty"`
 }
 

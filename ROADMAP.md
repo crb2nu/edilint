@@ -2,7 +2,7 @@
 
 > Last Updated: 2026-09-18
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
-> Tracking Issue: [Bounded-memory statistics #13](https://github.com/crb2nu/edilint/issues/13)
+> Tracking Issue: [Acknowledgment cross-references #14](https://github.com/crb2nu/edilint/issues/14)
 
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
@@ -28,6 +28,12 @@ now has seeded parser fuzzing, bounded CI fuzz passes, and lint benchmarks with
 allocation regression budgets, bounded-memory reader/file linting, and
 reader parity fuzzing. The 2 GiB acceptance test passed under a 128 MiB sampled
 Go heap ceiling ([tracking issue #12](https://github.com/crb2nu/edilint/issues/12)).
+
+Statistics also stream through `StatsReader` and `StatsFile`; the 2 GiB
+acceptance test passed under the same heap ceiling ([#13](https://github.com/crb2nu/edilint/issues/13)).
+Acknowledgment references now include EDIFACT CONTRL reporting levels and
+qualified HL7v2 ACK guidance, with public sources and explicit limits for
+batch/file errors ([#14](https://github.com/crb2nu/edilint/issues/14)).
 
 The canonical repository is `gitlab.flexinfer.ai/libs/edilint`; README
 `Repository` documents GitHub as its push mirror. GitLab CI runs on merge
@@ -102,8 +108,6 @@ boring maturity work that separates a weekend project from a tool.
   --claims 100`). Test data is a real, unserved pain; also feeds our own corpus.
   Big enough to be its own project; decide after v1.0.
 - Community rule packs (versioned YAML rules for shop-specific conventions).
-- EDIFACT CONTRL (UCI/UCM) and HL7v2 ACK cross-references, matching the X12
-  acknowledgment table that `RuleHelp` and `explain_rule` render.
 - NCPDP batch structure checks (licensing review first).
 
 ---

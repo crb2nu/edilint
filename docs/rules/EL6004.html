@@ -26,7 +26,9 @@
   <h2>False positives and limits</h2>
   <p>Empty FTS-1 is optional and is not checked. A count change cannot recover a batch missing from a truncated export.</p>
   <h2>Acknowledgments and suppression</h2>
-  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+  <pre class="prose">No direct acknowledgment code is mapped for this rule.
+HL7 ACKs acknowledge individual messages. Batch/file envelope and count errors have no universal ACK code; response batches and error handling depend on the partner agreement. ERR-3 uses Table 0357 and does not determine the acknowledgment status in MSA-1.
+Sources: https://www.hl7.eu/refactored/ctrl.html (2.10.3.2) https://www.hl7.eu/refactored/segERR.html https://terminology.hl7.org/5.5.0/CodeSystem-v2-0357.html
 Suppress the rule with --disable EL6004, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
 Reference: https://crb2nu.github.io/edilint/rules/EL6004.html</pre>
   <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>

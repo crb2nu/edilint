@@ -26,7 +26,7 @@
   <h2>False positives and limits</h2>
   <p>Tabs in record content are warnings. A nonstandard feed may intentionally carry control bytes; suppress the rule only when the consumer explicitly accepts them. Declared separators are exempt.</p>
   <h2>Acknowledgments and suppression</h2>
-  <pre class="prose">No X12 acknowledgment code names this defect; it is caught by the parser or the hygiene layer before an acknowledgment is produced.
+  <pre class="prose">No direct acknowledgment code is mapped for this rule.
 Suppress the rule with --disable EL1003, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
 Reference: https://crb2nu.github.io/edilint/rules/EL1003.html</pre>
   <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>

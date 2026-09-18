@@ -779,13 +779,14 @@ themselves by format, and a configuration file can override any of them.
 
 ### What the trading partner would say
 
-Every X12 rule maps to the acknowledgment a receiver's front end returns for
-the same defect: a TA1 note code (TA105) for interchange-level problems, and
+X12 rules cross-reference related acknowledgment codes: a TA1 note code
+(TA105) for interchange-level problems, and
 999 codes at group (AK905), transaction set (IK502), segment (IK304) or data
 element (IK403) level. A 997 carries the same codes in AK905, AK502, AK304 and
 AK403. The mapping is what `explain_rule` reports in the MCP server and what
-the `help` text of every rule carries in SARIF output, so a finding can be
-read as the rejection it prevents.
+the `help` text of every rule carries in SARIF output. These are rule-level
+references, qualified by the defect described in each entry; they do not
+guarantee a receiver response or generate acknowledgment messages.
 
 | Rule | Acknowledgment |
 |---|---|
@@ -806,8 +807,40 @@ read as the rejection it prevents.
 | `EL3011` | TA1 018, invalid interchange control number value |
 | `EL3012` | TA1 022, invalid control structure, for segments after the IEA |
 
-Rules outside X12 have no entry. HL7v2 receivers answer with ACK messages and
-EDIFACT receivers with CONTRL messages, whose codes are not mapped yet.
+EDIFACT references use CONTRL syntax-error element `0085`, qualified by its
+reporting segment: `UCI.0085` for interchange service segments, `UCF.0085` for
+group service segments, and `UCM.0085` for message service segments. These are
+separate from action codes in `0083`.
+
+| Rule | CONTRL reference and applicable defect |
+|---|---|
+| `EL7001` | UCI/UCF/UCM 13: missing UNZ/UNE/UNT respectively |
+| `EL7003` | UCM 29: wrong UNT-1 segment count; 13: absent count; 37: letters in the count |
+| `EL7004` | UCF 29: wrong UNE-1 message count; 13: absent count; 37: letters in the count |
+| `EL7005` | UCI 29: wrong UNZ-1 message/group count; 13: absent count; 37: letters in the count |
+| `EL7006` | UCI/UCF/UCM 28: mismatched interchange/group/message references; 13: absent reference |
+| `EL7007` | UCI 19: invalid UNA decimal mark; 20: unusable UNA service character |
+
+A missing or unreadable header can prevent a valid CONTRL response. Truncation
+(`EL2006`), orphaned trailers (`EL7002`), missing enclosing interchanges
+(`EL7008`), and data outside an interchange (`EL7009`) have no single mapping
+here. The UNA references cover only the named defects. Sources: the Syntax
+Development Group's [CONTRL definition](https://service.gefeg.com/jwg1/Archive/v3/mt/m01.htm)
+and [public 0085 code list](https://service.gefeg.com/jwg1/Archive/cl/v3/21a/cl16.htm).
+
+HL7 ACKs acknowledge individual messages. `EL6005` references `ERR-3` code
+`101` only for an empty MSH-2 field. Other separator defects and batch/file
+headers, trailers, and count errors (`EL6001`–`EL6004`, `EL6006`) require
+partner-specific handling; they do not have a universal ACK code. Response
+batches may acknowledge all messages or only those with errors, or sites may
+use a manual batch report. `ERR-3` identifies the error and does not determine
+the acknowledgment status in `MSA-1`. Sources: HL7's [batch protocol, section
+2.10.3.2](https://www.hl7.eu/refactored/ctrl.html), [ERR segment](https://www.hl7.eu/refactored/segERR.html),
+and [Table 0357](https://terminology.hl7.org/5.5.0/CodeSystem-v2-0357.html).
+
+`RuleAcks` returns these references by rule ID or name; `RuleHelp`, SARIF,
+MCP `explain_rule`, and the generated rule pages include the qualifications
+and sources. Rules without a direct mapping return an empty reference list.
 
 ### counts
 
