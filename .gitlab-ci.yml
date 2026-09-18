@@ -3,7 +3,7 @@
 #
 # The GitHub Actions workflow (.github/workflows/ci.yml) keeps running on the
 # mirror and supplies what these runners cannot: the macOS and Windows test
-# matrix (CRLF fixture bytes) and the goreleaser config check. Everything in
+# matrix, packaged-binary smoke tests, and GoReleaser rehearsal. Everything in
 # `make ci` runs here, on every MR, using the same pinned golangci-lint version
 # the Makefile does so lint results cannot disagree between laptop and CI.
 include:
@@ -20,6 +20,10 @@ variables:
   DOCKER_HOST: ""
   DOCKERHUB_CACHE_PREFIX: "registry.harbor.lan/dockerhub-cache"
 
+# Keep aligned with .go-version; Go 1.23 below is compatibility only.
+.go-base:
+  image: registry.harbor.lan/dockerhub-cache/library/golang:1.26.8
+
 # The shared .go-lint template installs its own golangci-lint version. This
 # repo pins the version in the Makefile so `make lint` and CI are identical;
 # reuse the template's cache and checkout handling but run the Makefile target.
@@ -34,6 +38,7 @@ lint:
     - make docs-check
     - make vet
     - make lint
+    - make workflow-check
 
 test:
   extends: .go-base
@@ -102,34 +107,41 @@ build:
     paths: [bin/edilint]
     expire_in: 1 week
 
-# Push main and tags to the public GitHub mirror. Skips cleanly when the token
-# is absent so a missing credential never reddens main; set it with
-#   glab variable set GITHUB_MIRROR_TOKEN --repo libs/edilint --masked --protected
-# (a fine-grained GitHub token with contents:write on crb2nu/edilint).
-# Work-in-progress branches stay on GitLab; the GitHub release workflow still
-# fires on mirrored tags.
+# Scan with a current patched toolchain; minimum-go remains a compatibility check.
+vulnerability:
+  extends: .go-base
+  stage: test
+  interruptible: true
+  timeout: 10m
+  script:
+    - make vuln
+
+# Tags must identify clean commits already merged to main, with authored notes.
+release-tag:
+  extends: .go-base
+  stage: lint
+  interruptible: false
+  script:
+    - git fetch origin "${CI_DEFAULT_BRANCH}:refs/remotes/origin/${CI_DEFAULT_BRANCH}"
+    - go run ./internal/releasecheck tag --tag "$CI_COMMIT_TAG" --sha "$CI_COMMIT_SHA" --main "refs/remotes/origin/${CI_DEFAULT_BRANCH}"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v/'
+
+# Main and release tags have separate pushes. A tag job never updates main,
+# and a main job cannot accidentally publish unvalidated tags.
 mirror:github:
   stage: mirror
   image: ${DOCKERHUB_CACHE_PREFIX}/alpine/git:latest
+  resource_group: github-mirror
+  interruptible: false
   variables:
     GIT_STRATEGY: clone
     GIT_DEPTH: 0
   script:
-    - |
-      set -eu
-      if [ -z "${GITHUB_MIRROR_TOKEN:-}" ]; then
-        echo "GITHUB_MIRROR_TOKEN is not set; skipping GitHub mirror push."
-        echo "Set it with: glab variable set GITHUB_MIRROR_TOKEN --repo libs/edilint --masked --protected"
-        exit 0
-      fi
-      git remote remove github 2>/dev/null || true
-      git remote add github "https://x-access-token:${GITHUB_MIRROR_TOKEN}@github.com/crb2nu/edilint.git"
-      git fetch github --prune --tags
-      git push --force-with-lease github "HEAD:refs/heads/${CI_DEFAULT_BRANCH}"
-      git push --force-with-lease --tags github
-      echo "Mirrored ${CI_COMMIT_SHA} to github.com/crb2nu/edilint"
+    - sh scripts/mirror-github.sh
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: '$CI_COMMIT_TAG =~ /^v/'
 
 radar-scan:
   extends: .radar-scan

@@ -1,6 +1,6 @@
 # goreleaser configuration. A push of a v* tag runs this via
-# .github/workflows/release.yml; `goreleaser check` runs in CI on every change
-# so the file cannot drift into something a release day discovers.
+# .github/workflows/release.yml after exact-commit CI and release checks.
+# CI rehearses all six archives and executes the native packaged binaries.
 version: 2
 
 project_name: edilint
@@ -26,6 +26,7 @@ builds:
 
 archives:
   - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
         formats: [zip]

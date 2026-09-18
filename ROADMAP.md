@@ -2,7 +2,7 @@
 
 > Last Updated: 2026-09-18
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
-> Tracking Issue: [Acknowledgment cross-references #14](https://github.com/crb2nu/edilint/issues/14)
+> Tracking Issue: [Gated release pipeline #15](https://github.com/crb2nu/edilint/issues/15)
 
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
@@ -10,18 +10,16 @@ and are non-negotiable.
 
 ## Current Status
 
-The v0.1.0 release is published: `git tag` lists `v0.1.0`, and the tag-triggered
-GitHub Actions workflow in `.github/workflows/release.yml` ran for that release.
-Install the module with `go install github.com/crb2nu/edilint/cmd/edilint@v0.1.0`;
-the release workflow publishes goreleaser binaries on the GitHub release.
+Releases `v0.1.0` and `v0.3.0` are published. The latest, `v0.3.0`, was
+released on 2026-09-03 from commit `2b36110a06ae743a3716872ec3442eec1a4989f8`.
+Install with `go install github.com/crb2nu/edilint/cmd/edilint@v0.3.0`, or use
+its [release archives](https://github.com/crb2nu/edilint/releases/tag/v0.3.0).
 
 `git log` records merged workstreams B (rule system foundation), A (HL7v2 batch
 and EDIFACT envelope coverage), C (SARIF, JUnit, and GitHub annotation outputs),
 and D (release engineering), completing v0.2, and E (`fmt` + `fix`, !2), F
 (`diff` + `stats`, !1) and I (MCP server, !8; acknowledgment cross-reference,
-!9), all merged 2026-09-03, completing v0.3 and the first piece of v1.0. None
-of v0.2 or v0.3 has been tagged: `v0.1.0` is still the only release, so the
-next tag publishes every subcommand at once. Workstream G now provides generated pages for all 48 rules, examples and repair
+!9), all merged 2026-09-03, completing v0.3 and the first piece of v1.0. These tools shipped in `v0.3.0`. Workstream G now provides generated pages for all 48 rules, examples and repair
 guidance, diagnostic URLs, a drift check, and a GitHub Pages workflow
 ([tracking issue #10](https://github.com/crb2nu/edilint/issues/10)). Workstream H
 now has seeded parser fuzzing, bounded CI fuzz passes, and lint benchmarks with
@@ -39,15 +37,17 @@ The canonical repository is `gitlab.flexinfer.ai/libs/edilint`; README
 `Repository` documents GitHub as its push mirror. GitLab CI runs on merge
 requests, while the GitHub Actions workflows continue to run on the mirror.
 
-Evidence inspected 2026-09-03: `git tag` (`v0.1.0`), `git log`, GitLab merge
-requests !1, !2, !8 and !9, `.github/workflows/release.yml`, and README
-`Repository`.
+The release pipeline now rehearses six platform archives and a multi-platform
+container after merges, scans reachable vulnerabilities with a patched Go
+compiler, and requires successful CI for the exact release commit before
+publishing a stable version tag. See [Releasing](docs/releasing.md).
 
-- **Plan store**: none — this file is the plan
-- **Distribution**: `go install` for `v0.1.0` and goreleaser binaries on its
-  GitHub release (`git tag`; `.github/workflows/release.yml`)
-- **CI**: GitLab CI on the canonical repository and GitHub Actions on the push
-  mirror (README `Repository`)
+Evidence inspected 2026-09-18: GitLab and GitHub tags, the GitHub `v0.3.0`
+release, merged feature history, and the current CI/release configuration.
+
+- **Plan store**: this file
+- **Distribution**: `go install`, GitHub release archives, and GHCR containers
+- **CI**: GitLab on the canonical repository and GitHub Actions on the mirror
 
 ## Vision
 

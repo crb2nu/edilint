@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,7 +13,7 @@ permissions:
 # Superseded runs on a pull request are pointless; pushes to main are never
 # canceled, so a later release or tagging job can rely on every push completing.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: quality-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -23,7 +25,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: stable
+          go-version-file: .go-version
 
       # gofmt and go vet duplicate work golangci-lint also does, but their
       # failure output names the problem directly, which is worth the seconds.
@@ -35,6 +37,9 @@ jobs:
             echo "$unformatted"
             exit 1
           fi
+
+      - name: workflow syntax
+        run: make workflow-check
 
       - name: rule reference drift
         run: make docs-check
@@ -62,7 +67,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: stable
+          go-version-file: .go-version
 
       - name: go test
         run: go test -race -cover ./...
@@ -82,7 +87,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: stable
+          go-version-file: .go-version
 
       - name: go test -fuzz
         run: make fuzz
@@ -103,7 +108,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: stable
+          go-version-file: .go-version
 
       - name: allocation budgets and benchmarks
         shell: bash
@@ -127,7 +132,7 @@ jobs:
 
       - uses: goreleaser/goreleaser-action@v6
         with:
-          version: "~> v2"
+          version: v2.18.2
           args: check
 
   # go.mod claims a floor of Go 1.23. This job is what keeps that claim honest:
@@ -150,3 +155,103 @@ jobs:
 
       - name: go test
         run: go test ./...
+
+  vulnerability:
+    name: reachable vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: .go-version
+      - run: make vuln
+
+  release-snapshot:
+    name: release archives
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: .go-version
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: v2.18.2
+          args: release --snapshot --clean --skip=publish,docker --parallelism=2
+        env:
+          TAP_GITHUB_TOKEN: ""
+      - name: verify archives, checksums, and native CLI
+        run: go run ./internal/releasecheck artifacts --dir dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-rehearsal
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+            dist/metadata.json
+          if-no-files-found: error
+          retention-days: 7
+
+  archive-smoke:
+    name: packaged CLI (${{ matrix.os }})
+    needs: release-snapshot
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: .go-version
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-rehearsal
+          path: dist
+      - run: go run ./internal/releasecheck artifacts --dir dist
+
+  container-smoke:
+    name: release container
+    needs: release-snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-rehearsal
+          path: dist
+      - uses: docker/setup-buildx-action@v3
+      - name: assemble both container platforms and run the native image
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p image/linux/amd64 image/linux/arm64
+          cp Dockerfile image/
+          for arch in amd64 arm64; do
+            tar -xzf dist/*_linux_${arch}.tar.gz -C "image/linux/${arch}" edilint
+          done
+          docker buildx build --platform linux/amd64,linux/arm64 --output type=oci,dest=dist/container.tar image
+          docker buildx build --platform linux/amd64 --load -t edilint:smoke image
+          docker run --rm edilint:smoke --version
+          printf 'ABC|one\n' | docker run --rm -i edilint:smoke --no-config --format text --json -
+
+  release-ready:
+    name: release ready
+    if: always()
+    needs: [lint, test, fuzz, benchmark, release-config, minimum-go, vulnerability, release-snapshot, archive-smoke, container-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - name: require every check to pass
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 -c 'import json, os; results=json.loads(os.environ["RESULTS"]); assert all(job["result"] == "success" for job in results.values()), results'

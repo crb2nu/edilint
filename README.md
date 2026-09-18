@@ -1015,7 +1015,12 @@ malformed envelopes, while retaining only histograms and range endpoints.
 ## Repository
 
 Run `make ci` for formatting, lint, race tests, bounded fuzzing, allocation
-budgets, benchmarks, and rule-reference drift checks.
+budgets, benchmarks, and rule-reference drift checks. `make release-checks` adds
+workflow validation and reachable-vulnerability scanning. Use the patched Go
+version in `.go-version`; Go 1.23 remains the library compatibility floor.
+
+See [Releasing](docs/releasing.md) for rehearsing packages and publishing a
+version after a successful feature merge.
 
 `make fuzz` exercises YAML, X12, HL7v2 batches, EDIFACT, delimited and
 fixed-width parsing, automatic format detection, and reader/byte-slice lint

@@ -10,6 +10,16 @@ from its first tag.
 
 ### Added
 
+- A gated release pipeline with exact-commit CI verification, dated release
+  notes, reachable-vulnerability scanning, archive checksum and content checks,
+  packaged CLI smoke tests on Linux/macOS/Windows, and a two-platform container
+  rehearsal. Validated main commits and release tags mirror separately.
+  [Releasing](docs/releasing.md) documents rehearsal, publication, and recovery.
+- Streaming statistics through `StatsReader`, `StatsFile`, and `edilint stats`,
+  with configurable record and state limits and a 2 GiB memory acceptance test.
+- Acknowledgment cross-references for EDIFACT CONTRL and qualified HL7v2 ACK
+  guidance, including public sources and the limits of batch/file reporting.
+
 - Bounded-memory linting through `LintReader`, `LintFile`, and the lint CLI.
   File-wide checks replay regular files; nonseekable readers use a private,
   temporary disk spool that is removed before returning. Configurable record,
@@ -41,6 +51,8 @@ from its first tag.
 
 ### Fixed
 
+- The container image includes a temporary directory so streamed stdin can be
+  spooled for file-wide lint checks.
 - Fixed-width layouts whose combined field widths overflow an integer now
   produce a layout error instead of crashing when a count rule reads a field.
 - X12 formatting rejects ISA headers that contain their declared segment
