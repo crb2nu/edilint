@@ -3,6 +3,8 @@
 # Keep this pinned to the version .github/workflows/ci.yml uses, so `make lint`
 # and CI cannot disagree.
 GOLANGCI_LINT_VERSION := v2.13.2
+GOVULNCHECK_VERSION := v1.8.0
+ACTIONLINT_VERSION := v1.7.12
 
 BIN := bin/edilint
 
@@ -94,3 +96,12 @@ docs-check: ## Reject missing or stale rule reference pages
 
 ci: fmt-check vet lint test-race fuzz bench docs-check ## Run everything CI runs
 	@echo "All checks passed."
+
+.PHONY: vuln workflow-check release-checks
+vuln: ## Reject reachable known vulnerabilities, including the Go standard library
+	go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+
+workflow-check: ## Validate GitHub Actions syntax and release job dependencies
+	go run github.com/rhysd/actionlint/cmd/actionlint@$(ACTIONLINT_VERSION) -color
+
+release-checks: workflow-check vuln ## Run the additional release-readiness checks

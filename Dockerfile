@@ -6,6 +6,8 @@
 #
 #   docker run --rm -v "$PWD:/work" ghcr.io/crb2nu/edilint:<version> /work/claims.x12
 FROM scratch
+# WORKDIR creates the temporary directory needed to spool nonseekable input.
+WORKDIR /tmp
 ARG TARGETPLATFORM
 COPY $TARGETPLATFORM/edilint /edilint
 ENTRYPOINT ["/edilint"]
