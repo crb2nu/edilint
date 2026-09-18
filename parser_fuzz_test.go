@@ -114,7 +114,7 @@ func checkParserReport(t *testing.T, data []byte, opts Options) {
 	if opts.Format == FormatX12 || opts.Format == FormatHL7v2 {
 		canonical, err := Canonical(data, opts.Format)
 		if err != nil {
-			return // Malformed X12 may not declare usable separators.
+			return // Malformed input may not have a safe canonical form.
 		}
 		again, err := Canonical(canonical, opts.Format)
 		if err != nil || !bytes.Equal(canonical, again) {
