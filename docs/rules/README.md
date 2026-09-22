@@ -1,8 +1,8 @@
 # Rule reference
 
-This directory is generated from the edilint rule catalog. Run `make rulesdoc` after changing rule metadata.
+One page per rule in the edilint catalog. The pages are generated from the catalog in `rules.go` and the per-rule table in `internal/rulesdoc`; run `make rulesdoc` after changing either.
 
-| ID | Name | Class | Severity | Rationale |
+| ID | Name | Class | Severity | Detects |
 |---|---|---|---|---|
 | [EL1001](EL1001.md) | `charset.bom` | charset | error | File starts with a byte order mark. An error for X12, HL7v2 and fixed-width, where a BOM before ISA or MSH shifts every fixed position in the file; a warning for delimited, because spreadsheet exports emit one routinely and most CSV readers cope. |
 | [EL1002](EL1002.md) | `charset.invalid-utf8` | charset | error | Byte sequence is not valid UTF-8. |

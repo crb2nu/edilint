@@ -1,1 +1,1 @@
-- Add generated per-rule reference pages, a generator, and a byte-for-byte drift guard under `docs/rules/`, `cmd/edilint-rulesdoc/`, and `internal/rulesdoc/`.
+- Add a generated per-rule reference under `docs/rules/`: one page per catalog rule plus an index, produced by `cmd/edilint-rulesdoc` (`make rulesdoc`) from `internal/rulesdoc`. Each page's example is linted as the page is rendered, so the finding it shows is the one the linter produces, and `internal/rulesdoc` carries a byte-for-byte drift guard that fails when the tree and the catalog disagree.
