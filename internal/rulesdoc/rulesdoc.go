@@ -69,6 +69,11 @@ func renderExample(rule edilint.RuleDoc, ex example) string {
 	if ex.display != "" {
 		b.WriteString("The escape sequences above stand for the bytes the file holds literally.\n\n")
 	}
+	// A fenced block cannot show whether the file ends with its terminator, and
+	// for the rules about a missing one that byte is the whole defect.
+	if !strings.HasSuffix(ex.body, "\n") {
+		b.WriteString("The file ends immediately after the last record shown, with no terminator after it.\n\n")
+	}
 	fmt.Fprintf(&b, "%s reports:\n\n%s\n\n", code(ex.command()), fence("text", ex.finding(rule.ID)))
 	return b.String()
 }

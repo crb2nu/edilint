@@ -1,6 +1,5 @@
 .PHONY: help build install wasm test test-race fuzz bench stream-check stats-stream-check cover lint fmt fmt-check vet tidy rulesdoc clean ci docs docs-check
 
-
 # Keep this pinned to the version .github/workflows/ci.yml uses, so `make lint`
 # and CI cannot disagree.
 GOLANGCI_LINT_VERSION := v2.13.2

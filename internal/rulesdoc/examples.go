@@ -14,8 +14,7 @@ import (
 type ruleDetail struct {
 	// catches expands the catalog rationale into the "What it catches" section.
 	catches string
-	// fix is the "How to fix" section. Render appends the mechanical repair
-	// sentence when edilint fix actually repairs the example.
+	// fix is the "How to fix" section.
 	fix string
 	// suppress is the "When to suppress" section: the false-positive story.
 	suppress string
