@@ -55,7 +55,7 @@ func TestGenerateIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := generate(dir); err != nil {
+	if err = generate(dir); err != nil {
 		t.Fatal(err)
 	}
 	second, err := os.ReadFile(filepath.Join(dir, "README.md"))

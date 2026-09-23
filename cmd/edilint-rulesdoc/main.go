@@ -41,7 +41,7 @@ func generate(dir string) error {
 		return err
 	}
 	for name, contents := range files {
-		if err := os.WriteFile(filepath.Join(dir, name), contents, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), contents, 0o644); err != nil { //nolint:gosec // G306: public static documentation
 			return err
 		}
 	}
