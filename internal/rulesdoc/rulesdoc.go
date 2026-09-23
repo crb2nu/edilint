@@ -113,6 +113,13 @@ func (e example) finding(id string) string {
 	panic("rulesdoc: example for " + id + " no longer produces that finding")
 }
 
+// Owns reports whether a file in docs/rules belongs to this generator.
+//
+// docs/rules is shared: cmd/edilint-docs writes the published HTML reference
+// into the same directory, so the Markdown tree can only claim, and only
+// reconcile, the .md files it writes itself.
+func Owns(name string) bool { return strings.HasSuffix(name, ".md") }
+
 // Files returns the complete generated tree, keyed by slash-separated path
 // relative to docs/rules.
 func Files(rules []edilint.RuleDoc) map[string][]byte {

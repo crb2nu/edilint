@@ -132,7 +132,7 @@ func TestGeneratedTreeIsCurrent(t *testing.T) {
 	}
 	present := map[string]bool{}
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() && Owns(entry.Name()) {
 			present[entry.Name()] = true
 		}
 	}
@@ -180,8 +180,14 @@ func TestTreeIsOnePagePerRulePlusIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := len(entries), len(rules)+1; got != want {
-		t.Fatalf("%s holds %d files for %d rules, want %d", treeDir, got, len(rules), want)
+	pages := 0
+	for _, entry := range entries {
+		if !entry.IsDir() && Owns(entry.Name()) {
+			pages++
+		}
+	}
+	if want := len(rules) + 1; pages != want {
+		t.Fatalf("%s holds %d Markdown files for %d rules, want %d", treeDir, pages, len(rules), want)
 	}
 }
 

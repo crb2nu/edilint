@@ -47,12 +47,14 @@ func generate(dir string) error {
 	}
 	// A withdrawn rule leaves its page behind, which the drift guard reports as
 	// an extra file. Remove it here so regenerating always reconciles the tree.
+	// Only pages this generator owns are candidates: cmd/edilint-docs publishes
+	// the HTML reference into the same directory.
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 	for _, entry := range entries {
-		if entry.IsDir() {
+		if entry.IsDir() || !rulesdoc.Owns(entry.Name()) {
 			continue
 		}
 		if _, ok := files[entry.Name()]; ok {
