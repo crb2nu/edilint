@@ -1,4 +1,4 @@
-.PHONY: help build install wasm test test-race fuzz bench stream-check stats-stream-check cover lint fmt fmt-check vet tidy clean ci docs docs-check
+.PHONY: help build install wasm test test-race fuzz bench stream-check stats-stream-check cover lint fmt fmt-check vet tidy rulesdoc clean ci docs docs-check
 
 # Keep this pinned to the version .github/workflows/ci.yml uses, so `make lint`
 # and CI cannot disagree.
@@ -84,6 +84,9 @@ vet: ## Run go vet
 
 tidy: ## Tidy go.mod
 	go mod tidy
+
+rulesdoc: ## Regenerate the per-rule reference
+	go run ./cmd/edilint-rulesdoc
 
 clean: ## Remove build and coverage output
 	rm -rf bin coverage.out coverage.html
