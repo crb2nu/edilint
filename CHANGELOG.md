@@ -8,8 +8,13 @@ from its first tag.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-23
+
 ### Added
 
+- A generated Markdown reference for all 48 rules, with executable examples,
+  repair and suppression guidance, acknowledgment codes, and a drift guard.
+  `make rulesdoc` regenerates the pages for reading in the repository.
 - A gated release pipeline with exact-commit CI verification, dated release
   notes, reachable-vulnerability scanning, archive checksum and content checks,
   packaged CLI smoke tests on Linux/macOS/Windows, and a two-platform container
@@ -51,6 +56,8 @@ from its first tag.
 
 ### Fixed
 
+- HL7 formatting rejects output that would promote an embedded byte-order mark
+  to a file header, preserving idempotence and the meaning of record bytes.
 - The container image includes a temporary directory so streamed stdin can be
   spooled for file-wide lint checks.
 - Fixed-width layouts whose combined field widths overflow an integer now
