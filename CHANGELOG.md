@@ -8,6 +8,8 @@ from its first tag.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-25
+
 ### Added
 
 - The browser build ships as a release asset, `edilint_<version>_wasm.tar.gz`:
