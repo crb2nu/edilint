@@ -21,10 +21,28 @@ import (
 	"github.com/crb2nu/edilint"
 )
 
+// nativeEntry accepts the members of a CLI archive.
+func nativeEntry(name string) bool {
+	return name == "edilint" || name == "edilint.exe" || name == "LICENSE" || name == "README.md" || name == "CHANGELOG.md"
+}
+
+// wasmEntry accepts the members of the browser archive: the module, the Go
+// runtime's JavaScript shim, the license, and the sample fixtures a site can
+// offer without a checkout of this repository.
+var wasmFixture = regexp.MustCompile(`^testdata/[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
+func wasmEntry(name string) bool {
+	return name == "edilint.wasm" || name == "wasm_exec.js" || name == "LICENSE" || wasmFixture.MatchString(name)
+}
+
 func archiveFiles(path string) (map[string][]byte, error) {
+	return archiveMembers(path, nativeEntry)
+}
+
+func archiveMembers(path string, allowed func(string) bool) (map[string][]byte, error) {
 	files := map[string][]byte{}
 	add := func(name string, r io.Reader) error {
-		if name != "edilint" && name != "edilint.exe" && name != "LICENSE" && name != "README.md" && name != "CHANGELOG.md" {
+		if !allowed(name) {
 			return fmt.Errorf("unexpected archive entry %q", name)
 		}
 		if _, exists := files[name]; exists {
@@ -120,8 +138,11 @@ func verifyArtifacts(dir string) (string, []byte, error) {
 		}
 		sums[fields[1]] = fields[0]
 	}
-	if len(sums) != 6 {
-		return "", nil, fmt.Errorf("expected six release archive checksums, got %d", len(sums))
+	if len(sums) != 7 {
+		return "", nil, fmt.Errorf("expected seven release archive checksums (six CLI targets and the browser module), got %d", len(sums))
+	}
+	if err = verifyWasmArchive(dir, meta.Version, sums); err != nil {
+		return "", nil, err
 	}
 	var native []byte
 	for _, targetOS := range []string{"linux", "darwin", "windows"} {
@@ -157,6 +178,45 @@ func verifyArtifacts(dir string) (string, []byte, error) {
 		return "", nil, fmt.Errorf("no archive for this runner's %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 	return meta.Version, native, nil
+}
+
+// verifyWasmArchive checks the browser build that ships beside the CLI
+// archives: a WebAssembly module, the matching wasm_exec.js shim, the license,
+// and at least one sample fixture, all under the published checksum.
+func verifyWasmArchive(dir, version string, sums map[string]string) error {
+	name := fmt.Sprintf("edilint_%s_wasm.tar.gz", version)
+	path := filepath.Join(dir, name)
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if fmt.Sprintf("%x", sha256.Sum256(b)) != sums[name] {
+		return fmt.Errorf("checksum mismatch for %s", name)
+	}
+	files, err := archiveMembers(path, wasmEntry)
+	if err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	module := files["edilint.wasm"]
+	if len(module) < 8 || string(module[:4]) != "\x00asm" {
+		return fmt.Errorf("%s must contain a WebAssembly module", name)
+	}
+	if !strings.Contains(string(files["wasm_exec.js"]), "Go") {
+		return fmt.Errorf("%s must contain the Go wasm_exec.js shim", name)
+	}
+	if len(files["LICENSE"]) == 0 {
+		return fmt.Errorf("%s must contain the license", name)
+	}
+	fixtures := 0
+	for member := range files {
+		if wasmFixture.MatchString(member) {
+			fixtures++
+		}
+	}
+	if fixtures == 0 {
+		return fmt.Errorf("%s must contain the sample fixtures", name)
+	}
+	return nil
 }
 
 func checkArtifacts(dir string) error {

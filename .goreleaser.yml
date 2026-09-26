@@ -1,12 +1,14 @@
 # goreleaser configuration. A push of a v* tag runs this via
 # .github/workflows/release.yml after exact-commit CI and release checks.
-# CI rehearses all six archives and executes the native packaged binaries.
+# CI rehearses all seven archives (six CLI targets and the browser module)
+# and executes the native packaged binaries.
 version: 2
 
 project_name: edilint
 
 builds:
-  - main: ./cmd/edilint
+  - id: cli
+    main: ./cmd/edilint
     binary: edilint
     env:
       - CGO_ENABLED=0
@@ -24,8 +26,31 @@ builds:
     # Reproducible timestamps: the same tag builds the same bytes.
     mod_timestamp: "{{ .CommitTimestamp }}"
 
+  # The browser build (cmd/edilint-wasm) so a web page can lint files locally
+  # from a release instead of a checkout; `make wasm` produces the same module.
+  # The Go runtime's JavaScript shim is copied beside it after the build.
+  - id: wasm
+    main: ./cmd/edilint-wasm
+    binary: edilint
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos:
+      - js
+    goarch:
+      - wasm
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    hooks:
+      post:
+        - sh -c 'cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" "{{ dir .Path }}/wasm_exec.js"'
+
 archives:
-  - formats: [tar.gz]
+  - id: cli
+    ids: [cli]
+    formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
@@ -34,6 +59,28 @@ archives:
       - LICENSE
       - README.md
       - CHANGELOG.md
+
+  # edilint_<version>_wasm.tar.gz: edilint.wasm, wasm_exec.js, LICENSE, and
+  # the sample fixtures the browser playground offers, so a downstream site
+  # can track a release without this repository checked out.
+  - id: wasm
+    ids: [wasm]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_wasm"
+    files:
+      - LICENSE
+      # goreleaser builds into dist/<build id>_<os>_<arch>/; the post hook
+      # above copies the shim there.
+      - src: dist/wasm_js_wasm/wasm_exec.js
+        strip_parent: true
+      - testdata/835_clean.x12
+      - testdata/835_charset.x12
+      - testdata/835_envelope_broken.x12
+      - testdata/837p_claims_mixed_term.x12
+      - testdata/hl7v2_dirty.hl7
+      - testdata/hl7v2_batch_broken.hl7
+      - testdata/edifact_broken.edi
+      - testdata/bom_mixed.csv
 
 checksum:
   name_template: checksums.txt

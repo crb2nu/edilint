@@ -8,6 +8,14 @@ from its first tag.
 
 ## [Unreleased]
 
+### Added
+
+- The browser build ships as a release asset, `edilint_<version>_wasm.tar.gz`:
+  `edilint.wasm`, the matching `wasm_exec.js`, the license, and the eight
+  sample fixtures the browser playground offers. A downstream site can now
+  track a release instead of building the module from a checkout. The release
+  rehearsal verifies the archive alongside the six CLI targets.
+
 ## [0.4.0] - 2026-09-23
 
 ### Added
