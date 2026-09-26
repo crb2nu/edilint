@@ -206,11 +206,45 @@ func writeArchives(t *testing.T, dir string, omit string) {
 			fmt.Fprintf(&sums, "%x  %s\n", sha256.Sum256(b), name)
 		}
 	}
+	// The browser module ships as a seventh archive beside the CLI targets.
+	wasmName := "edilint_0.2.0_wasm.tar.gz"
+	wf, err := os.Create(filepath.Join(dir, wasmName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wgz := gzip.NewWriter(wf)
+	wtw := tar.NewWriter(wgz)
+	for _, member := range []struct {
+		name, body string
+	}{
+		{"edilint.wasm", "\x00asm\x01\x00\x00\x00fixture"},
+		{"wasm_exec.js", "class Go {}"},
+		{"LICENSE", "fixture"},
+		{"testdata/835_clean.x12", "ISA*00*fixture~"},
+	} {
+		body := member.body
+		if member.name == omit {
+			continue
+		}
+		if omit == "not wasm" && member.name == "edilint.wasm" {
+			body = "fixture"
+		}
+		wtw.WriteHeader(&tar.Header{Name: member.name, Mode: 0o644, Size: int64(len(body)), Typeflag: tar.TypeReg})
+		wtw.Write([]byte(body))
+	}
+	wtw.Close()
+	wgz.Close()
+	wf.Close()
+	wb, err := os.ReadFile(filepath.Join(dir, wasmName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Fprintf(&sums, "%x  %s\n", sha256.Sum256(wb), wasmName)
 	os.WriteFile(filepath.Join(dir, "checksums.txt"), []byte(sums.String()), 0o600)
 }
 
 func TestArchiveGate(t *testing.T) {
-	for _, scenario := range []string{"valid", "missing documentation", "corrupt archive", "missing checksum", "missing target", "nonexecutable"} {
+	for _, scenario := range []string{"valid", "missing documentation", "corrupt archive", "missing checksum", "missing target", "nonexecutable", "missing wasm module", "not wasm", "missing wasm archive"} {
 		t.Run(scenario, func(t *testing.T) {
 			dir := t.TempDir()
 			omit := ""
@@ -218,6 +252,10 @@ func TestArchiveGate(t *testing.T) {
 			case "missing documentation":
 				omit = "LICENSE"
 			case "nonexecutable":
+				omit = scenario
+			case "missing wasm module":
+				omit = "edilint.wasm"
+			case "not wasm":
 				omit = scenario
 			}
 			writeArchives(t, dir, omit)
@@ -228,6 +266,8 @@ func TestArchiveGate(t *testing.T) {
 				os.WriteFile(filepath.Join(dir, "checksums.txt"), nil, 0o600)
 			case "missing target":
 				os.Remove(filepath.Join(dir, "edilint_0.2.0_windows_arm64.zip"))
+			case "missing wasm archive":
+				os.Remove(filepath.Join(dir, "edilint_0.2.0_wasm.tar.gz"))
 			}
 			v, native, err := verifyArtifacts(dir)
 			if scenario == "valid" {
