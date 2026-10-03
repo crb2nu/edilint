@@ -17,7 +17,7 @@ func TestGenerate835Amounts(t *testing.T) {
 				t.Fatal(err)
 			}
 			var payment, claimsPaid, charge, paid, patient int64
-			var claims, services, adjustments int
+			var claims, services, adjustments, allowances int
 			seenClaims := make(map[string]bool)
 			for _, segment := range strings.Split(strings.TrimSpace(b.String()), "~\n") {
 				f := strings.Split(strings.TrimSuffix(segment, "~"), "*")
@@ -52,14 +52,19 @@ func TestGenerate835Amounts(t *testing.T) {
 					if f[1] != "PR" || fixtureCents(t, f[3]) != patient {
 						t.Fatalf("adjustment disagrees with patient responsibility: %q", segment)
 					}
+				case "AMT":
+					allowances++
+					if f[1] != "B6" || fixtureCents(t, f[2]) != paid+patient {
+						t.Fatalf("allowed amount must include payment and patient responsibility: %q", segment)
+					}
 				case "DTM":
 					if f[2] != "20240229" {
 						t.Fatalf("date was not applied: %q", segment)
 					}
 				}
 			}
-			if claims != count || services != count || adjustments != count || payment != claimsPaid {
-				t.Fatalf("claims/services/adjustments=%d/%d/%d want %d; payment=%d sum=%d", claims, services, adjustments, count, payment, claimsPaid)
+			if claims != count || services != count || adjustments != count || allowances != count || payment != claimsPaid {
+				t.Fatalf("claims/services/adjustments/allowances=%d/%d/%d/%d want %d; payment=%d sum=%d", claims, services, adjustments, allowances, count, payment, claimsPaid)
 			}
 		})
 	}

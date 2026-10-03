@@ -52,7 +52,8 @@ publishing a stable version tag. See [Releasing](docs/releasing.md).
 
 Evidence inspected 2026-10-03: canonical main and tags through `v0.4.1`,
 GitHub releases through `v0.4.1`, no open GitLab MRs or existing public issues,
-and the current CI/release configuration. Issue #16 tracks the new slice.
+and the current CI/release configuration. Issues #16–#18 track fixture generation,
+targeted defects, and 835 remittance fixtures.
 
 - **Plan store**: this file
 - **Distribution**: `go install`, GitHub release archives, and GHCR containers

@@ -207,7 +207,7 @@ func generate835(g *fixtureWriter, opts GenerateOptions, date time.Time) {
 		g.segment("SVC*HC:99201*125.00*100.00**1")
 		g.segment("DTM*472*%s", day)
 		g.segment("CAS*PR*2*25.00")
-		g.segment("AMT*B6*100.00")
+		g.segment("AMT*B6*125.00")
 	}
 }
 
