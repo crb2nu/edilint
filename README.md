@@ -369,23 +369,29 @@ load tests:
 
 ```sh
 edilint gen 837p --claims 100 > claims.x12
+edilint gen 835 --claims 100 --control 3 > remittance.x12
 edilint gen hl7v2 --messages 20 --control 2 > batch.hl7
-edilint --no-config claims.x12 batch.hl7
+edilint --no-config claims.x12 remittance.x12 batch.hl7
 edilint stats --json claims.x12
 ```
 
-`837p` writes one X12 interchange, functional group, and transaction containing
-the requested number of claim examples. `hl7v2` writes one file and batch of
-ADT A08 message examples. By default, envelopes and trailers have matching
+`837p` and `835` each write one X12 interchange, functional group, and transaction
+containing the requested number of claim examples. `hl7v2` writes one file and
+batch of ADT A08 message examples. By default, envelopes and trailers have matching
 controls and counts. X12 uses a tilde and LF after each segment; HL7 uses CR.
+
+An `835` fixture contains fictional check-remittance examples: each claim has a
+$125 charge, $100 payment, and $25 patient adjustment, with a matching service
+line. The BPR payment total equals the sum of claim payments. Amounts use integer
+cents.
 
 All names and identifiers are fictional. X12 ISA15 and HL7 MSH11 declare test
 usage (`T`). These are structural fixtures: passing edilint does **not** establish
 implementation-guide compliance or suitability for a trading partner.
 
 The count defaults to 1 and accepts 1–1,000,000. `--claims` applies only to
-`837p`; `--messages` applies only to `hl7v2`. `--control` accepts 1–999,999,999
-and defaults to 1; select a different number for each file when testing a batch
+`837p` and `835`; `--messages` applies only to `hl7v2`. `--control` accepts
+1–999,999,999 and defaults to 1; select a different number for each file when testing a batch
 of files so duplicate interchange detection does not reject them. Message and
 claim identifiers are unique within a file. `--date YYYY-MM-DD` sets the envelope
 and service date (default `2026-01-01`, years 2000–2099); times stay at noon.
@@ -407,10 +413,10 @@ edilint gen hl7v2 --messages 5 --defect EL6003 > bad-batch.hl7
 
 | Kind | Defect | Generated change |
 | --- | --- | --- |
-| `837p` | [EL3005](docs/rules/EL3005.md) | SE02 is `0002` while ST02 remains `0001` |
-| `837p` | [EL3006](docs/rules/EL3006.md) | SE01 overstates the segment count by one |
-| `837p` | [EL3007](docs/rules/EL3007.md) | GE01 overstates the transaction count by one |
-| `837p` | [EL3008](docs/rules/EL3008.md) | IEA01 overstates the group count by one |
+| `837p`, `835` | [EL3005](docs/rules/EL3005.md) | SE02 is `0002` while ST02 remains `0001` |
+| `837p`, `835` | [EL3006](docs/rules/EL3006.md) | SE01 overstates the segment count by one |
+| `837p`, `835` | [EL3007](docs/rules/EL3007.md) | GE01 overstates the transaction count by one |
+| `837p`, `835` | [EL3008](docs/rules/EL3008.md) | IEA01 overstates the group count by one |
 | `hl7v2` | [EL6003](docs/rules/EL6003.md) | BTS-1 overstates the message count by one |
 | `hl7v2` | [EL6004](docs/rules/EL6004.md) | FTS-1 overstates the batch count by one |
 
@@ -1081,7 +1087,7 @@ err := edilint.Generate(writer, edilint.GenerateOptions{
 })
 ```
 
-`Kind` is required (`837p` or `hl7v2`). Zero count/control and an empty date
+`Kind` is required (`837p`, `835`, or `hl7v2`). Zero count/control and an empty date
 select the same defaults as the CLI. Invalid options return an error before
 writing; writer failures, including the final flush, are returned to the caller.
 Set `Defects: []string{"EL3006", "EL3007"}` to request intentional errors using

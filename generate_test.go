@@ -10,7 +10,7 @@ import (
 )
 
 func TestGenerateCleanAndDeterministic(t *testing.T) {
-	for _, kind := range []string{"837p", "hl7v2"} {
+	for _, kind := range []string{"837p", "835", "hl7v2"} {
 		for _, count := range []int{0, 1, 2, 1000} {
 			t.Run(fmt.Sprintf("%s/%d", kind, count), func(t *testing.T) {
 				opts := GenerateOptions{Kind: kind, Count: count}
@@ -38,11 +38,15 @@ func TestGenerateCleanAndDeterministic(t *testing.T) {
 				if want == 0 {
 					want = 1
 				}
-				if kind == "837p" {
-					if fs.Format != FormatX12 || fs.RecordsByID["CLM"] != want || fs.RecordsByID["SV1"] != want {
+				if kind != "hl7v2" {
+					claim, service, transaction, group := "CLM", "SV1", "837", "HC"
+					if kind == "835" {
+						claim, service, transaction, group = "CLP", "SVC", "835", "HP"
+					}
+					if fs.Format != FormatX12 || fs.RecordsByID[claim] != want || fs.RecordsByID[service] != want {
 						t.Fatalf("unexpected claims census: %+v", fs)
 					}
-					if fs.Envelope.Interchanges != 1 || fs.Envelope.Groups != 1 || fs.Envelope.TransactionsByType["837"] != 1 {
+					if fs.Envelope.Interchanges != 1 || fs.Envelope.Groups != 1 || fs.Envelope.TransactionsByType[transaction] != 1 || fs.Envelope.GroupsByCode[group] != 1 {
 						t.Fatalf("unexpected envelope: %+v", fs.Envelope)
 					}
 					// Count and inspect the bytes independently of the parser.
@@ -85,7 +89,7 @@ func TestGenerateCleanAndDeterministic(t *testing.T) {
 }
 
 func TestGenerateOptions(t *testing.T) {
-	for _, kind := range []string{"837p", "hl7v2"} {
+	for _, kind := range []string{"837p", "835", "hl7v2"} {
 		for _, date := range []string{"2000-01-01", "2024-02-29", "2099-12-31"} {
 			var b bytes.Buffer
 			if err := Generate(&b, GenerateOptions{Kind: kind, Date: date, ControlNumber: 999999999}); err != nil {
@@ -118,7 +122,7 @@ func TestGenerateOptions(t *testing.T) {
 
 func TestGenerateRejectsInvalidOptionsBeforeWriting(t *testing.T) {
 	cases := []GenerateOptions{
-		{}, {Kind: "835"}, {Kind: "837p", Count: -1},
+		{}, {Kind: "999"}, {Kind: "837p", Count: -1},
 		{Kind: "hl7v2", Count: MaxGenerateCount + 1},
 		{Kind: "837p", ControlNumber: -1}, {Kind: "hl7v2", ControlNumber: 1_000_000_000},
 	}
@@ -148,7 +152,7 @@ func (w *fixtureFailureWriter) Write([]byte) (int, error) {
 
 func TestGenerateWriterErrors(t *testing.T) {
 	broken := errors.New("output failed")
-	for _, kind := range []string{"837p", "hl7v2"} {
+	for _, kind := range []string{"837p", "835", "hl7v2"} {
 		// One item fails at flush; the maximum stops at the first full buffer.
 		// A short write with no error must also fail, never silently truncate.
 		for _, count := range []int{1, MaxGenerateCount} {
@@ -168,7 +172,7 @@ func TestGenerateWriterErrors(t *testing.T) {
 }
 
 func BenchmarkGenerate(b *testing.B) {
-	for _, kind := range []string{"837p", "hl7v2"} {
+	for _, kind := range []string{"837p", "835", "hl7v2"} {
 		b.Run(kind, func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {

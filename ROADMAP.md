@@ -2,7 +2,7 @@
 
 > Last Updated: 2026-10-03
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
-> Tracking Issue: [Targeted fixture defects #17](https://github.com/crb2nu/edilint/issues/17)
+> Tracking Issue: [835 remittance fixtures #18](https://github.com/crb2nu/edilint/issues/18)
 
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
@@ -140,6 +140,16 @@ count defects to the clean fixture while leaving control mismatches unresolved.
 Tests cover every supported combination through both lint APIs and the CLI's
 generation/lint exit statuses. This provides deterministic failure fixtures for
 pipeline tests without changing the linter's rules.
+
+[#18](https://github.com/crb2nu/edilint/issues/18) extends generation to `835
+--claims N`, with one HP group and 835 transaction containing fictional remittance
+claims and service lines. Example charge/payment/adjustment amounts balance, and
+the BPR total equals the sum of claim payments using integer arithmetic. The
+format shares X12 envelope counting and defects EL3005–EL3008. Acceptance covers
+lint and census results, claim ID uniqueness, amounts and date/control options,
+all defect combinations, repairs, write failures, and unchanged earlier defaults.
+This tests remittance-processing pipelines without adding payment validation or
+implementation-guide claims to the linter.
 
 ### Exploration (not scheduled)
 - Additional synthetic message types and defect families.

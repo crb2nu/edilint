@@ -10,6 +10,12 @@ from its first tag.
 
 ### Added
 
+- Synthetic 835 remittance fixtures through `gen 835 --claims N` and
+  `GenerateOptions{Kind: "835"}`. Fictional claim and service payments balance
+  with the remittance total using integer arithmetic. The format shares X12
+  envelope checks and targeted defects, streams up to the existing count limit,
+  and preserves the existing 837P and HL7v2 defaults.
+  See [#18](https://github.com/crb2nu/edilint/issues/18).
 - Targeted fixture defects through repeatable `gen --defect ID` options and
   `GenerateOptions.Defects`. X12 supports EL3005–EL3008 and HL7v2 supports
   EL6003–EL6004. Each selected defect produces one matching finding; supported
