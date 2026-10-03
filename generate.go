@@ -15,7 +15,7 @@ const MaxGenerateCount = 1_000_000
 // fictional and both formats declare test usage. These are structural examples,
 // not implementation-guide-compliant claims or clinical messages.
 type GenerateOptions struct {
-	// Kind is "837p" (one X12 transaction) or "hl7v2" (one ADT A08 batch).
+	// Kind is "837p" or "835" (one X12 transaction), or "hl7v2" (one ADT A08 batch).
 	Kind string
 	// Count is the number of claims or messages, from 1 to MaxGenerateCount.
 	// Zero selects one.
@@ -40,8 +40,8 @@ type GenerateOptions struct {
 // identical bytes. Options are checked before any output is written. A writer
 // error may leave a partial fixture; it is returned, including flush errors.
 func Generate(w io.Writer, opts GenerateOptions) error {
-	if opts.Kind != "837p" && opts.Kind != "hl7v2" {
-		return fmt.Errorf("gen: unknown kind %q (want 837p or hl7v2)", opts.Kind)
+	if opts.Kind != "837p" && opts.Kind != "835" && opts.Kind != "hl7v2" {
+		return fmt.Errorf("gen: unknown kind %q (want 837p, 835, or hl7v2)", opts.Kind)
 	}
 	if opts.Count == 0 {
 		opts.Count = 1
@@ -67,11 +67,11 @@ func Generate(w io.Writer, opts GenerateOptions) error {
 		return err
 	}
 	g := &fixtureWriter{w: bufio.NewWriter(w), terminator: "~\n", defects: defects}
-	if opts.Kind == "837p" {
-		generate837P(g, opts, date)
-	} else {
+	if opts.Kind == "hl7v2" {
 		g.terminator = "\r"
 		generateHL7(g, opts, date)
+	} else {
+		generateX12(g, opts, date)
 	}
 	if g.err != nil {
 		return fmt.Errorf("gen: write fixture: %w", g.err)
@@ -86,17 +86,17 @@ func validateGenerateDefects(kind string, ids []string) (map[string]bool, error)
 	defects := make(map[string]bool)
 	for _, selector := range ids {
 		id := strings.ToUpper(strings.TrimSpace(selector))
-		var supportedKind string
 		switch id {
 		case "EL3005", "EL3006", "EL3007", "EL3008":
-			supportedKind = "837p"
+			if kind != "837p" && kind != "835" {
+				return nil, fmt.Errorf("gen: defect %s is only supported for 837p or 835", id)
+			}
 		case "EL6003", "EL6004":
-			supportedKind = "hl7v2"
+			if kind != "hl7v2" {
+				return nil, fmt.Errorf("gen: defect %s is only supported for hl7v2", id)
+			}
 		default:
 			return nil, fmt.Errorf("gen: unsupported defect %q", selector)
-		}
-		if kind != supportedKind {
-			return nil, fmt.Errorf("gen: defect %s is only supported for %s", id, supportedKind)
 		}
 		if defects[id] {
 			return nil, fmt.Errorf("gen: duplicate defect %s", id)
@@ -129,15 +129,34 @@ func (g *fixtureWriter) segment(format string, args ...any) {
 	g.segments++
 }
 
+func generateX12(g *fixtureWriter, opts GenerateOptions, date time.Time) {
+	group, version := "HC", "005010X222A1"
+	if opts.Kind == "835" {
+		group, version = "HP", "005010X221A1"
+	}
+	g.segment("ISA*00*          *00*          *ZZ*%-15s*ZZ*%-15s*%s*1200*^*00501*%09d*0*T*:",
+		"SYNTHETICSENDER", "SYNTHETICRECV", date.Format("060102"), opts.ControlNumber)
+	g.segment("GS*%s*SYNTHETICSENDER*SYNTHETICRECV*%s*1200*%d*X*%s",
+		group, date.Format("20060102"), opts.ControlNumber, version)
+	start := g.segments
+	if opts.Kind == "835" {
+		generate835(g, opts, date)
+	} else {
+		generate837P(g, opts, date)
+	}
+	control := "0001"
+	if g.defects["EL3005"] {
+		control = "0002"
+	}
+	g.segment("SE*%d*%s", g.count("EL3006", g.segments-start+1), control)
+	g.segment("GE*%d*%d", g.count("EL3007", 1), opts.ControlNumber)
+	g.segment("IEA*%d*%09d", g.count("EL3008", 1), opts.ControlNumber)
+}
+
 // The content is based on the repository's fictional 837P examples. It supplies
 // enough variety for parser, census and pipeline tests without claiming to
 // validate or reproduce the licensed implementation guide.
 func generate837P(g *fixtureWriter, opts GenerateOptions, date time.Time) {
-	g.segment("ISA*00*          *00*          *ZZ*%-15s*ZZ*%-15s*%s*1200*^*00501*%09d*0*T*:",
-		"SYNTHETICSENDER", "SYNTHETICRECV", date.Format("060102"), opts.ControlNumber)
-	g.segment("GS*HC*SYNTHETICSENDER*SYNTHETICRECV*%s*1200*%d*X*005010X222A1",
-		date.Format("20060102"), opts.ControlNumber)
-	start := g.segments
 	g.segment("ST*837*0001*005010X222A1")
 	g.segment("BHT*0019*00*FAKEBATCH%09d*%s*1200*CH", opts.ControlNumber, date.Format("20060102"))
 	g.segment("NM1*41*2*FICTIONAL CLEARINGHOUSE*****46*FAKESENDER")
@@ -162,13 +181,34 @@ func generate837P(g *fixtureWriter, opts GenerateOptions, date time.Time) {
 		g.segment("LX*1")
 		g.segment("SV1*HC:99201*125.00*UN*1***1")
 	}
-	control := "0001"
-	if g.defects["EL3005"] {
-		control = "0002"
+}
+
+// Remittance examples keep amounts internally consistent: each $125 charge
+// has a $100 payment and $25 patient adjustment. Integer cents avoid rounding
+// and remain safe at the maximum claim count on 32-bit platforms.
+func generate835(g *fixtureWriter, opts GenerateOptions, date time.Time) {
+	day := date.Format("20060102")
+	paymentCents := int64(opts.Count) * 10000
+	g.segment("ST*835*0001")
+	g.segment("BPR*I*%d.%02d*C*CHK", paymentCents/100, paymentCents%100)
+	g.segment("TRN*1*FAKETRACE%09d*0000000000", opts.ControlNumber)
+	g.segment("DTM*405*%s", day)
+	g.segment("N1*PR*FICTIONAL HEALTH PLAN")
+	g.segment("N3*100 SYNTHETIC STREET")
+	g.segment("N4*EXAMPLEVILLE*NC*27000")
+	g.segment("N1*PE*FICTIONAL CLINIC*XX*1999999999")
+	g.segment("N3*101 SYNTHETIC STREET")
+	g.segment("N4*EXAMPLEVILLE*NC*27000")
+	g.segment("REF*TJ*000000001")
+	for i := 1; i <= opts.Count && g.err == nil; i++ {
+		g.segment("LX*%d", i)
+		g.segment("CLP*FAKECLAIM%06d*1*125.00*100.00*25.00*12*FAKEPAYER%06d*11", i, i)
+		g.segment("NM1*QC*1*SAMPLE*PATIENT%06d****MI*FAKEMEMBER%06d", i, i)
+		g.segment("SVC*HC:99201*125.00*100.00**1")
+		g.segment("DTM*472*%s", day)
+		g.segment("CAS*PR*2*25.00")
+		g.segment("AMT*B6*125.00")
 	}
-	g.segment("SE*%d*%s", g.count("EL3006", g.segments-start+1), control)
-	g.segment("GE*%d*%d", g.count("EL3007", 1), opts.ControlNumber)
-	g.segment("IEA*%d*%09d", g.count("EL3008", 1), opts.ControlNumber)
 }
 
 func generateHL7(g *fixtureWriter, opts GenerateOptions, date time.Time) {

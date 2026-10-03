@@ -16,6 +16,8 @@ func TestGen(t *testing.T) {
 		want int
 	}{
 		{[]string{"837p"}, "CLM", 1},
+		{[]string{"835"}, "CLP", 1},
+		{[]string{"835", "--claims=10", "--date=2024-02-29", "--control=2"}, "CLP", 10},
 		{[]string{"837p", "--claims", "10", "--date=2024-02-29", "--control", "2"}, "CLM", 10},
 		{[]string{"--claims=2", "--", "837p"}, "CLM", 2},
 		{[]string{"hl7v2", "--messages", "5"}, "MSH", 5},
@@ -40,11 +42,12 @@ func TestGen(t *testing.T) {
 
 func TestGenErrors(t *testing.T) {
 	for _, args := range [][]string{
-		{}, {"835"}, {"837p", "extra"}, {"837p", "--nope"},
+		{}, {"999"}, {"837p", "extra"}, {"837p", "--nope"},
 		{"837p", "--claims"}, {"837p", "--claims=0"}, {"837p", "--claims=-1"},
 		{"837p", "--claims=1000001"}, {"837p", "--claims=9999999999999999999999"},
 		{"hl7v2", "--messages=abc"}, {"hl7v2", "--claims=2"}, {"837p", "--messages=2"},
 		{"837p", "--claims=2", "--messages=2"},
+		{"835", "--messages=2"}, {"835", "--claims=0"},
 		{"837p", "--control=0"}, {"hl7v2", "--control=1000000000"},
 		{"837p", "--date=2026-02-29"}, {"837p", "--date="}, {"--help=true"},
 		{"--", "837p", "--claims=2"},
@@ -93,6 +96,7 @@ func TestGenDefects(t *testing.T) {
 		want []string
 	}{
 		{[]string{"837p", "--defect", "EL3005", "--defect=EL3006"}, []string{"EL3005", "EL3006"}},
+		{[]string{"835", "--claims=2", "--defect=EL3007", "--defect=EL3008"}, []string{"EL3007", "EL3008"}},
 		{[]string{"--defect=el6003", "hl7v2", "--messages=3", "--defect", "EL6004"}, []string{"EL6003", "EL6004"}},
 	} {
 		code, out, diag := exec(append([]string{"gen"}, tc.args...)...)
@@ -117,6 +121,7 @@ func TestGenDefectErrors(t *testing.T) {
 		{"837p", "--defect"}, {"837p", "--defect="},
 		{"837p", "--defect=EL9999"}, {"837p", "--defect=EL6003"},
 		{"hl7v2", "--defect=EL3006"},
+		{"835", "--defect=EL6003"},
 		{"837p", "--defect=EL3006", "--defect=el3006"},
 	} {
 		code, out, diag := exec(append([]string{"gen"}, args...)...)
