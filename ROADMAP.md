@@ -1,8 +1,8 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
-> Last Updated: 2026-09-23
+> Last Updated: 2026-10-03
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
-> Tracking Issue: [Gated release pipeline #15](https://github.com/crb2nu/edilint/issues/15)
+> Tracking Issue: [Synthetic fixtures #16](https://github.com/crb2nu/edilint/issues/16)
 
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
@@ -10,14 +10,16 @@ and are non-negotiable.
 
 ## Current Status
 
-Releases `v0.1.0` and `v0.3.0` are published. The latest, `v0.3.0`, was
-released on 2026-09-03 from commit `2b36110a06ae743a3716872ec3442eec1a4989f8`.
-Install with `go install github.com/crb2nu/edilint/cmd/edilint@v0.3.0`, or use
-its [release archives](https://github.com/crb2nu/edilint/releases/tag/v0.3.0).
+The latest published release is `v0.4.1` (2026-09-25, America/New_York).
+Install with `go install github.com/crb2nu/edilint/cmd/edilint@v0.4.1`, or use
+its [release archives](https://github.com/crb2nu/edilint/releases/tag/v0.4.1).
 
-Version `v0.4.0` is prepared in CHANGELOG.md for the streaming APIs, browser
-build, rule references, acknowledgment guidance, and release gates described
-below. Publication follows the exact-commit checks in [Releasing](docs/releasing.md).
+Version `v0.4.0` shipped the streaming APIs, browser build, rule references,
+acknowledgment guidance, and release gates described below. Version `v0.4.1`
+added the browser release archive. The next minor release is targeting
+`v0.5.0`, starting with synthetic fixture generation below; its changes remain
+under Unreleased in CHANGELOG.md until publication is scheduled. Publication
+follows the exact-commit checks in [Releasing](docs/releasing.md).
 
 `git log` records merged workstreams B (rule system foundation), A (HL7v2 batch
 and EDIFACT envelope coverage), C (SARIF, JUnit, and GitHub annotation outputs),
@@ -48,8 +50,9 @@ container after merges, scans reachable vulnerabilities with a patched Go
 compiler, and requires successful CI for the exact release commit before
 publishing a stable version tag. See [Releasing](docs/releasing.md).
 
-Evidence inspected 2026-09-23: merged GitLab MRs through !22, both remote tag
-sets, the GitHub `v0.3.0` release, and the current CI/release configuration.
+Evidence inspected 2026-10-03: canonical main and tags through `v0.4.1`,
+GitHub releases through `v0.4.1`, no open GitLab MRs or existing public issues,
+and the current CI/release configuration. Issue #16 tracks the new slice.
 
 - **Plan store**: this file
 - **Distribution**: `go install`, GitHub release archives, and GHCR containers
@@ -109,10 +112,26 @@ Rule reference site, published Action, pre-commit hook, streaming performance,
 fuzzing, and the MCP server that puts the checks in front of coding agents. The
 boring maturity work that separates a weekend project from a tool.
 
+### v0.5 — synthetic fixtures (first slice)
+
+[#16](https://github.com/crb2nu/edilint/issues/16) introduces `edilint gen 837p
+--claims 100` and `edilint gen hl7v2 --messages 20`, backed by the streaming
+`Generate` Go API. It supplies deterministic fictional examples, test usage
+indicators, configurable date/file controls, correct envelope counts, and
+bounded-memory output. These are structural test fixtures, not an
+implementation-guide validator or production claim generator.
+
+Acceptance: both formats lint clean with the in-memory and reader APIs; the
+census matches the requested claims/messages; options are validated before
+writing; repeated generation is byte-identical; output/flush failures are
+reported; tests cover distinct file controls and count/date boundaries.
+
+The riskiest assumption is that structural examples are sufficient for users'
+test pipelines. Keep the initial templates narrow and gather real use cases
+before adding message types, mutation injection, or guide-specific behavior.
+
 ### Exploration (not scheduled)
-- `edilint gen` — synthetic X12/HL7v2 test-file generator (`edilint gen 837p
-  --claims 100`). Test data is a real, unserved pain; also feeds our own corpus.
-  Big enough to be its own project; decide after v1.0.
+- Additional synthetic message types and deliberate defect injection.
 - Community rule packs (versioned YAML rules for shop-specific conventions).
 - NCPDP batch structure checks (licensing review first).
 

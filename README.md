@@ -362,6 +362,39 @@ nothing is the worst outcome a suppression can have.
 
 Beside linting, the binary carries subcommands. Each has its own `--help`.
 
+### gen
+
+Generate deterministic, fictional fixtures for parser tests, CI examples, and
+load tests:
+
+```sh
+edilint gen 837p --claims 100 > claims.x12
+edilint gen hl7v2 --messages 20 --control 2 > batch.hl7
+edilint --no-config claims.x12 batch.hl7
+edilint stats --json claims.x12
+```
+
+`837p` writes one X12 interchange, functional group, and transaction containing
+the requested number of claim examples. `hl7v2` writes one file and batch of
+ADT A08 message examples. Envelopes and trailers have matching controls and
+counts. X12 uses a tilde and LF after each segment; HL7 uses CR.
+
+All names and identifiers are fictional. X12 ISA15 and HL7 MSH11 declare test
+usage (`T`). These are structural fixtures: passing edilint does **not** establish
+implementation-guide compliance or suitability for a trading partner.
+
+The count defaults to 1 and accepts 1–1,000,000. `--claims` applies only to
+`837p`; `--messages` applies only to `hl7v2`. `--control` accepts 1–999,999,999
+and defaults to 1; select a different number for each file when testing a batch
+of files so duplicate interchange detection does not reject them. Message and
+claim identifiers are unique within a file. `--date YYYY-MM-DD` sets the envelope
+and service date (default `2026-01-01`, years 2000–2099); times stay at noon.
+
+Identical options produce identical bytes. Generation uses bounded memory,
+does not read configuration files, and writes only to standard output. Exit 0
+means generation succeeded; exit 2 means invalid options or an output failure.
+An output failure can leave a partial fixture; discard it.
+
 ### fmt
 
 ```
@@ -1013,6 +1046,18 @@ malformed envelopes, while retaining only histograms and range endpoints.
 
 `Lint` and `Stats` remain available for caller-owned byte slices. `fmt`, `fix`,
 `diff`, and the browser/MCP text APIs still operate on in-memory input.
+
+Synthetic fixtures can also be streamed to any `io.Writer`:
+
+```go
+err := edilint.Generate(writer, edilint.GenerateOptions{
+    Kind: "837p", Count: 100, ControlNumber: 42, Date: "2026-01-01",
+})
+```
+
+`Kind` is required (`837p` or `hl7v2`). Zero count/control and an empty date
+select the same defaults as the CLI. Invalid options return an error before
+writing; writer failures, including the final flush, are returned to the caller.
 
 ## Repository
 

@@ -80,6 +80,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return runDiff(args[1:], stdout, stderr)
 		case "stats":
 			return runStats(args[1:], stdout, stderr)
+		case "gen":
+			return runGen(args[1:], stdout, stderr)
 		case "mcp":
 			return runMCP(args[1:], stdin, stdout, stderr)
 		}
@@ -545,6 +547,7 @@ Usage:
   edilint fix [flags] <file>...
   edilint diff [--strict] [--json] <a> <b>
   edilint stats [--json] <file>...
+  edilint gen <837p|hl7v2> [flags]
   edilint mcp [flags]
 
 Reads X12 EDI, HL7v2, delimited and fixed-width files and reports the defects
@@ -555,6 +558,7 @@ Subcommands:
   fix    apply mechanical repairs tied to lint rules ('edilint fix --help')
   diff   structurally compare two X12 files ('edilint diff --help')
   stats  print a file census ('edilint stats --help')
+  gen    generate fictional test fixtures ('edilint gen --help')
   mcp    serve the checks over the Model Context Protocol ('edilint mcp --help')
 
 Exit status:
