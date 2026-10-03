@@ -1,0 +1,135 @@
+package main
+
+import (
+	"fmt"
+	"io"
+	"strconv"
+	"strings"
+
+	"github.com/crb2nu/edilint"
+)
+
+func runGen(args []string, stdout, stderr io.Writer) int {
+	opts, help, err := parseGenArgs(args)
+	if err != nil {
+		diagf(stderr, "edilint: gen: %v\nTry 'edilint gen --help' for usage.\n", err)
+		return exitUsage
+	}
+	if help {
+		printGenUsage(stdout)
+		return exitClean
+	}
+	if err := edilint.Generate(stdout, opts); err != nil {
+		diagf(stderr, "edilint: %v\n", err)
+		return exitUsage
+	}
+	return exitClean
+}
+
+func parseGenArgs(args []string) (edilint.GenerateOptions, bool, error) {
+	var opts edilint.GenerateOptions
+	var help, endFlags bool
+	var claims, messages bool
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" && !endFlags {
+			endFlags = true
+			continue
+		}
+		if endFlags || !strings.HasPrefix(arg, "-") {
+			if opts.Kind != "" {
+				return opts, false, fmt.Errorf("expected one fixture kind, got extra argument %q", arg)
+			}
+			opts.Kind = arg
+			continue
+		}
+		name, val, inline := strings.Cut(arg, "=")
+		switch name {
+		case "-h", "--help":
+			if inline {
+				return opts, false, fmt.Errorf("%s does not take a value", name)
+			}
+			help = true
+			continue
+		case "--claims", "--messages", "--control", "--date":
+		default:
+			return opts, false, fmt.Errorf("unknown flag: %s", name)
+		}
+		if !inline {
+			i++
+			if i == len(args) {
+				return opts, false, fmt.Errorf("%s requires a value", name)
+			}
+			val = args[i]
+		}
+		if name == "--date" {
+			if val == "" {
+				return opts, false, fmt.Errorf("--date requires a value")
+			}
+			opts.Date = val
+			continue
+		}
+		n, err := strconv.Atoi(val)
+		if err != nil || n < 1 {
+			return opts, false, fmt.Errorf("%s requires a positive integer", name)
+		}
+		switch name {
+		case "--claims":
+			claims = true
+			opts.Count = n
+		case "--messages":
+			messages = true
+			opts.Count = n
+		case "--control":
+			opts.ControlNumber = n
+		}
+	}
+	if help {
+		return opts, true, nil
+	}
+	if opts.Kind == "" {
+		return opts, false, fmt.Errorf("requires a fixture kind: 837p or hl7v2")
+	}
+	if claims && opts.Kind != "837p" {
+		return opts, false, fmt.Errorf("--claims is only supported for 837p")
+	}
+	if messages && opts.Kind != "hl7v2" {
+		return opts, false, fmt.Errorf("--messages is only supported for hl7v2")
+	}
+	return opts, false, nil
+}
+
+func printGenUsage(w io.Writer) {
+	diagf(w, `edilint gen - generate fictional test fixtures
+
+Usage:
+  edilint gen 837p [--claims <n>] [--control <n>] [--date YYYY-MM-DD]
+  edilint gen hl7v2 [--messages <n>] [--control <n>] [--date YYYY-MM-DD]
+
+Writes a synthetic X12 837P transaction or HL7v2 ADT A08 batch to standard
+output. Identities are fictional and envelopes declare test usage. These
+structural examples do not establish implementation-guide compliance.
+
+Output is deterministic and streamed with bounded memory. X12 segments end
+in ~ plus LF; HL7 segments end in CR. No configuration files are loaded.
+
+Flags:
+      --claims <n>    claims in the 837P transaction (default 1; max 1000000)
+      --messages <n>  messages in the HL7 batch (default 1; max 1000000)
+      --control <n>   file control number (default 1; max 999999999)
+      --date <date>   envelope/service date (default 2026-01-01; years 2000-2099)
+  -h, --help          print this help and exit
+
+Use distinct control numbers when generating separate files for the same
+test run. Times are fixed at noon. A write failure may leave partial output.
+
+Exit status:
+  0  fixture written
+  2  usage error or output could not be written
+
+Examples:
+  edilint gen 837p --claims 100 > claims.x12
+  edilint gen hl7v2 --messages 20 --control 2 > batch.hl7
+  edilint gen 837p --claims 10 | edilint --no-config -
+`)
+}

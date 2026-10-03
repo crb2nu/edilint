@@ -24,8 +24,10 @@ func runMCP(args []string, in io.Reader, stdout, stderr io.Writer) int {
 		verbose    bool
 		showHelp   bool
 	)
-	for i := 0; i < len(args); i++ {
-		name, val, hasInline := strings.Cut(args[i], "=")
+	for len(args) > 0 {
+		arg := args[0]
+		args = args[1:]
+		name, val, hasInline := strings.Cut(arg, "=")
 		var err error
 		switch name {
 		case "-h", "--help":
@@ -36,16 +38,16 @@ func runMCP(args []string, in io.Reader, stdout, stderr io.Writer) int {
 			verbose = true
 		case "--config":
 			if !hasInline {
-				if i+1 >= len(args) {
+				if len(args) == 0 {
 					err = fmt.Errorf("--config requires a value")
 					break
 				}
-				i++
-				val = args[i]
+				val = args[0]
+				args = args[1:]
 			}
 			configPath = val
 		default:
-			err = fmt.Errorf("unknown flag: %s", args[i])
+			err = fmt.Errorf("unknown flag: %s", arg)
 		}
 		if err == nil && hasInline && name != "--config" {
 			err = fmt.Errorf("%s does not take a value", name)

@@ -8,6 +8,16 @@ from its first tag.
 
 ## [Unreleased]
 
+### Added
+
+- Deterministic synthetic fixtures through `edilint gen 837p --claims N`,
+  `edilint gen hl7v2 --messages N`, and the streaming `Generate` Go API.
+  Fictional identities, test usage indicators, matching envelope controls,
+  recounted trailers, and explicit date/control options support reproducible
+  parser and pipeline tests. These are structural examples, not a claim of
+  implementation-guide compliance. Invalid options and output failures return
+  errors. See [#16](https://github.com/crb2nu/edilint/issues/16).
+
 ## [0.4.1] - 2026-09-25
 
 ### Added
