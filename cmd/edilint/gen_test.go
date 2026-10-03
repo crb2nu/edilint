@@ -86,3 +86,42 @@ func TestGenIgnoresLintConfig(t *testing.T) {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", code, out, diag)
 	}
 }
+
+func TestGenDefects(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want []string
+	}{
+		{[]string{"837p", "--defect", "EL3005", "--defect=EL3006"}, []string{"EL3005", "EL3006"}},
+		{[]string{"--defect=el6003", "hl7v2", "--messages=3", "--defect", "EL6004"}, []string{"EL6003", "EL6004"}},
+	} {
+		code, out, diag := exec(append([]string{"gen"}, tc.args...)...)
+		if code != exitClean || diag != "" {
+			t.Fatalf("generation exit=%d stderr=%q", code, diag)
+		}
+		path := write(t, t.TempDir(), "defects.edi", out)
+		code, report, diag := exec("--no-config", path)
+		if code != exitFindings || diag != "" {
+			t.Fatalf("lint exit=%d stderr=%q", code, diag)
+		}
+		for _, id := range tc.want {
+			if !strings.Contains(report, id) {
+				t.Errorf("missing %s in report: %s", id, report)
+			}
+		}
+	}
+}
+
+func TestGenDefectErrors(t *testing.T) {
+	for _, args := range [][]string{
+		{"837p", "--defect"}, {"837p", "--defect="},
+		{"837p", "--defect=EL9999"}, {"837p", "--defect=EL6003"},
+		{"hl7v2", "--defect=EL3006"},
+		{"837p", "--defect=EL3006", "--defect=el3006"},
+	} {
+		code, out, diag := exec(append([]string{"gen"}, args...)...)
+		if code != exitUsage || out != "" || diag == "" {
+			t.Errorf("%v: exit=%d stdout=%q stderr=%q", args, code, out, diag)
+		}
+	}
+}

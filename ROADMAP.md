@@ -2,7 +2,7 @@
 
 > Last Updated: 2026-10-03
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
-> Tracking Issue: [Synthetic fixtures #16](https://github.com/crb2nu/edilint/issues/16)
+> Tracking Issue: [Targeted fixture defects #17](https://github.com/crb2nu/edilint/issues/17)
 
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
@@ -112,7 +112,7 @@ Rule reference site, published Action, pre-commit hook, streaming performance,
 fuzzing, and the MCP server that puts the checks in front of coding agents. The
 boring maturity work that separates a weekend project from a tool.
 
-### v0.5 — synthetic fixtures (first slice)
+### v0.5 — synthetic fixtures
 
 [#16](https://github.com/crb2nu/edilint/issues/16) introduces `edilint gen 837p
 --claims 100` and `edilint gen hl7v2 --messages 20`, backed by the streaming
@@ -128,10 +128,21 @@ reported; tests cover distinct file controls and count/date boundaries.
 
 The riskiest assumption is that structural examples are sufficient for users'
 test pipelines. Keep the initial templates narrow and gather real use cases
-before adding message types, mutation injection, or guide-specific behavior.
+before adding message types or guide-specific behavior.
+
+The follow-up [#17](https://github.com/crb2nu/edilint/issues/17) adds intentional
+envelope defects through repeatable `--defect ID` and `GenerateOptions.Defects`:
+X12 EL3005–EL3008 and HL7v2 EL6003–EL6004. Each selection produces exactly one
+matching finding, including when supported defects are combined; selection
+order does not affect the bytes. Invalid, duplicate, or cross-format IDs fail
+before output. The clean defaults remain byte-identical, and `fix` restores
+count defects to the clean fixture while leaving control mismatches unresolved.
+Tests cover every supported combination through both lint APIs and the CLI's
+generation/lint exit statuses. This provides deterministic failure fixtures for
+pipeline tests without changing the linter's rules.
 
 ### Exploration (not scheduled)
-- Additional synthetic message types and deliberate defect injection.
+- Additional synthetic message types and defect families.
 - Community rule packs (versioned YAML rules for shop-specific conventions).
 - NCPDP batch structure checks (licensing review first).
 

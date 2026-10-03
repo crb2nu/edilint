@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -25,6 +26,13 @@ type GenerateOptions struct {
 	// Date is YYYY-MM-DD, from 2000 through 2099. Empty selects 2026-01-01.
 	// Envelope times are always noon; generation never reads the clock.
 	Date string
+	// Defects selects intentional envelope errors by case-insensitive rule ID.
+	// X12 supports EL3005 (SE02 mismatch), EL3006 (SE01), EL3007 (GE01), and
+	// EL3008 (IEA01); HL7 supports EL6003 (BTS-1) and EL6004 (FTS-1).
+	// Count defects overstate the actual total by one. Each ID produces one
+	// finding. Duplicate, unsupported, and cross-format IDs are errors.
+	// Empty selects a clean fixture; selection order does not affect output.
+	Defects []string
 }
 
 // Generate writes a deterministic synthetic fixture using bounded memory.
@@ -54,7 +62,11 @@ func Generate(w io.Writer, opts GenerateOptions) error {
 	if err != nil || date.Year() < 2000 || date.Year() > 2099 {
 		return fmt.Errorf("gen: date must be YYYY-MM-DD between 2000-01-01 and 2099-12-31")
 	}
-	g := &fixtureWriter{w: bufio.NewWriter(w), terminator: "~\n"}
+	defects, err := validateGenerateDefects(opts.Kind, opts.Defects)
+	if err != nil {
+		return err
+	}
+	g := &fixtureWriter{w: bufio.NewWriter(w), terminator: "~\n", defects: defects}
 	if opts.Kind == "837p" {
 		generate837P(g, opts, date)
 	} else {
@@ -70,11 +82,43 @@ func Generate(w io.Writer, opts GenerateOptions) error {
 	return nil
 }
 
+func validateGenerateDefects(kind string, ids []string) (map[string]bool, error) {
+	defects := make(map[string]bool)
+	for _, selector := range ids {
+		id := strings.ToUpper(strings.TrimSpace(selector))
+		var supportedKind string
+		switch id {
+		case "EL3005", "EL3006", "EL3007", "EL3008":
+			supportedKind = "837p"
+		case "EL6003", "EL6004":
+			supportedKind = "hl7v2"
+		default:
+			return nil, fmt.Errorf("gen: unsupported defect %q", selector)
+		}
+		if kind != supportedKind {
+			return nil, fmt.Errorf("gen: defect %s is only supported for %s", id, supportedKind)
+		}
+		if defects[id] {
+			return nil, fmt.Errorf("gen: duplicate defect %s", id)
+		}
+		defects[id] = true
+	}
+	return defects, nil
+}
+
 type fixtureWriter struct {
 	w          *bufio.Writer
 	terminator string
 	segments   int
 	err        error
+	defects    map[string]bool
+}
+
+func (g *fixtureWriter) count(id string, actual int) int {
+	if g.defects[id] {
+		return actual + 1
+	}
+	return actual
 }
 
 func (g *fixtureWriter) segment(format string, args ...any) {
@@ -118,9 +162,13 @@ func generate837P(g *fixtureWriter, opts GenerateOptions, date time.Time) {
 		g.segment("LX*1")
 		g.segment("SV1*HC:99201*125.00*UN*1***1")
 	}
-	g.segment("SE*%d*0001", g.segments-start+1)
-	g.segment("GE*1*%d", opts.ControlNumber)
-	g.segment("IEA*1*%09d", opts.ControlNumber)
+	control := "0001"
+	if g.defects["EL3005"] {
+		control = "0002"
+	}
+	g.segment("SE*%d*%s", g.count("EL3006", g.segments-start+1), control)
+	g.segment("GE*%d*%d", g.count("EL3007", 1), opts.ControlNumber)
+	g.segment("IEA*%d*%09d", g.count("EL3008", 1), opts.ControlNumber)
 }
 
 func generateHL7(g *fixtureWriter, opts GenerateOptions, date time.Time) {
@@ -132,6 +180,6 @@ func generateHL7(g *fixtureWriter, opts GenerateOptions, date time.Time) {
 		g.segment("EVN|A08|%s", stamp)
 		g.segment("PID|1||FAKEPATIENT%06d^^^SYNTHETIC^MR||SAMPLE^PATIENT%06d", i, i)
 	}
-	g.segment("BTS|%d", opts.Count)
-	g.segment("FTS|1")
+	g.segment("BTS|%d", g.count("EL6003", opts.Count))
+	g.segment("FTS|%d", g.count("EL6004", 1))
 }

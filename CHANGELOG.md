@@ -10,6 +10,12 @@ from its first tag.
 
 ### Added
 
+- Targeted fixture defects through repeatable `gen --defect ID` options and
+  `GenerateOptions.Defects`. X12 supports EL3005–EL3008 and HL7v2 supports
+  EL6003–EL6004. Each selected defect produces one matching finding; supported
+  combinations are deterministic and count defects round-trip through `fix`.
+  Invalid selections fail before output and clean defaults retain their bytes.
+  See [#17](https://github.com/crb2nu/edilint/issues/17).
 - Deterministic synthetic fixtures through `edilint gen 837p --claims N`,
   `edilint gen hl7v2 --messages N`, and the streaming `Generate` Go API.
   Fictional identities, test usage indicators, matching envelope controls,
