@@ -51,7 +51,7 @@ func parseGenArgs(args []string) (edilint.GenerateOptions, bool, error) {
 			}
 			help = true
 			continue
-		case "--claims", "--messages", "--control", "--date":
+		case "--claims", "--messages", "--control", "--date", "--defect":
 		default:
 			return opts, false, fmt.Errorf("unknown flag: %s", name)
 		}
@@ -61,6 +61,10 @@ func parseGenArgs(args []string) (edilint.GenerateOptions, bool, error) {
 				return opts, false, fmt.Errorf("%s requires a value", name)
 			}
 			val = args[i]
+		}
+		if name == "--defect" {
+			opts.Defects = append(opts.Defects, val)
+			continue
 		}
 		if name == "--date" {
 			if val == "" {
@@ -103,8 +107,8 @@ func printGenUsage(w io.Writer) {
 	diagf(w, `edilint gen - generate fictional test fixtures
 
 Usage:
-  edilint gen 837p [--claims <n>] [--control <n>] [--date YYYY-MM-DD]
-  edilint gen hl7v2 [--messages <n>] [--control <n>] [--date YYYY-MM-DD]
+  edilint gen 837p [--claims <n>] [--control <n>] [--date YYYY-MM-DD] [--defect <ID>]...
+  edilint gen hl7v2 [--messages <n>] [--control <n>] [--date YYYY-MM-DD] [--defect <ID>]...
 
 Writes a synthetic X12 837P transaction or HL7v2 ADT A08 batch to standard
 output. Identities are fictional and envelopes declare test usage. These
@@ -118,18 +122,27 @@ Flags:
       --messages <n>  messages in the HL7 batch (default 1; max 1000000)
       --control <n>   file control number (default 1; max 999999999)
       --date <date>   envelope/service date (default 2026-01-01; years 2000-2099)
+      --defect <ID>   inject one supported envelope error; repeat for multiple IDs
   -h, --help          print this help and exit
 
 Use distinct control numbers when generating separate files for the same
 test run. Times are fixed at noon. A write failure may leave partial output.
 
+Supported defects (case-insensitive IDs, no duplicates):
+  837p:   EL3005 SE02 control mismatch; EL3006 SE01 segment count;
+          EL3007 GE01 transaction count; EL3008 IEA01 group count
+  hl7v2:  EL6003 BTS-1 message count; EL6004 FTS-1 batch count
+Each selected ID produces exactly one finding. Count defects overstate by one.
+Selection order does not change the output. The default fixture is clean.
+
 Exit status:
-  0  fixture written
+  0  fixture written, including any requested defects
   2  usage error or output could not be written
 
 Examples:
   edilint gen 837p --claims 100 > claims.x12
   edilint gen hl7v2 --messages 20 --control 2 > batch.hl7
   edilint gen 837p --claims 10 | edilint --no-config -
+  edilint gen 837p --defect EL3006 > bad-count.x12
 `)
 }
