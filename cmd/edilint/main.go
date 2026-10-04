@@ -547,7 +547,7 @@ Usage:
   edilint fix [flags] <file>...
   edilint diff [--strict] [--json] <a> <b>
   edilint stats [--json] <file>...
-  edilint gen <837p|835|hl7v2> [flags]
+  edilint gen <837p|835|hl7v2|edifact> [flags]
   edilint mcp [flags]
 
 Reads X12 EDI, HL7v2, delimited and fixed-width files and reports the defects

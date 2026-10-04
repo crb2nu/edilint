@@ -10,7 +10,7 @@ import (
 )
 
 func TestGenerateCleanAndDeterministic(t *testing.T) {
-	for _, kind := range []string{"837p", "835", "hl7v2"} {
+	for _, kind := range []string{"837p", "835", "hl7v2", "edifact"} {
 		for _, count := range []int{0, 1, 2, 1000} {
 			t.Run(fmt.Sprintf("%s/%d", kind, count), func(t *testing.T) {
 				opts := GenerateOptions{Kind: kind, Count: count}
@@ -38,7 +38,11 @@ func TestGenerateCleanAndDeterministic(t *testing.T) {
 				if want == 0 {
 					want = 1
 				}
-				if kind != "hl7v2" {
+				if kind == "edifact" {
+					if fs.Format != FormatEdifact || fs.RecordsByID["UNH"] != want || fs.RecordsByID["UNT"] != want || fs.Records != 4*want+2 {
+						t.Fatalf("unexpected EDIFACT census: %+v", fs)
+					}
+				} else if kind != "hl7v2" {
 					claim, service, transaction, group := "CLM", "SV1", "837", "HC"
 					if kind == "835" {
 						claim, service, transaction, group = "CLP", "SVC", "835", "HP"
@@ -89,7 +93,7 @@ func TestGenerateCleanAndDeterministic(t *testing.T) {
 }
 
 func TestGenerateOptions(t *testing.T) {
-	for _, kind := range []string{"837p", "835", "hl7v2"} {
+	for _, kind := range []string{"837p", "835", "hl7v2", "edifact"} {
 		for _, date := range []string{"2000-01-01", "2024-02-29", "2099-12-31"} {
 			var b bytes.Buffer
 			if err := Generate(&b, GenerateOptions{Kind: kind, Date: date, ControlNumber: 999999999}); err != nil {
@@ -152,7 +156,7 @@ func (w *fixtureFailureWriter) Write([]byte) (int, error) {
 
 func TestGenerateWriterErrors(t *testing.T) {
 	broken := errors.New("output failed")
-	for _, kind := range []string{"837p", "835", "hl7v2"} {
+	for _, kind := range []string{"837p", "835", "hl7v2", "edifact"} {
 		// One item fails at flush; the maximum stops at the first full buffer.
 		// A short write with no error must also fail, never silently truncate.
 		for _, count := range []int{1, MaxGenerateCount} {
@@ -172,7 +176,7 @@ func TestGenerateWriterErrors(t *testing.T) {
 }
 
 func BenchmarkGenerate(b *testing.B) {
-	for _, kind := range []string{"837p", "835", "hl7v2"} {
+	for _, kind := range []string{"837p", "835", "hl7v2", "edifact"} {
 		b.Run(kind, func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {

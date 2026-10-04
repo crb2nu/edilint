@@ -10,9 +10,10 @@ import (
 )
 
 func TestGenerateCleanBytesUnchanged(t *testing.T) {
-	// Digests captured from the clean generator before defect support.
+	// Digests captured before adding new formats or defect support.
 	for kind, want := range map[string]string{
 		"837p":  "974140c263948d772e60d0bc34aea1d14cecfb3a73dff4cf37a2937c27fe5621",
+		"835":   "732199648207db3ba48e0f8a56fa5384ab0ab6e026b1b18cac81defc59580783",
 		"hl7v2": "e0fe75f68037400d140822c2cb23b9d5ffa59860127277da39992c1c3d5fa4e2",
 	} {
 		var b bytes.Buffer
@@ -27,9 +28,10 @@ func TestGenerateCleanBytesUnchanged(t *testing.T) {
 
 func TestGenerateDefectCombinations(t *testing.T) {
 	for kind, ids := range map[string][]string{
-		"837p":  {"EL3005", "EL3006", "EL3007", "EL3008"},
-		"835":   {"EL3005", "EL3006", "EL3007", "EL3008"},
-		"hl7v2": {"EL6003", "EL6004"},
+		"837p":    {"EL3005", "EL3006", "EL3007", "EL3008"},
+		"835":     {"EL3005", "EL3006", "EL3007", "EL3008"},
+		"hl7v2":   {"EL6003", "EL6004"},
+		"edifact": {"EL7003", "EL7005", "EL7006"},
 	} {
 		for _, count := range []int{1, 10} {
 			for mask := 0; mask < 1<<len(ids); mask++ {
@@ -56,7 +58,12 @@ func TestGenerateDefectCombinations(t *testing.T) {
 
 					fixed, repairs := Fix(defective.Bytes(), FixOptions{})
 					var remaining []string
-					if slices.Contains(opts.Defects, "EL3005") {
+					if kind == "edifact" {
+						remaining = opts.Defects // EDIFACT envelope repairs are unsupported.
+						if !bytes.Equal(fixed, defective.Bytes()) {
+							t.Fatal("fix changed an EDIFACT fixture")
+						}
+					} else if slices.Contains(opts.Defects, "EL3005") {
 						remaining = []string{"EL3005"}
 					} else if !bytes.Equal(fixed, clean.Bytes()) {
 						t.Fatal("fix did not restore the original clean fixture")
@@ -108,6 +115,12 @@ func TestGenerateDefectValidation(t *testing.T) {
 		{"837p", []string{"EL3006", "EL6003"}, "only supported for hl7v2"},
 		{"hl7v2", []string{"EL6003", "EL3006"}, "only supported for 837p"},
 		{"835", []string{"EL3006", "EL6003"}, "only supported for hl7v2"},
+		{"edifact", []string{"EL7004"}, "unsupported"},
+		{"edifact", []string{"EL7003", "EL3006"}, "only supported for 837p"},
+		{"edifact", []string{"EL6003"}, "only supported for hl7v2"},
+		{"837p", []string{"EL7003"}, "only supported for edifact"},
+		{"hl7v2", []string{"EL7005"}, "only supported for edifact"},
+		{"edifact", []string{"EL7006", " el7006 "}, "duplicate"},
 		{"837p", []string{"EL3006", " el3006 "}, "duplicate"},
 		{"hl7v2", []string{"EL6004", "EL6004"}, "duplicate"},
 		{"837p", []string{"EL3006,EL3007"}, "unsupported"},
