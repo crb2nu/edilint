@@ -2,7 +2,7 @@
 
 > Last Updated: 2026-10-03
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
-> Tracking Issue: [835 remittance fixtures #18](https://github.com/crb2nu/edilint/issues/18)
+> Tracking Issue: [EDIFACT fixtures #19](https://github.com/crb2nu/edilint/issues/19)
 
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
@@ -52,8 +52,8 @@ publishing a stable version tag. See [Releasing](docs/releasing.md).
 
 Evidence inspected 2026-10-03: canonical main and tags through `v0.4.1`,
 GitHub releases through `v0.4.1`, no open GitLab MRs or existing public issues,
-and the current CI/release configuration. Issues #16–#18 track fixture generation,
-targeted defects, and 835 remittance fixtures.
+and the current CI/release configuration. Issues #16–#19 track fixture generation,
+targeted defects, 835 remittances, and EDIFACT messages.
 
 - **Plan store**: this file
 - **Distribution**: `go install`, GitHub release archives, and GHCR containers
@@ -151,6 +151,17 @@ lint and census results, claim ID uniqueness, amounts and date/control options,
 all defect combinations, repairs, write failures, and unchanged earlier defaults.
 This tests remittance-processing pipelines without adding payment validation or
 implementation-guide claims to the linter.
+
+[#19](https://github.com/crb2nu/edilint/issues/19) adds `edifact --messages N`:
+one test interchange with UNA and narrow ORDERS D.96A examples based on the
+repository fixture. Message/order references are unique; UNT and UNZ counts
+match the generated records. EL7003 and EL7006 affect only the first UNT, while
+EL7005 affects UNZ, so each requested defect produces exactly one finding.
+Acceptance covers both lint APIs, census, raw envelope fields and counts,
+date/control options, every defect subset, writer failures, bounded generation,
+and unchanged earlier output. EDIFACT repairs remain outside `fix` support.
+The riskiest assumption remains whether narrow structural examples serve users'
+pipelines; functional groups and partner-specific content are not modeled.
 
 ### Exploration (not scheduled)
 - Additional synthetic message types and defect families.

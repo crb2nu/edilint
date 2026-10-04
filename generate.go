@@ -12,10 +12,11 @@ import (
 const MaxGenerateCount = 1_000_000
 
 // GenerateOptions describes a synthetic fixture. All generated identities are
-// fictional and both formats declare test usage. These are structural examples,
+// fictional and all formats declare test usage. These are structural examples,
 // not implementation-guide-compliant claims or clinical messages.
 type GenerateOptions struct {
-	// Kind is "837p" or "835" (one X12 transaction), or "hl7v2" (one ADT A08 batch).
+	// Kind is "837p" or "835" (one X12 transaction), "hl7v2" (one ADT A08
+	// batch), or "edifact" (one interchange with ORDERS message examples).
 	Kind string
 	// Count is the number of claims or messages, from 1 to MaxGenerateCount.
 	// Zero selects one.
@@ -29,6 +30,8 @@ type GenerateOptions struct {
 	// Defects selects intentional envelope errors by case-insensitive rule ID.
 	// X12 supports EL3005 (SE02 mismatch), EL3006 (SE01), EL3007 (GE01), and
 	// EL3008 (IEA01); HL7 supports EL6003 (BTS-1) and EL6004 (FTS-1).
+	// EDIFACT supports EL7003 (first UNT-1), EL7005 (UNZ-1), and EL7006
+	// (first UNT-2 mismatch). Other messages keep their correct trailers.
 	// Count defects overstate the actual total by one. Each ID produces one
 	// finding. Duplicate, unsupported, and cross-format IDs are errors.
 	// Empty selects a clean fixture; selection order does not affect output.
@@ -36,12 +39,12 @@ type GenerateOptions struct {
 }
 
 // Generate writes a deterministic synthetic fixture using bounded memory.
-// X12 segments end in "~\n"; HL7 segments end in CR. Identical options produce
+// X12 segments end in "~\n", EDIFACT in "'\n", and HL7 in CR. Identical options produce
 // identical bytes. Options are checked before any output is written. A writer
 // error may leave a partial fixture; it is returned, including flush errors.
 func Generate(w io.Writer, opts GenerateOptions) error {
-	if opts.Kind != "837p" && opts.Kind != "835" && opts.Kind != "hl7v2" {
-		return fmt.Errorf("gen: unknown kind %q (want 837p, 835, or hl7v2)", opts.Kind)
+	if opts.Kind != "837p" && opts.Kind != "835" && opts.Kind != "hl7v2" && opts.Kind != "edifact" {
+		return fmt.Errorf("gen: unknown kind %q (want 837p, 835, hl7v2, or edifact)", opts.Kind)
 	}
 	if opts.Count == 0 {
 		opts.Count = 1
@@ -67,10 +70,14 @@ func Generate(w io.Writer, opts GenerateOptions) error {
 		return err
 	}
 	g := &fixtureWriter{w: bufio.NewWriter(w), terminator: "~\n", defects: defects}
-	if opts.Kind == "hl7v2" {
+	switch opts.Kind {
+	case "hl7v2":
 		g.terminator = "\r"
 		generateHL7(g, opts, date)
-	} else {
+	case "edifact":
+		g.terminator = "'\n"
+		generateEdifact(g, opts, date)
+	default:
 		generateX12(g, opts, date)
 	}
 	if g.err != nil {
@@ -94,6 +101,10 @@ func validateGenerateDefects(kind string, ids []string) (map[string]bool, error)
 		case "EL6003", "EL6004":
 			if kind != "hl7v2" {
 				return nil, fmt.Errorf("gen: defect %s is only supported for hl7v2", id)
+			}
+		case "EL7003", "EL7005", "EL7006":
+			if kind != "edifact" {
+				return nil, fmt.Errorf("gen: defect %s is only supported for edifact", id)
 			}
 		default:
 			return nil, fmt.Errorf("gen: unsupported defect %q", selector)
@@ -222,4 +233,31 @@ func generateHL7(g *fixtureWriter, opts GenerateOptions, date time.Time) {
 	}
 	g.segment("BTS|%d", g.count("EL6003", opts.Count))
 	g.segment("FTS|%d", g.count("EL6004", 1))
+}
+
+// These narrow ORDERS examples follow testdata/edifact_clean.edi. UNB-11
+// declares a test interchange; no functional groups or partner guide rules
+// are modeled. Message defects affect only the first trailer so each selected
+// ID still produces exactly one finding regardless of the message count.
+func generateEdifact(g *fixtureWriter, opts GenerateOptions, date time.Time) {
+	g.segment("UNA:+.? ")
+	g.segment("UNB+UNOA:3+SYNTHETICSENDER+SYNTHETICRECV+%s:1200+%09d++++++1",
+		date.Format("060102"), opts.ControlNumber)
+	stamp := date.Format("20060102") + "1200"
+	for i := 1; i <= opts.Count && g.err == nil; i++ {
+		start := g.segments
+		ref := fmt.Sprintf("FAKE%07d", i)
+		g.segment("UNH+%s+ORDERS:D:96A:UN", ref)
+		g.segment("BGM+220+FAKEORDER%07d+9", i)
+		g.segment("DTM+137:%s:203", stamp)
+		count := g.segments - start + 1
+		if i == 1 {
+			count = g.count("EL7003", count)
+			if g.defects["EL7006"] {
+				ref = "WRONG0000001"
+			}
+		}
+		g.segment("UNT+%d+%s", count, ref)
+	}
+	g.segment("UNZ+%d+%09d", g.count("EL7005", opts.Count), opts.ControlNumber)
 }

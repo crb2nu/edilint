@@ -92,13 +92,13 @@ func parseGenArgs(args []string) (edilint.GenerateOptions, bool, error) {
 		return opts, true, nil
 	}
 	if opts.Kind == "" {
-		return opts, false, fmt.Errorf("requires a fixture kind: 837p, 835, or hl7v2")
+		return opts, false, fmt.Errorf("requires a fixture kind: 837p, 835, hl7v2, or edifact")
 	}
 	if claims && opts.Kind != "837p" && opts.Kind != "835" {
 		return opts, false, fmt.Errorf("--claims is only supported for 837p or 835")
 	}
-	if messages && opts.Kind != "hl7v2" {
-		return opts, false, fmt.Errorf("--messages is only supported for hl7v2")
+	if messages && opts.Kind != "hl7v2" && opts.Kind != "edifact" {
+		return opts, false, fmt.Errorf("--messages is only supported for hl7v2 or edifact")
 	}
 	return opts, false, nil
 }
@@ -110,17 +110,20 @@ Usage:
   edilint gen 837p [--claims <n>] [--control <n>] [--date YYYY-MM-DD] [--defect <ID>]...
   edilint gen 835 [--claims <n>] [--control <n>] [--date YYYY-MM-DD] [--defect <ID>]...
   edilint gen hl7v2 [--messages <n>] [--control <n>] [--date YYYY-MM-DD] [--defect <ID>]...
+  edilint gen edifact [--messages <n>] [--control <n>] [--date YYYY-MM-DD] [--defect <ID>]...
 
-Writes a synthetic X12 837P or 835 transaction or HL7v2 ADT A08 batch to standard
-output. Identities are fictional and envelopes declare test usage. These
-structural examples do not establish implementation-guide compliance.
+Writes a synthetic X12 837P/835 transaction, HL7v2 ADT A08 batch, or EDIFACT
+interchange with ORDERS examples to standard output. Identities are fictional
+and envelopes declare test usage. These structural examples do not establish
+implementation-guide compliance.
 
 Output is deterministic and streamed with bounded memory. X12 segments end
-in ~ plus LF; HL7 segments end in CR. No configuration files are loaded.
+in ~ plus LF; EDIFACT in apostrophe plus LF; HL7 in CR.
+No configuration files are loaded.
 
 Flags:
       --claims <n>    claims in the 837P/835 transaction (default 1; max 1000000)
-      --messages <n>  messages in the HL7 batch (default 1; max 1000000)
+      --messages <n>  HL7/EDIFACT messages (default 1; max 1000000)
       --control <n>   file control number (default 1; max 999999999)
       --date <date>   envelope/service date (default 2026-01-01; years 2000-2099)
       --defect <ID>   inject one supported envelope error; repeat for multiple IDs
@@ -133,6 +136,8 @@ Supported defects (case-insensitive IDs, no duplicates):
   837p/835: EL3005 SE02 control mismatch; EL3006 SE01 segment count;
             EL3007 GE01 transaction count; EL3008 IEA01 group count
   hl7v2:   EL6003 BTS-1 message count; EL6004 FTS-1 batch count
+  edifact: EL7003 first UNT-1 segment count; EL7005 UNZ-1 message count;
+           EL7006 first UNT-2 reference mismatch
 Each selected ID produces exactly one finding. Count defects overstate by one.
 Selection order does not change the output. The default fixture is clean.
 
@@ -143,7 +148,8 @@ Exit status:
 Examples:
   edilint gen 837p --claims 100 > claims.x12
   edilint gen 835 --claims 100 --control 2 > remittance.x12
-  edilint gen hl7v2 --messages 20 --control 2 > batch.hl7
+  edilint gen hl7v2 --messages 20 --control 3 > batch.hl7
+  edilint gen edifact --messages 20 --control 4 > orders.edi
   edilint gen 837p --claims 10 | edilint --no-config -
   edilint gen 837p --defect EL3006 > bad-count.x12
 `)

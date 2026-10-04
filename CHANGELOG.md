@@ -10,6 +10,12 @@ from its first tag.
 
 ### Added
 
+- Synthetic EDIFACT fixtures through `gen edifact --messages N` and
+  `GenerateOptions{Kind: "edifact"}`. Fictional ORDERS examples have a test
+  interchange, unique message references, and matching UNT/UNZ counts.
+  EL7003, EL7005, and EL7006 can each inject one targeted envelope error.
+  Output streams with bounded memory; existing fixture defaults are unchanged.
+  See [#19](https://github.com/crb2nu/edilint/issues/19).
 - Synthetic 835 remittance fixtures through `gen 835 --claims N` and
   `GenerateOptions{Kind: "835"}`. Fictional claim and service payments balance
   with the remittance total using integer arithmetic. The format shares X12
