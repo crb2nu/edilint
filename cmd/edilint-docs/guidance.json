@@ -206,17 +206,17 @@
   },
   "EL7003": {
     "example": "UNH+1+INVOIC:D:96A:UN'UNT+9+1'  (two segments, declared as nine)",
-    "fix": "Count segments from UNH through UNT inclusive and correct UNT-1 after confirming message completeness. Released terminators inside data do not end segments.",
+    "fix": "After confirming message completeness, use edilint fix --write to recount UNT-1 from UNH through UNT inclusive. Released terminators do not end segments. Invalid service characters, incomplete envelopes, or ambiguous nesting prevent count edits.",
     "false_positives": "Malformed release sequences or missing terminators can affect the observed count. Resolve tokenizer and service-string findings before recounting."
   },
   "EL7004": {
     "example": "A UNG contains one UNH/UNT message but ends with UNE+2+GROUP1'.",
-    "fix": "Set UNE-1 to the number of messages in that functional group after checking that all intended messages are present.",
+    "fix": "After confirming all intended messages are present, use edilint fix --write to recount UNE-1. The file must have complete, consistently nested envelopes and valid service characters.",
     "false_positives": "Bad nesting or missing message headers can change the observed total. A corrected trailer count does not prove payload completeness."
   },
   "EL7005": {
     "example": "An ungrouped UNB contains one message but ends with UNZ+2+EXAMPLE'.",
-    "fix": "Set UNZ-1 to the number of messages in an ungrouped interchange, or to the number of functional groups when UNG groups are used.",
+    "fix": "After confirming all intended content is present, use edilint fix --write to recount UNZ-1: messages without groups, otherwise groups. Ambiguous structure, including mixed grouped and ungrouped messages in one interchange, prevents count edits.",
     "false_positives": "Counting messages instead of groups in a grouped interchange causes a mismatch. Confirm the envelope form before changing the trailer."
   },
   "EL7006": {

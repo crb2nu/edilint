@@ -10,6 +10,12 @@ from its first tag.
 
 ### Added
 
+- EDIFACT trailer recounts in `fix` and the Go `Fix` API: UNT-1 (EL7003),
+  UNE-1 (EL7004), and UNZ-1 (EL7005). Repairs preserve references, payload,
+  release escapes, service characters, and whitespace. Structurally ambiguous
+  or truncated files receive no count edits. Dry-run diffs and rule pages
+  explain the repairs; control-reference mismatches remain unresolved.
+  See [#20](https://github.com/crb2nu/edilint/issues/20).
 - Synthetic EDIFACT fixtures through `gen edifact --messages N` and
   `GenerateOptions{Kind: "edifact"}`. Fictional ORDERS examples have a test
   interchange, unique message references, and matching UNT/UNZ counts.

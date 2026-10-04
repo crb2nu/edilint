@@ -22,7 +22,7 @@
   <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
   <pre>A UNG contains one UNH/UNT message but ends with UNE&#43;2&#43;GROUP1&#39;.</pre>
   <h2>How to fix it</h2>
-  <p>Set UNE-1 to the number of messages in that functional group after checking that all intended messages are present.</p>
+  <p>After confirming all intended messages are present, use edilint fix --write to recount UNE-1. The file must have complete, consistently nested envelopes and valid service characters.</p>
   <h2>False positives and limits</h2>
   <p>Bad nesting or missing message headers can change the observed total. A corrected trailer count does not prove payload completeness.</p>
   <h2>Acknowledgments and suppression</h2>

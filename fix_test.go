@@ -237,9 +237,9 @@ func TestFixLeavesUnreadableInputAlone(t *testing.T) {
 	}
 }
 
-func TestFixEdifactIsOutOfScope(t *testing.T) {
-	// EDIFACT repairs are not implemented, so a defective EDIFACT file comes
-	// back untouched rather than half-repaired.
+func TestFixEdifactTrailingDataPreventsRecounts(t *testing.T) {
+	// Trailing data makes the envelope structure ambiguous, so count edits
+	// are withheld even though individual trailers have incorrect totals.
 	data := readFixture(t, "edifact_broken.edi")
 	out, repairs := Fix(data, FixOptions{})
 	if len(repairs) != 0 {

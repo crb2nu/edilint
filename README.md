@@ -434,9 +434,9 @@ finding and no unrelated findings. Selection order does not change the output.
 IDs are case-insensitive; unsupported, duplicate, or cross-format selections
 fail before writing. Generation still exits 0 when the requested fixture is
 written successfully; linting the defective fixture exits 1. `fix` repairs the
-X12/HL7 count defects, but does not guess which control number is right for
-EL3005. EDIFACT message defects affect only the first UNT, regardless of the
-message count. EDIFACT envelope defects remain unchanged by `fix`.
+X12/HL7 count defects and EDIFACT EL7003/EL7005, but does not guess which control
+reference is right for EL3005 or EL7006. EDIFACT message defects affect only the
+first UNT, regardless of the message count.
 
 ### fmt
 
@@ -494,6 +494,20 @@ The safe tier repairs defects whose correct form the file itself determines:
 | `EL3006` `EL3007` `EL3008` | Rewrite SE01, GE01 and IEA01 to the recounted totals — declare what was counted. | If records were *lost* rather than miscounted, recounting endorses the loss. A declared count far from the actual one deserves reading before repairing. |
 | `EL3010` | Zero-pad an ISA10 or GS05 time that is one digit short of HHMM, HHMMSS or HHMMSSDD, when the padded value is valid. | Only a dropped leading zero is derivable. A time out of range, non-numeric, or two digits short is left for a person; so are the envelope dates, whose lost zeros sit mid-value where padding cannot restore them. |
 | `EL6003` `EL6004` | Rewrite BTS-1 and FTS-1 to the recounted totals. An empty count field is optional and stays empty. | The same caution as the X12 recounts. |
+| `EL7003` `EL7004` `EL7005` | Rewrite UNT-1, UNE-1, and UNZ-1 to the observed segment, message, and interchange totals. UNZ counts groups when present, otherwise messages. Empty or nonnumeric count values are replaced when the field exists. | Confirm no content was lost. Recounts are withheld for the whole file if service characters, nesting, trailing data, or truncation make its structure ambiguous. |
+
+EDIFACT count repairs preserve control references, payload, release escapes,
+service characters, and whitespace. Grouped and ungrouped interchanges may occur
+in the same file; mixing grouped and ungrouped messages within one interchange
+prevents recounting. Missing trailers and reference mismatches are left for the
+sender to resolve. For example:
+
+```sh
+edilint gen edifact --messages 3 --defect EL7003 --defect EL7005 > orders.edi
+edilint fix --dry-run orders.edi  # shows the proposed count changes; exits 1
+edilint fix --write orders.edi
+edilint --no-config orders.edi
+```
 
 `--unsafe` adds one more tier:
 
@@ -505,8 +519,8 @@ The safe tier repairs defects whose correct form the file itself determines:
 everything, 1 when a dry run found repairs pending, and 2 when it could not
 do its job. Repairs never reach beyond their catalog: findings with no listed
 fix — a duplicate control number, a character outside the X12 set, a layout
-mismatch — are untouched, and EDIFACT repairs are not implemented, so a
-defective EDIFACT file comes back byte-identical rather than half-repaired.
+mismatch — are untouched. A successful repair command does not establish that
+all lint findings are resolved; lint the resulting file again.
 
 ## Configuration file
 

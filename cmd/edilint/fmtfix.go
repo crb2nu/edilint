@@ -401,6 +401,13 @@ to the rule it clears:
   EL3010  zero-pad an ISA10 or GS05 time one leading zero short of valid
   EL6003  rewrite BTS-1 to the recounted message total
   EL6004  rewrite FTS-1 to the recounted batch total
+  EL7003  rewrite UNT-1 to the recounted segment total
+  EL7004  rewrite UNE-1 to the recounted message total
+  EL7005  rewrite UNZ-1 to the recounted group or message total
+
+EDIFACT recounts require complete, consistently nested envelopes and valid
+service characters. They preserve references, payload, and whitespace.
+Confirm content was not lost before accepting any trailer recount.
 
 --unsafe adds one more:
 

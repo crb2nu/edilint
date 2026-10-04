@@ -22,7 +22,7 @@
   <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
   <pre>UNH&#43;1&#43;INVOIC:D:96A:UN&#39;UNT&#43;9&#43;1&#39;  (two segments, declared as nine)</pre>
   <h2>How to fix it</h2>
-  <p>Count segments from UNH through UNT inclusive and correct UNT-1 after confirming message completeness. Released terminators inside data do not end segments.</p>
+  <p>After confirming message completeness, use edilint fix --write to recount UNT-1 from UNH through UNT inclusive. Released terminators do not end segments. Invalid service characters, incomplete envelopes, or ambiguous nesting prevent count edits.</p>
   <h2>False positives and limits</h2>
   <p>Malformed release sequences or missing terminators can affect the observed count. Resolve tokenizer and service-string findings before recounting.</p>
   <h2>Acknowledgments and suppression</h2>

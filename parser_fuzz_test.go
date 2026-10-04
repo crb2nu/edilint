@@ -38,6 +38,20 @@ func FuzzEdifact(f *testing.F) {
 	f.Add([]byte("UNA:+.? 'UNB+UNOC:3+S+R+260101:1200+1'UNH+1+ORDERS:D:96A:UN'FTX+AAI+++escaped?+plus??question?'quote'UNT+3+1'UNZ+1+1'"))
 	f.Fuzz(func(t *testing.T, data []byte) {
 		checkParserReport(t, data, Options{Format: FormatEdifact})
+		original := bytes.Clone(data)
+		fixed, repairs := Fix(data, FixOptions{Format: FormatEdifact})
+		if !bytes.Equal(data, original) {
+			t.Fatal("Fix mutated its input")
+		}
+		for _, repair := range repairs {
+			if repair.ID != "EL1001" && repair.ID != "EL7003" && repair.ID != "EL7004" && repair.ID != "EL7005" {
+				t.Fatalf("unexpected EDIFACT repair: %+v", repair)
+			}
+		}
+		again, more := Fix(fixed, FixOptions{Format: FormatEdifact})
+		if !bytes.Equal(fixed, again) || len(more) != 0 {
+			t.Fatalf("Fix was not idempotent: %+v", more)
+		}
 	})
 }
 

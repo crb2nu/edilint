@@ -1,8 +1,8 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
-> Last Updated: 2026-10-03
+> Last Updated: 2026-10-04
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
-> Tracking Issue: [EDIFACT fixtures #19](https://github.com/crb2nu/edilint/issues/19)
+> Tracking Issue: [EDIFACT count repairs #20](https://github.com/crb2nu/edilint/issues/20)
 
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
@@ -159,9 +159,19 @@ match the generated records. EL7003 and EL7006 affect only the first UNT, while
 EL7005 affects UNZ, so each requested defect produces exactly one finding.
 Acceptance covers both lint APIs, census, raw envelope fields and counts,
 date/control options, every defect subset, writer failures, bounded generation,
-and unchanged earlier output. EDIFACT repairs remain outside `fix` support.
+and unchanged earlier output. Count repairs follow in #20 below.
 The riskiest assumption remains whether narrow structural examples serve users'
 pipelines; functional groups and partner-specific content are not modeled.
+
+[#20](https://github.com/crb2nu/edilint/issues/20) adds safe EDIFACT trailer
+recounts to `fix`: UNT-1, UNE-1, and UNZ-1. Complete, consistently nested files
+can be repaired with default or custom service characters while preserving
+references, payload, escapes, and whitespace. Ambiguous structure prevents all
+count edits for that file. Tests cover grouped/ungrouped and multiple interchanges,
+empty and malformed count values, idempotence, generator repair round-trips,
+and CLI dry-run/write parity. The riskiest assumption is that an incorrect
+declaration, rather than lost content, caused the mismatch; the docs retain
+the recount caution and repairs never synthesize missing segments.
 
 ### Exploration (not scheduled)
 - Additional synthetic message types and defect families.

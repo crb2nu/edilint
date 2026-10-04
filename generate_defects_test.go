@@ -58,11 +58,8 @@ func TestGenerateDefectCombinations(t *testing.T) {
 
 					fixed, repairs := Fix(defective.Bytes(), FixOptions{})
 					var remaining []string
-					if kind == "edifact" {
-						remaining = opts.Defects // EDIFACT envelope repairs are unsupported.
-						if !bytes.Equal(fixed, defective.Bytes()) {
-							t.Fatal("fix changed an EDIFACT fixture")
-						}
+					if slices.Contains(opts.Defects, "EL7006") {
+						remaining = []string{"EL7006"}
 					} else if slices.Contains(opts.Defects, "EL3005") {
 						remaining = []string{"EL3005"}
 					} else if !bytes.Equal(fixed, clean.Bytes()) {
