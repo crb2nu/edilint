@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,6 +9,46 @@ import (
 
 	"github.com/crb2nu/edilint"
 )
+
+func TestFixEdifactDryRunAndWrite(t *testing.T) {
+	for name, mismatch := range map[string]bool{"counts": false, "reference mismatch": true} {
+		t.Run(name, func(t *testing.T) {
+			opts := edilint.GenerateOptions{Kind: "edifact", Count: 3}
+			if mismatch {
+				opts.Defects = []string{"EL7006"}
+			}
+			var want, broken bytes.Buffer
+			if err := edilint.Generate(&want, opts); err != nil {
+				t.Fatal(err)
+			}
+			opts.Defects = append(opts.Defects, "EL7003", "EL7005")
+			if err := edilint.Generate(&broken, opts); err != nil {
+				t.Fatal(err)
+			}
+			path := write(t, t.TempDir(), "orders.edi", broken.String())
+			code, diff, diag := exec("fix", "--dry-run", path)
+			if code != exitFindings || !strings.Contains(diff, "-UNT+5+") || !strings.Contains(diff, "+UNT+4+") || !strings.Contains(diag, "EL7005") {
+				t.Fatalf("dry-run exit=%d diff=%q diagnostics=%q", code, diff, diag)
+			}
+			unchanged, err := os.ReadFile(path)
+			if err != nil || !bytes.Equal(unchanged, broken.Bytes()) {
+				t.Fatal("dry run changed input", err)
+			}
+			code, stdout, diag := exec("fix", "--write", path)
+			fixed, err := os.ReadFile(path)
+			if code != exitClean || stdout != "" || err != nil || !bytes.Equal(fixed, want.Bytes()) {
+				t.Fatalf("write exit=%d read=%v diagnostics=%q output=%q", code, err, diag, fixed)
+			}
+			if edilint.UnifiedDiff(path, broken.Bytes(), fixed) != diff {
+				t.Fatal("dry-run diff differs from applied repairs")
+			}
+			code, report, _ := exec("--no-config", path)
+			if (!mismatch && code != exitClean) || (mismatch && (code != exitFindings || !strings.Contains(report, "EL7006"))) {
+				t.Fatalf("unexpected post-fix lint: exit=%d %s", code, report)
+			}
+		})
+	}
+}
 
 const (
 	// The clean interchange squeezed onto one line: same segments, not canonical.

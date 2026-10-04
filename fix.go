@@ -72,7 +72,8 @@ func Fix(data []byte, opts FixOptions) ([]byte, []Repair) {
 	if format == "" || format == FormatAuto {
 		format = Detect(body, Options{})
 	}
-	s := newSource("", body, format, Options{}, &Report{})
+	parseReport := &Report{}
+	s := newSource("", body, format, Options{}, parseReport)
 
 	var edits []edit
 	edits = append(edits, terminatorFixes(s)...)
@@ -81,6 +82,9 @@ func Fix(data []byte, opts FixOptions) ([]byte, []Repair) {
 	}
 	if s.Format == FormatHL7v2 {
 		edits = append(edits, hl7BatchFixes(s)...)
+	}
+	if s.Format == FormatEdifact && len(parseReport.Findings) == 0 {
+		edits = append(edits, edifactCountFixes(s)...)
 	}
 	if opts.Unsafe {
 		edits = append(edits, homoglyphFixes(s)...)
@@ -144,13 +148,13 @@ func acceptEdits(edits []edit) []edit {
 
 // terminatorFixes repairs record terminators, branching exactly as the
 // terminator checks do: X12 with declared separators gets the segment fixes,
-// EDIFACT gets nothing (its repairs are out of scope), and every other input
+// EDIFACT gets nothing (terminator repairs are out of scope), and every other input
 // gets the line-ending fixes.
 func terminatorFixes(s *source) []edit {
 	if s.Format == FormatX12 && s.Delims.Declared {
 		return append(x12TerminatorFixes(s), x12PaddingFixes(s)...)
 	}
-	if s.Format == FormatEdifact && s.Edifact.Declared {
+	if s.Format == FormatEdifact {
 		return nil
 	}
 	return lineEndingFixes(s)
@@ -406,7 +410,7 @@ func hl7BatchFixes(s *source) []edit {
 
 // recountFix rewrites a declared trailer count to the recounted total. An
 // unparsable declaration is rewritten like a wrong one. fixEmpty says what an
-// empty declaration means: the X12 counts are mandatory, so an empty one is a
+// empty declaration means: X12 and EDIFACT counts are mandatory, so an empty one is a
 // defect and is filled in; the HL7v2 counts are optional, so an empty one
 // declares nothing and stays empty.
 func recountFix(s *source, r record, rule, element string, field int, declared string, actual int, fixEmpty bool) []edit {
@@ -497,25 +501,31 @@ func validX12Time(v string) bool {
 // fieldRange locates the byte range of a record's nth field within the source
 // body, where field 0 is the record type. X12 records split on the element
 // separator, HL7v2 records on the field separator declared in the first
-// header.
+// header. EDIFACT service characters may be released inside field values.
 func fieldRange(s *source, r record, n int) (start, end int, ok bool) {
 	sep := s.FieldSep
 	if sep == 0 {
 		return 0, 0, false
 	}
-	from := 0
-	for seen := 0; seen < n; seen++ {
-		i := strings.IndexByte(r.Text[from:], sep)
-		if i < 0 {
-			return 0, 0, false
+	from, seen := 0, 0
+	for i := 0; i < len(r.Text); i++ {
+		if s.Format == FormatEdifact && r.Text[i] == s.Edifact.Release && i+1 < len(r.Text) {
+			i++
+			continue
 		}
-		from += i + 1
+		if r.Text[i] != sep {
+			continue
+		}
+		if seen == n {
+			return r.Offset + from, r.Offset + i, true
+		}
+		seen++
+		from = i + 1
 	}
-	to := len(r.Text)
-	if i := strings.IndexByte(r.Text[from:], sep); i >= 0 {
-		to = from + i
+	if seen != n {
+		return 0, 0, false
 	}
-	return r.Offset + from, r.Offset + to, true
+	return r.Offset + from, r.Offset + len(r.Text), true
 }
 
 // homoglyphFixes substitutes ASCII for the Unicode characters that imitate it

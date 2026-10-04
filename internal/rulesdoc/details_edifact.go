@@ -17,20 +17,20 @@ func edifactDetails() map[string]ruleDetail {
 		},
 		"EL7003": {
 			catches:  "A UNT-1 that disagrees with the segments actually present from UNH through UNT, counting both. It is EDIFACT's per-message checksum and the first place a dropped segment shows up.",
-			fix:      "Recount the segments from UNH through UNT inclusive and write that number into UNT-1, after checking that no segment went missing in transit.",
+			fix:      "After confirming no segment was lost, run `edilint fix --write` to recount UNT-1 from UNH through UNT inclusive. Count edits are withheld if service characters, nesting, trailing data, or truncation make the file ambiguous.",
 			suppress: "There is no safe case.",
 			example:  edifactExample(una, unb, unh, bgm, "UNT+9+NG0001'", unz),
 		},
 		"EL7004": {
 			catches:  "A UNE-1 that disagrees with the number of UNH messages in the functional group. Groups are optional in EDIFACT, so this only applies to interchanges that use UNG.",
-			fix:      "Recount the messages in the group and write that number into UNE-1.",
+			fix:      "After confirming all intended messages are present, run `edilint fix --write` to recount UNE-1. Count edits require complete, consistently nested envelopes and valid service characters.",
 			suppress: "There is no safe case.",
 			example: edifactExample(una, unb, "UNG+ORDERS+NORTHGATEHEALTH+VALEMEDGROUP+260115:1430+1+UN+D:96A'",
 				unh, bgm, unt, "UNE+4+1'", "UNZ+1+NG260002'"),
 		},
 		"EL7005": {
 			catches:  "A UNZ-1 that disagrees with the interchange's contents: the number of messages when no UNG groups are used, or the number of functional groups when they are.",
-			fix:      "Recount whichever the interchange contains — messages or groups — and write that number into UNZ-1.",
+			fix:      "After confirming all intended content is present, run `edilint fix --write` to recount UNZ-1: messages without groups, otherwise groups. Ambiguous structure, including mixed grouped and ungrouped messages in one interchange, prevents count edits.",
 			suppress: "There is no safe case.",
 			example:  edifactExample(una, unb, unh, bgm, unt, "UNZ+5+NG260002'"),
 		},
