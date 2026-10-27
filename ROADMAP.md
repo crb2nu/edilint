@@ -20,7 +20,7 @@ added the browser release archive. Version `v0.5.0` is ready to cut: synthetic
 fixture generation for 837P, HL7v2, 835 and EDIFACT with targeted envelope
 defects (#16–#19) and EDIFACT trailer recounts in `fix` (#20) merged on
 2026-10-03 and 2026-10-04 and sit under Unreleased in CHANGELOG.md, with the
-Go 1.26.9 toolchain move from this update; nothing else has merged since.
+Go 1.26.10 toolchain move from this update; nothing else has merged since.
 Publication follows the exact-commit checks in [Releasing](docs/releasing.md).
 
 `git log` records merged workstreams B (rule system foundation), A (HL7v2 batch
@@ -67,7 +67,8 @@ merge requests, no open GitHub or GitLab issues (#16–#20 closed by their
 merges), the Mills policy in platform/gitops, and the current CI/release
 configuration. No pipeline had run since the 2026-10-08 Go standard-library
 advisories; the `vulnerability` job scans with the pinned compiler, so the
-toolchain move rides this update.
+toolchain move rides this update (its first run refused 1.26.9 with
+GO-2026-6809, fixed in 1.26.10).
 
 - **Plan store**: this file
 - **Distribution**: `go install`, GitHub release archives, and GHCR containers

@@ -44,9 +44,11 @@ from its first tag.
 
 ### Security
 
-- CI and release builds use Go 1.26.9 (`.go-version`, the `.go-base` image,
-  the GitHub workflows through `go-version-file`), the patched compiler the
-  2026-10-08 Go standard-library advisories call for. The Go 1.23
+- CI and release builds use Go 1.26.10 (`.go-version`, the `.go-base` image,
+  the GitHub workflows through `go-version-file`). govulncheck refused 1.26.9
+  with GO-2026-6809 (`crypto/x509` distrusts compromised intermediate
+  certificates; reachable from `Generate` through the writer flush path) and
+  the October standard-library advisories before it. The Go 1.23
   compatibility job is unchanged.
 
 ## [0.4.1] - 2026-09-25
