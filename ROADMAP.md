@@ -1,8 +1,8 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
-> Last Updated: 2026-10-04
+> Last Updated: 2026-10-27
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
-> Tracking Issue: [EDIFACT count repairs #20](https://github.com/crb2nu/edilint/issues/20)
+> Tracking: [open issues](https://github.com/crb2nu/edilint/issues) — none on 2026-10-27; the Now list below is the backlog
 
 Each workstream section below is a self-contained agent brief: goal, owned paths,
 dependencies, acceptance criteria. Standing constraints apply to every workstream
@@ -16,10 +16,12 @@ its [release archives](https://github.com/crb2nu/edilint/releases/tag/v0.4.1).
 
 Version `v0.4.0` shipped the streaming APIs, browser build, rule references,
 acknowledgment guidance, and release gates described below. Version `v0.4.1`
-added the browser release archive. The next minor release is targeting
-`v0.5.0`, starting with synthetic fixture generation below; its changes remain
-under Unreleased in CHANGELOG.md until publication is scheduled. Publication
-follows the exact-commit checks in [Releasing](docs/releasing.md).
+added the browser release archive. Version `v0.5.0` is ready to cut: synthetic
+fixture generation for 837P, HL7v2, 835 and EDIFACT with targeted envelope
+defects (#16–#19) and EDIFACT trailer recounts in `fix` (#20) merged on
+2026-10-03 and 2026-10-04 and sit under Unreleased in CHANGELOG.md, with the
+Go 1.26.9 toolchain move from this update; nothing else has merged since.
+Publication follows the exact-commit checks in [Releasing](docs/releasing.md).
 
 `git log` records merged workstreams B (rule system foundation), A (HL7v2 batch
 and EDIFACT envelope coverage), C (SARIF, JUnit, and GitHub annotation outputs),
@@ -45,15 +47,27 @@ The canonical repository is `gitlab.flexinfer.ai/libs/edilint`; README
 `Repository` documents GitHub as its push mirror. GitLab CI runs on merge
 requests, while the GitHub Actions workflows continue to run on the mirror.
 
+The MCP server (workstream I) is wired into the workspace's loom MCP registry
+as `edilint` (`lint_file`, `lint_text`, `list_rules`, `explain_rule`, all
+auto-allowed, run from the installed binary), so coding agents in this
+workspace lint interchange files without shelling out. fi-fhir's CI lints its
+X12 fixture corpus with edilint on every merge request (`lint:edi` pinned to
+v0.3.0, `lint:edi-fixtures` to v0.1.0). The Homebrew cask publishes to
+`crb2nu/homebrew-tap` (created 2026-09-23, last pushed 2026-09-26, the day
+after v0.4.1) from the release workflow; the README does not mention it yet.
+
 The release pipeline now rehearses six platform archives and a multi-platform
 container after merges, scans reachable vulnerabilities with a patched Go
 compiler, and requires successful CI for the exact release commit before
 publishing a stable version tag. See [Releasing](docs/releasing.md).
 
-Evidence inspected 2026-10-03: canonical main and tags through `v0.4.1`,
-GitHub releases through `v0.4.1`, no open GitLab MRs or existing public issues,
-and the current CI/release configuration. Issues #16–#19 track fixture generation,
-targeted defects, 835 remittances, and EDIFACT messages.
+Evidence inspected 2026-10-27: canonical main at `e276147` (2026-10-04,
+pipeline 31511 green), tags through `v0.4.1` on both remotes, no open GitLab
+merge requests, no open GitHub or GitLab issues (#16–#20 closed by their
+merges), the Mills policy in platform/gitops, and the current CI/release
+configuration. No pipeline had run since the 2026-10-08 Go standard-library
+advisories; the `vulnerability` job scans with the pinned compiler, so the
+toolchain move rides this update.
 
 - **Plan store**: this file
 - **Distribution**: `go install`, GitHub release archives, and GHCR containers
@@ -177,6 +191,62 @@ the recount caution and repairs never synthesize missing segments.
 - Additional synthetic message types and defect families.
 - Community rule packs (versioned YAML rules for shop-specific conventions).
 - NCPDP batch structure checks (licensing review first).
+
+## Now — next slices (2026-10-27)
+
+Ordered. Each fits one merge request. Open a GitHub issue when picking one
+up so the work is visible outside this file.
+
+- [ ] **Cut `v0.5.0`** — move Unreleased (#16–#20 and the toolchain move)
+  under a dated heading and push the tag per [Releasing](docs/releasing.md);
+  the GitHub `ci.yml` run for the exact release commit must be green first.
+- [ ] **Bump fi-fhir's pins** — `lint:edi` (v0.3.0) and `lint:edi-fixtures`
+  (v0.1.0) in fi-fhir's `ci/` to v0.5.0 once it exists, so the dogfood job
+  checks the corpus with the current rules.
+- [ ] **Generate fi-fhir's EDI fixtures** — fi-fhir's `testdata/edi/*.edi`
+  corpus is hand-written; `edilint gen 837p` and `gen 835` with `--defect`
+  can supply deterministic pass and fail fixtures for its `internal/parser/edi`
+  tests (fi-fhir issue #15, "organize test data"). The first real consumer of
+  the generator, and the evidence the v0.5 section's riskiest assumption asks
+  for.
+- [ ] **Homebrew install documented** — `.goreleaser.yml` publishes a cask to
+  `crb2nu/homebrew-tap`; the README still offers only `go install`. Verify
+  `brew install crb2nu/tap/edilint` on the v0.5.0 tag and document it (the
+  workstream D acceptance line).
+- [ ] **Composite GitHub Action** (`crb2nu/edilint-action`, workstream D) —
+  the repository does not exist; the README's Actions snippet uses
+  `go install` instead.
+- [ ] **v1.0 exit evidence** — a listing on awesome-edi, one factual
+  announcement, and one documented pre-send catch. Maintainer work, not agent
+  work.
+- [ ] **Merge-train main dedup** — after the Mills lane below has landed a few
+  rows, decide whether main should skip re-running a tree the train proof
+  already validated (loom-core's `scripts/ci/validated_tree_skip.sh` pattern).
+  Low value here: a full main pipeline takes about five minutes.
+
+## Mills posture (2026-10-27)
+
+edilint has been admitted to the Mills cross-repo lane since 2026-09-01
+(platform/gitops `k3s/mills/configmap-policy.yaml`): `cross_repo.demand_projects`
+and `intake.gitlab.projects` list `libs/edilint`, so a GitLab issue labeled
+`mills-eligible` becomes a backlog item, as does a direct `bl-edilint-*` post;
+the protected paths are `.gitlab-ci.yml`, `.github/**`, `.goreleaser.yml`,
+`LICENSE` and `SECURITY.md` (an undeclared touch routes the run to human
+review); the budget overlay is 2 USD per run and 3 runs per day. Four items
+have merged through the lane (the 837P fixture family, the roadmap status
+refresh, the generated rule pages, and fi-fhir's dogfood job).
+
+Since platform/gitops !1005 (2026-10-27) the lane proves merge requests on
+the merged-result merge train (`merge_queue.lanes."libs/edilint"`:
+`proof_mode: merge_ref`, `train_window: 1`): the queue reads GitLab's merged
+result for the MR, creates a `mills-mq/train-*` ref at it, runs this
+repository's pipeline there, and lands the MR with no write to its source
+branch. Every job in `.gitlab-ci.yml` runs on any ref, so no CI change was
+needed. Window 1 only: a wider window needs an operator checkout of this
+repository, which exists for loom-core alone. Merges from a workstation and
+the HUD's merge-request watcher are unchanged (the hub's
+`MILLS_MERGE_QUEUE_PROJECTS` and `LOOM_MRWATCH_PROJECTS` still name loom-core
+only); widening either is a separate decision recorded in fi-fhir's ROADMAP.
 
 ---
 
