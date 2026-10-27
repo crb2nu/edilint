@@ -26,7 +26,7 @@ to have succeeded; another commit's green run does not qualify. Tag pipelines
 then repeat the quality and packaging checks with current vulnerability data.
 The final publish job rechecks eligibility immediately before publication.
 
-Both CI systems use patched Go 1.26.8 for these checks and release builds.
+Both CI systems use patched Go 1.26.9 for these checks and release builds.
 Update `.go-version` and the `.go-base` image in `.gitlab-ci.yml` together when
 updating the compiler. The separate Go 1.23 job checks compatibility only.
 GoReleaser, golangci-lint, govulncheck, and actionlint versions are pinned in

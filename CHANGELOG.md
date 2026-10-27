@@ -42,6 +42,13 @@ from its first tag.
   implementation-guide compliance. Invalid options and output failures return
   errors. See [#16](https://github.com/crb2nu/edilint/issues/16).
 
+### Security
+
+- CI and release builds use Go 1.26.9 (`.go-version`, the `.go-base` image,
+  the GitHub workflows through `go-version-file`), the patched compiler the
+  2026-10-08 Go standard-library advisories call for. The Go 1.23
+  compatibility job is unchanged.
+
 ## [0.4.1] - 2026-09-25
 
 ### Added
