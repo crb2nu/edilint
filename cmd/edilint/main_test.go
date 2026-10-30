@@ -549,6 +549,84 @@ func TestREADMEExamplesRun(t *testing.T) {
 	}
 }
 
+func TestExamplesMatchTheirTranscripts(t *testing.T) {
+	// The README and the field guide at
+	// flexinfer.ai/blog/invisible-edi-defects-field-guide print these commands
+	// with their complete output, and the field guide promises a reader can
+	// reproduce every one. Exit codes alone would not catch a reworded message,
+	// a new finding or a new link, so compare the whole transcript. The README
+	// runs from the repository root; the field guide runs from inside examples/.
+	root := repoRoot(t)
+
+	tests := []struct {
+		dir  string
+		args []string
+		want string
+		code int
+	}{
+		// The field guide.
+		{"examples", []string{"remittance.x12"}, "", exitClean},
+		{"examples", []string{"homoglyph.x12"}, `homoglyph.x12:9:12: error: [EL1005 charset.homoglyph] U+041E looks like ASCII "O" but is not; ASCII-expecting parsers will not match this value (record 9, segment N3) https://crb2nu.github.io/edilint/rules/EL1005.html
+
+1 file checked, 1 finding (1 error, 0 warning)
+`, exitFindings},
+		{"examples", []string{"shortcount.x12"}, `shortcount.x12:29: error: [EL3006 envelope.segment-count] SE01 declares 26 segment(s) from ST through SE inclusive but the file contains 27 (record 29, segment SE) https://crb2nu.github.io/edilint/rules/EL3006.html
+
+1 file checked, 1 finding (1 error, 0 warning)
+`, exitFindings},
+		{"examples", []string{"--count-rule", "TRL:2:DTL", "eligibility.psv"}, `eligibility.psv:3: error: [EL4101 fields.count-outlier] record type "DTL" has 8 field(s) here but 9 in 2 of 3 record(s) of this type; a shifted field count moves every value after the break (record 3, type DTL) https://crb2nu.github.io/edilint/rules/EL4101.html
+eligibility.psv:5: error: [EL4001 counts.mismatch] count rule TRL:2:DTL: field 2 declares 4 "DTL" record(s) but the file contains 3 (record 5, type TRL) https://crb2nu.github.io/edilint/rules/EL4001.html
+
+1 file checked, 2 findings (2 error, 0 warning)
+`, exitFindings},
+		{"examples", []string{"mixed-endings.psv"}, `mixed-endings.psv:2: error: [EL2001 terminator.mixed] line ends with CRLF but the file predominantly uses LF (LF x4, CRLF x1); mixed line endings split records inconsistently across platforms (record 2, type DTL) https://crb2nu.github.io/edilint/rules/EL2001.html
+
+1 file checked, 1 finding (1 error, 0 warning)
+`, exitFindings},
+		{"examples", []string{"--format", "fixed", "--layout", "remit-layout.json", "remit.txt"}, `remit.txt:2: warning: [EL5002 layout.padding] field "last_name" (offset 15, width 16): value is right-aligned but the layout declares padding on the right (left-aligned) (record 2, type DTL) https://crb2nu.github.io/edilint/rules/EL5002.html
+remit.txt:3: warning: [EL5002 layout.padding] field "paid_amount" (offset 31, width 10): value is padded with spaces but the layout declares "0" (record 3, type DTL) https://crb2nu.github.io/edilint/rules/EL5002.html
+remit.txt:4: error: [EL5001 layout.length] record is 48 character(s) long but layout "remittance-detail" declares 49; field "paid_date" (offset 41, width 8) is truncated (record 4, type DTL) https://crb2nu.github.io/edilint/rules/EL5001.html
+
+1 file checked, 3 findings (1 error, 2 warning)
+`, exitFindings},
+
+		// The README.
+		{".", []string{"examples/remittance.x12"}, "", exitClean},
+		{".", []string{"--count-rule", "TRL:2:DTL", "examples/eligibility.psv"}, `examples/eligibility.psv:3: error: [EL4101 fields.count-outlier] record type "DTL" has 8 field(s) here but 9 in 2 of 3 record(s) of this type; a shifted field count moves every value after the break (record 3, type DTL) https://crb2nu.github.io/edilint/rules/EL4101.html
+examples/eligibility.psv:5: error: [EL4001 counts.mismatch] count rule TRL:2:DTL: field 2 declares 4 "DTL" record(s) but the file contains 3 (record 5, type TRL) https://crb2nu.github.io/edilint/rules/EL4001.html
+
+1 file checked, 2 findings (2 error, 0 warning)
+`, exitFindings},
+		{".", []string{"--format", "fixed", "--layout", "examples/remit-layout.json", "examples/remit.txt"}, `examples/remit.txt:2: warning: [EL5002 layout.padding] field "last_name" (offset 15, width 16): value is right-aligned but the layout declares padding on the right (left-aligned) (record 2, type DTL) https://crb2nu.github.io/edilint/rules/EL5002.html
+examples/remit.txt:3: warning: [EL5002 layout.padding] field "paid_amount" (offset 31, width 10): value is padded with spaces but the layout declares "0" (record 3, type DTL) https://crb2nu.github.io/edilint/rules/EL5002.html
+examples/remit.txt:4: error: [EL5001 layout.length] record is 48 character(s) long but layout "remittance-detail" declares 49; field "paid_date" (offset 41, width 8) is truncated (record 4, type DTL) https://crb2nu.github.io/edilint/rules/EL5001.html
+
+1 file checked, 3 findings (1 error, 2 warning)
+`, exitFindings},
+		{".", []string{"stats", "examples/remittance.x12"}, `examples/remittance.x12: x12, 987 bytes, 31 segments
+  separators: element "*", sub-element ":", segment "~", repetition "^"
+  charset: basic (0 extended-only, 0 beyond extended)
+  interchanges: 1, ISA13 000000001, ISA09 dates 260115
+  groups: 1 (HP: 1), GS06 1, GS04 dates 20260115
+  transactions: 1 (835: 1), ST02 0001
+  segments by ID: DTM 3, AMT 2, CAS 2, CLP 2, N1 2, N3 2, N4 2, NM1 2, REF 2, SVC 2, BPR 1, GE 1, GS 1, IEA 1, ISA 1, LX 1, PER 1, SE 1, ST 1, TRN 1
+`, exitClean},
+	}
+	for _, tc := range tests {
+		command := strings.Join(tc.args, " ")
+		t.Run(filepath.Join(tc.dir, command), func(t *testing.T) {
+			chdir(t, filepath.Join(root, tc.dir))
+			code, stdout, stderr := exec(tc.args...)
+			if code != tc.code {
+				t.Errorf("exit = %d, want %d (stderr: %s)", code, tc.code, stderr)
+			}
+			if stdout != tc.want {
+				t.Errorf("$ edilint %s (in %s)\n--- got\n%s--- want\n%s", command, tc.dir, stdout, tc.want)
+			}
+		})
+	}
+}
+
 func TestRepeatedPathIsCheckedOnce(t *testing.T) {
 	// Overlapping globs can name the same file twice; it must not be counted
 	// twice, nor flagged as a duplicate of itself.

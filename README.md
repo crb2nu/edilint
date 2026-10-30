@@ -36,8 +36,8 @@ trailer disagrees with its contents:
 
 ```sh
 $ edilint --count-rule TRL:2:DTL examples/eligibility.psv
-examples/eligibility.psv:3: error: [EL4101 fields.count-outlier] record type "DTL" has 8 field(s) here but 9 in 2 of 3 record(s) of this type; a shifted field count moves every value after the break (record 3, type DTL)
-examples/eligibility.psv:5: error: [EL4001 counts.mismatch] count rule TRL:2:DTL: field 2 declares 4 "DTL" record(s) but the file contains 3 (record 5, type TRL)
+examples/eligibility.psv:3: error: [EL4101 fields.count-outlier] record type "DTL" has 8 field(s) here but 9 in 2 of 3 record(s) of this type; a shifted field count moves every value after the break (record 3, type DTL) https://crb2nu.github.io/edilint/rules/EL4101.html
+examples/eligibility.psv:5: error: [EL4001 counts.mismatch] count rule TRL:2:DTL: field 2 declares 4 "DTL" record(s) but the file contains 3 (record 5, type TRL) https://crb2nu.github.io/edilint/rules/EL4001.html
 
 1 file checked, 2 findings (2 error, 0 warning)
 
@@ -52,15 +52,19 @@ And a fixed-width file checked against a layout:
 
 ```sh
 $ edilint --format fixed --layout examples/remit-layout.json examples/remit.txt
-examples/remit.txt:2: warning: [EL5002 layout.padding] field "last_name" (offset 15, width 16): value is right-aligned but the layout declares padding on the right (left-aligned) (record 2, type DTL)
-examples/remit.txt:3: warning: [EL5002 layout.padding] field "paid_amount" (offset 31, width 10): value is padded with spaces but the layout declares "0" (record 3, type DTL)
-examples/remit.txt:4: error: [EL5001 layout.length] record is 48 character(s) long but layout "remittance-detail" declares 49; field "paid_date" (offset 41, width 8) is truncated (record 4, type DTL)
+examples/remit.txt:2: warning: [EL5002 layout.padding] field "last_name" (offset 15, width 16): value is right-aligned but the layout declares padding on the right (left-aligned) (record 2, type DTL) https://crb2nu.github.io/edilint/rules/EL5002.html
+examples/remit.txt:3: warning: [EL5002 layout.padding] field "paid_amount" (offset 31, width 10): value is padded with spaces but the layout declares "0" (record 3, type DTL) https://crb2nu.github.io/edilint/rules/EL5002.html
+examples/remit.txt:4: error: [EL5001 layout.length] record is 48 character(s) long but layout "remittance-detail" declares 49; field "paid_date" (offset 41, width 8) is truncated (record 4, type DTL) https://crb2nu.github.io/edilint/rules/EL5001.html
 
 1 file checked, 3 findings (1 error, 2 warning)
 ```
 
 All files under `examples/` are synthetic. The payers, providers, member
-identifiers and amounts are invented.
+identifiers and amounts are invented. `homoglyph.x12`, `shortcount.x12` and
+`mixed-endings.psv` each carry one defect (EL1005, EL3006 and EL2001); they are
+the samples in the
+[field guide to invisible EDI defects](https://flexinfer.ai/blog/invisible-edi-defects-field-guide),
+which runs every command from inside `examples/`.
 
 The synthetic `testdata/837p_claims_*.x12` corpus covers single- and multi-transaction professional claim batches plus isolated envelope, character, and terminator faults.
 
@@ -750,7 +754,7 @@ examples/remittance.x12: x12, 987 bytes, 31 segments
   interchanges: 1, ISA13 000000001, ISA09 dates 260115
   groups: 1 (HP: 1), GS06 1, GS04 dates 20260115
   transactions: 1 (835: 1), ST02 0001
-  segments by ID: DTM 3, AMT 2, CAS 2, CLP 2, N1 2, N3 2, N4 2, NM1 2, REF 2, SVC 2, BPR 1, GE 1, GS 1, IEA 1, ISA 1, LX 1, PER 1, SE 1, TRN 1
+  segments by ID: DTM 3, AMT 2, CAS 2, CLP 2, N1 2, N3 2, N4 2, NM1 2, REF 2, SVC 2, BPR 1, GE 1, GS 1, IEA 1, ISA 1, LX 1, PER 1, SE 1, ST 1, TRN 1
 ```
 
 For X12 the census covers interchange, functional group and transaction set
