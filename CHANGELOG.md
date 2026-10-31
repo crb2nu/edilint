@@ -61,6 +61,13 @@ from its first tag.
 
 ### Fixed
 
+- `fix` strips every consecutive leading UTF-8 byte order mark in one EL1001
+  repair, and the repair message says how many it took. `Fix` removed one per
+  pass, so a file that began with two marks still began with one after the
+  first pass and was repaired again by the second, contrary to the documented
+  idempotence. `FuzzEdifact` found such an input in GitHub `ci` run
+  40544409969 on 2026-10-27; it is now a committed seed under
+  `testdata/fuzz/FuzzEdifact/`. UTF-16 marks are still left alone.
 - The README's example transcripts match the binary again: finding lines end
   with the rule-reference link they have printed since 0.4.0, and the `stats`
   example's segment histogram includes the ST segment its total already

@@ -1,6 +1,7 @@
 package edilint
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strconv"
@@ -51,18 +52,33 @@ type edit struct {
 	repair     Repair
 }
 
+// utf8BOM is the UTF-8 encoding of U+FEFF, the byte order mark.
+var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
+
 // Fix computes the repaired form of data and the repairs that produce it. When
 // nothing applies it returns data unchanged and no repairs.
 //
 // Fix never repairs what it cannot read: input that is not text, and input
-// behind a UTF-16 byte order mark, come back untouched. Applying Fix to its
-// own output yields no further repairs.
+// behind a UTF-16 byte order mark, come back untouched. A run of leading
+// UTF-8 byte order marks is one repair that removes them all, so applying
+// Fix to its own output yields no further repairs.
 func Fix(data []byte, opts FixOptions) ([]byte, []Repair) {
 	body, bom := splitBOM(data)
 	if bom == "UTF-16LE" || bom == "UTF-16BE" {
 		// The bytes behind a UTF-16 byte order mark are UTF-16, and stripping
 		// the mark alone would only disguise that. Transcoding is not a repair.
 		return data, nil
+	}
+	marks := 0
+	if bom == "UTF-8" {
+		// A file saved with a mark by one tool and again by another starts
+		// with two. Every consecutive mark goes in this pass, and the rules
+		// read the body the output will have, so a second pass finds nothing.
+		marks = 1
+		for bytes.HasPrefix(body, utf8BOM) {
+			body = body[len(utf8BOM):]
+			marks++
+		}
 	}
 	if _, binary := looksBinary(body); binary {
 		return data, nil
@@ -91,24 +107,26 @@ func Fix(data []byte, opts FixOptions) ([]byte, []Repair) {
 	}
 	edits = acceptEdits(edits)
 
-	stripBOM := bom == "UTF-8"
-	if len(edits) == 0 && !stripBOM {
+	if len(edits) == 0 && marks == 0 {
 		return data, nil
 	}
 
 	repairs := make([]Repair, 0, len(edits)+1)
-	if stripBOM {
+	if marks > 0 {
+		message := "strip the UTF-8 byte order mark"
+		if marks > 1 {
+			message = fmt.Sprintf("strip %d consecutive UTF-8 byte order marks", marks)
+		}
 		repairs = append(repairs, Repair{
 			ID:      RuleID(RuleBOM),
 			Rule:    RuleBOM,
 			Line:    1,
-			Message: "strip the UTF-8 byte order mark",
+			Message: message,
 		})
 	}
+	// The only prefix splitBOM can have taken is a mark, and marks are never
+	// written back, so the output starts with the body.
 	out := make([]byte, 0, len(body))
-	if !stripBOM {
-		out = append(out, data[:len(data)-len(body)]...)
-	}
 	pos := 0
 	for _, e := range edits {
 		out = append(out, body[pos:e.start]...)
