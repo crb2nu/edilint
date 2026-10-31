@@ -1,6 +1,6 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
-> Last Updated: 2026-10-31
+> Last Updated: 2026-11-01
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
 > Tracking: [open issues](https://github.com/crb2nu/edilint/issues) — none on 2026-10-31; the Now list below is the backlog. Mills reads only GitLab issues on libs/edilint labeled `mills-eligible`, never GitHub.
 
@@ -10,27 +10,27 @@ and are non-negotiable.
 
 ## Current Status
 
-The latest published release is `v0.4.1` (2026-09-25, America/New_York).
-Install with `go install github.com/crb2nu/edilint/cmd/edilint@v0.4.1`, or use
-its [release archives](https://github.com/crb2nu/edilint/releases/tag/v0.4.1).
+The latest published release is `v0.5.0` (2026-11-01, America/New_York).
+Install with `go install github.com/crb2nu/edilint/cmd/edilint@v0.5.0`, or use
+its [release archives](https://github.com/crb2nu/edilint/releases/tag/v0.5.0).
 
 Version `v0.4.0` shipped the streaming APIs, browser build, rule references,
 acknowledgment guidance, and release gates described below. Version `v0.4.1`
-added the browser release archive. Everything for `v0.5.0` is merged and sits
-under Unreleased in CHANGELOG.md: synthetic fixture generation for 837P,
-HL7v2, 835 and EDIFACT with targeted envelope defects (#16–#19) and EDIFACT
-trailer recounts in `fix` (#20), merged 2026-10-03 and 2026-10-04; the Go
-1.26.10 toolchain move (GitLab !31, 2026-10-27); and the three samples the
-flexinfer.ai [field guide to invisible EDI
+added the browser release archive. Version `v0.5.0` ships synthetic fixture
+generation for 837P, HL7v2, 835 and EDIFACT with targeted envelope defects
+(#16–#19) and EDIFACT trailer recounts in `fix` (#20), merged 2026-10-03 and
+2026-10-04; the Go 1.26.10 toolchain move (GitLab !31, 2026-10-27); the three
+samples the flexinfer.ai [field guide to invisible EDI
 defects](https://flexinfer.ai/blog/invisible-edi-defects-field-guide) runs
 (`examples/homoglyph.x12`, `shortcount.x12`, `mixed-endings.psv`) with
 `TestExamplesMatchTheirTranscripts`, which pins the full output and exit
 status of every field-guide and README example command (GitLab !32,
-`2f7f8c8`, 2026-10-31). The tag is not cut: `internal/releasecheck` refuses a
-tag whose CHANGELOG has no dated `## [0.5.0]` section, so the release needs
-the `chore(release): prepare v0.5.0` merge request first, and one defect found
-in this review should land before it (the first Now item below). Publication
-follows the exact-commit checks in [Releasing](docs/releasing.md).
+`2f7f8c8`, 2026-10-31); and the idempotent byte order mark strip in `fix`,
+which takes every consecutive leading UTF-8 mark in one EL1001 repair
+(GitLab !34, `35a47ab6`, 2026-11-01). The `chore(release): prepare v0.5.0`
+merge request dated the CHANGELOG section that `internal/releasecheck`
+requires and removed the stale `changelog.d/` fragment. Publication follows
+the exact-commit checks in [Releasing](docs/releasing.md).
 
 `git log` records merged workstreams B (rule system foundation), A (HL7v2 batch
 and EDIFACT envelope coverage), C (SARIF, JUnit, and GitHub annotation outputs),
@@ -62,9 +62,9 @@ auto-allowed, run from the installed binary), so coding agents in this
 workspace lint interchange files without shelling out. fi-fhir's CI lints its
 X12 fixture corpus with edilint on every merge request (`lint:edi` pinned to
 v0.3.0, `lint:edi-fixtures` to v0.1.0). The Homebrew cask publishes to
-`crb2nu/homebrew-tap` from the release workflow; the tap's cask names 0.4.1
-and the tap's own CI installs it on macOS 15 (arm64 and Intel) on every cask
-push. The README still offers only `go install` and never mentions the cask,
+`crb2nu/homebrew-tap` from the release workflow, and the tap's own CI installs
+the cask on macOS 15 (arm64 and Intel) on every cask push. The README still
+offers only `go install` and never mentions the cask,
 the GHCR image or the release archives.
 
 The release pipeline now rehearses six platform archives and a multi-platform
@@ -84,9 +84,10 @@ failed its bounded fuzz pass because `Fix` strips only one of two leading
 UTF-8 byte order marks and so is not idempotent (`fix.go`, present since
 v0.3.0, visible only since #20 added the idempotence assertion to
 `FuzzEdifact`); the failing input was never committed, so later runs passed
-by chance. A build of `2f7f8c8` lints fi-fhir's seven-file EDI corpus clean
-with both of its CI command lines, so the pin bump below should change no
-finding.
+by chance. GitLab !34 (2026-11-01) fixed it and committed that input as a
+`FuzzEdifact` seed. A build of `2f7f8c8` lints fi-fhir's seven-file EDI
+corpus clean with both of its CI command lines, so the pin bump below should
+change no finding.
 
 - **Plan store**: this file
 - **Distribution**: `go install`, GitHub release archives, GHCR containers, and
@@ -226,7 +227,7 @@ scope. Open a GitHub issue when picking one up so the work is visible outside
 this file; to hand one to Mills, open the GitLab issue instead (Mills posture
 below).
 
-- [ ] **Make `fix`'s BOM strip idempotent** — `Fix` removes one leading UTF-8
+- [x] **Make `fix`'s BOM strip idempotent** — `Fix` removes one leading UTF-8
   byte order mark per pass (`stripBOM` in `fix.go`, `splitBOM` in
   `edilint.go`), so a file that starts with two marks needs two passes. That
   contradicts the doc comment's "applying Fix to its own output yields no
@@ -236,8 +237,8 @@ below).
   committed `testdata/fuzz/FuzzEdifact/` seed and a Fixed line under
   Unreleased. Accept: one repair removes every consecutive leading mark in
   every format, a second pass reports none, and the seed passes under plain
-  `go test`. Land before the tag.
-- [ ] **Cut `v0.5.0`** — rename Unreleased to `## [0.5.0] - <date>`, add an
+  `go test`. Landed as GitLab !34, 2026-11-01.
+- [x] **Cut `v0.5.0`** — rename Unreleased to `## [0.5.0] - <date>`, add an
   empty Unreleased, delete the stale
   `changelog.d/feat-bl-edilint-rules-docs-20260901-rulesdoc.added.md` (its
   content shipped in 0.4.0 and nothing folds that directory), merge, wait for
@@ -246,7 +247,9 @@ below).
   [Releasing](docs/releasing.md). Afterwards confirm the release page (six
   CLI archives, the wasm archive, checksums), `ghcr.io/crb2nu/edilint:0.5.0`,
   and the tap's cask commit with its install run; then update Current Status
-  above.
+  above. The `chore(release): prepare v0.5.0` merge request did the CHANGELOG,
+  `changelog.d/` and Current Status steps on 2026-11-01; the tag and the
+  publication checks follow Releasing.
 - [ ] **Bump fi-fhir's pins** — `lint:edi` (v0.3.0, `ci/lint-edi.yml`) and
   `lint:edi-fixtures` (v0.1.0, `ci/lint-edi-fixtures.yml`) in fi-fhir to
   v0.5.0 once it exists. A `2f7f8c8` build already lints that corpus clean
