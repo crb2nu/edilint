@@ -10,6 +10,14 @@ from its first tag.
 
 ### Added
 
+- Three synthetic samples under `examples/`, one defect each:
+  `homoglyph.x12` (EL1005), `shortcount.x12` (EL3006), and
+  `mixed-endings.psv` (EL2001). They are the samples the
+  [field guide to invisible EDI defects](https://flexinfer.ai/blog/invisible-edi-defects-field-guide)
+  runs. `TestExamplesMatchTheirTranscripts` runs every documented `examples/`
+  command from inside that directory and compares the whole output and exit
+  status, so a reworded message or a new finding fails before a published
+  transcript goes stale.
 - EDIFACT trailer recounts in `fix` and the Go `Fix` API: UNT-1 (EL7003),
   UNE-1 (EL7004), and UNZ-1 (EL7005). Repairs preserve references, payload,
   release escapes, service characters, and whitespace. Structurally ambiguous
@@ -50,6 +58,13 @@ from its first tag.
   certificates; reachable from `Generate` through the writer flush path) and
   the October standard-library advisories before it. The Go 1.23
   compatibility job is unchanged.
+
+### Fixed
+
+- The README's example transcripts match the binary again: finding lines end
+  with the rule-reference link they have printed since 0.4.0, and the `stats`
+  example's segment histogram includes the ST segment its total already
+  counted. `TestExamplesMatchTheirTranscripts` now pins them.
 
 ## [0.4.1] - 2026-09-25
 
