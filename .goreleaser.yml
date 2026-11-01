@@ -116,11 +116,18 @@ homebrew_casks:
     # The binaries are not signed or notarized, so Gatekeeper would quarantine
     # them on download. Dropping the quarantine attribute at install time is
     # goreleaser's documented approach until signing is worth its cost.
+    # install_steps renders Homebrew's declarative `postflight_steps` stanza;
+    # the legacy `install` hook rendered a Ruby `postflight` block, which
+    # Homebrew's Cask/InstallSteps cop rejects since 2026-10 (brew PR 23366)
+    # and which failed the tap's own `brew style` on the 0.5.0 cask. Homebrew
+    # master also rejects the `# No zap stanza required` comment this version
+    # renders (Cask/ZapNotRequired); GoReleaser main renders `zap :not_required`
+    # but no stable release carries it yet (ROADMAP.md, Now).
     hooks:
       post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/edilint"]
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/edilint"]
           end
 
 # The image is built from scratch: a static binary and nothing else. edilint

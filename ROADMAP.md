@@ -63,7 +63,15 @@ workspace lint interchange files without shelling out. fi-fhir's CI lints its
 X12 fixture corpus with edilint on every merge request (`lint:edi` pinned to
 v0.3.0, `lint:edi-fixtures` to v0.1.0). The Homebrew cask publishes to
 `crb2nu/homebrew-tap` from the release workflow, and the tap's own CI installs
-the cask on macOS 15 (arm64 and Intel) on every cask push. The README still
+the cask on macOS 15 (arm64 and Intel) on every cask push. The 0.5.0 cask push
+(tap commit `21e3f804`) failed that CI's arm64 `brew style` step: Homebrew's
+`Cask/InstallSteps` cop (brew PR 23366) rejects the legacy `postflight` block
+GoReleaser v2.18.2 emitted; the Intel runner's older Homebrew passed, the
+checksums match and `brew install` never runs the style check. A follow-up
+merge request moves GoReleaser to v2.19.0 and the hook to
+`hooks.post.install_steps`, which renders `postflight_steps`, so the next
+release's cask passes; the 0.5.0 cask file in the tap keeps the legacy stanza
+until it is regenerated or hand-edited. The README still
 offers only `go install` and never mentions the cask,
 the GHCR image or the release archives.
 
@@ -227,6 +235,20 @@ scope. Open a GitHub issue when picking one up so the work is visible outside
 this file; to hand one to Mills, open the GitLab issue instead (Mills posture
 below).
 
+- [ ] **GoReleaser v2.20.0 for `zap :not_required`** — Homebrew master (7.0.11
+  on 2026-11-01) adds `Cask/ZapNotRequired`, which rejects the `# No zap
+  stanza required` comment GoReleaser v2.19.0 renders when no zap is
+  configured; GoReleaser main already renders `zap :not_required`
+  (`internal/pipe/cask/template.go`, `zapString`) but the newest stable
+  release is v2.19.0 and v2.20.0 exists only as nightlies. The tap's arm64
+  `brew style` will fail on the next cask push once the runner's Homebrew
+  carries that cop (its 2026-11-01 run did not yet). When v2.20.0 ships, move
+  the three `goreleaser-action` pins (`.github/workflows/ci.yml` x2,
+  `.github/workflows/release.yml`) and `docs/releasing.md` to it, re-run the
+  snapshot rehearsal and `brew style` the rendered cask against Homebrew
+  master (`brew update --force` inside a `homebrew/brew` container reaches
+  it; the Docker Hub image itself is stuck at 4.6.20). Owns only those four
+  files.
 - [x] **Make `fix`'s BOM strip idempotent** — `Fix` removes one leading UTF-8
   byte order mark per pass (`stripBOM` in `fix.go`, `splitBOM` in
   `edilint.go`), so a file that starts with two marks needs two passes. That
