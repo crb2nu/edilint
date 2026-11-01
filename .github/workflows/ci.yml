@@ -132,7 +132,7 @@ jobs:
 
       - uses: goreleaser/goreleaser-action@v6
         with:
-          version: v2.18.2
+          version: v2.19.0
           args: check
 
   # go.mod claims a floor of Go 1.23. This job is what keeps that claim honest:
@@ -181,7 +181,7 @@ jobs:
           go-version-file: .go-version
       - uses: goreleaser/goreleaser-action@v6
         with:
-          version: v2.18.2
+          version: v2.19.0
           args: release --snapshot --clean --skip=publish,docker --parallelism=2
         env:
           TAP_GITHUB_TOKEN: ""

@@ -46,7 +46,7 @@ artifact to inspect the six archives, `checksums.txt`, and `metadata.json`.
 Artifacts expire after seven days. This workflow cannot publish a release.
 
 For a local rehearsal, use the Go version from `.go-version` and GoReleaser
-v2.18.2:
+v2.19.0:
 
 ```sh
 export GOTOOLCHAIN="go$(cat .go-version)"

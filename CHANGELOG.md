@@ -8,6 +8,18 @@ from its first tag.
 
 ## [Unreleased]
 
+### Changed
+
+- The release builds with GoReleaser v2.19.0 and the Homebrew cask's
+  quarantine hook is declared as `hooks.post.install_steps`, so the generated
+  cask carries Homebrew's declarative `postflight_steps` stanza (`on_macos`,
+  `run`) instead of a Ruby `postflight` block. Homebrew's `Cask/InstallSteps`
+  cop rejects the legacy block, which failed the tap's `brew style` on the
+  0.5.0 cask push (Apple silicon runner only; install was unaffected).
+  Homebrew master adds a `Cask/ZapNotRequired` cop that rejects the
+  `# No zap stanza required` comment v2.19.0 still renders; the fix is on
+  GoReleaser's main branch and waits for its next stable release.
+
 ## [0.5.0] - 2026-11-01
 
 ### Added
