@@ -8,6 +8,8 @@ from its first tag.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-01
+
 ### Added
 
 - Three synthetic samples under `examples/`, one defect each:
