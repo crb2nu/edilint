@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\xef\xbb\xbf\xef\xbb\xbfUNA:+.? 'UNB+UNOC:3+S+R+260101:1200+1'UNH+1+ORDERS:D:96A:UN'UNT+2+1'UNZ+1+1'")

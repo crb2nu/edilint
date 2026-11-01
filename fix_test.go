@@ -2,6 +2,7 @@ package edilint
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -343,5 +344,55 @@ func TestFixIsIdempotentOnDefectiveFixtures(t *testing.T) {
 				t.Errorf("second Fix still found %d repair(s): %+v", len(repairs), repairs)
 			}
 		})
+	}
+}
+
+// TestFixStripsEveryLeadingBOMAtOnce covers the idempotence of the EL1001
+// repair. A file saved with a byte order mark by one tool and again by another
+// starts with two, and Fix once stripped one per pass, so its output still
+// carried a mark and a second pass repaired it again. FuzzEdifact caught that;
+// the seed under testdata/fuzz/FuzzEdifact/ is the input it found.
+func TestFixStripsEveryLeadingBOMAtOnce(t *testing.T) {
+	payloads := []struct {
+		format Format
+		clean  string
+	}{
+		{FormatX12, interchange("ST*835*0001~", "BPR*I*4250.75*C*ACH*CCP~", "SE*3*0001~")},
+		{FormatEdifact, "UNA:+.? 'UNB+UNOC:3+S+R+260101:1200+1'UNH+1+ORDERS:D:96A:UN'UNT+2+1'UNZ+1+1'"},
+		{FormatHL7v2, "MSH|^~\\&|A|B|C|D|20260115||ADT^A08|1|P|2.5.1\nPID|1|X\n"},
+		{FormatDelimited, "HDR|A|B\nDTL|RIVERA|D\nTRL|1\n"},
+	}
+	for _, p := range payloads {
+		for _, marks := range []int{2, 3} {
+			t.Run(fmt.Sprintf("%s with %d marks", p.format, marks), func(t *testing.T) {
+				if got := Detect([]byte(p.clean), Options{}); got != p.format {
+					t.Fatalf("Detect = %s, want %s", got, p.format)
+				}
+				if _, repairs := Fix([]byte(p.clean), FixOptions{}); len(repairs) != 0 {
+					t.Fatalf("the payload must be clean on its own, got %+v", repairs)
+				}
+
+				input := append(bytes.Repeat(utf8BOM, marks), p.clean...)
+				out, repairs := Fix(input, FixOptions{})
+				if len(repairs) != 1 || repairs[0].Rule != RuleBOM || repairs[0].Line != 1 {
+					t.Fatalf("repairs = %+v, want one %s repair on line 1", repairs, RuleBOM)
+				}
+				want := fmt.Sprintf("strip %d consecutive UTF-8 byte order marks", marks)
+				if repairs[0].Message != want {
+					t.Errorf("Message = %q, want %q", repairs[0].Message, want)
+				}
+				if string(out) != p.clean {
+					t.Errorf("Fix output %q, want %q", out, p.clean)
+				}
+				if rep := Lint("bom", out, Options{}); countRule(rep, RuleBOM) != 0 {
+					t.Errorf("the output still has a %s finding", RuleBOM)
+				}
+
+				again, more := Fix(out, FixOptions{})
+				if len(more) != 0 || !bytes.Equal(again, out) {
+					t.Errorf("the second pass repaired again: %+v", more)
+				}
+			})
+		}
 	}
 }

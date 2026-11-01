@@ -390,7 +390,7 @@ Usage:
 Applies the repairs whose correct form the file itself determines, each tied
 to the rule it clears:
 
-  EL1001  strip a UTF-8 byte order mark
+  EL1001  strip every leading UTF-8 byte order mark
   EL2001  rewrite minority line terminators to the file's dominant style
   EL2002  append the missing final record terminator
   EL2003  append the declared X12 segment terminator a trailing segment lost
