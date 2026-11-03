@@ -518,16 +518,27 @@ func repoRoot(t *testing.T) string {
 	return root
 }
 
+// readmeTranscriptAllowlist names README sh-block commands whose illustrative
+// inputs are deliberately not shipped in examples/. TestREADMETranscriptsMatch
+// skips them and fails if one of them disappears from the README.
+var readmeTranscriptAllowlist = []string{
+	"edilint diff ours.x12 theirs.x12",
+}
+
 func TestREADMETranscriptsMatch(t *testing.T) {
 	root := repoRoot(t)
 	readme, err := os.ReadFile(filepath.Join(root, "README.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Transcripts print examples/... paths, so run from the repository root;
+	// chdir restores the previous working directory in t.Cleanup.
 	chdir(t, root)
 
-	// These illustrative inputs are deliberately not shipped in examples/.
-	allowlist := map[string]bool{"edilint diff ours.x12 theirs.x12": false}
+	allowlist := make(map[string]bool, len(readmeTranscriptAllowlist))
+	for _, command := range readmeTranscriptAllowlist {
+		allowlist[command] = false
+	}
 	// Ignore trailing horizontal whitespace and the blank separator before a
 	// shell prompt, while preserving indentation and internal blank lines.
 	normalize := func(s string) string {
@@ -538,11 +549,17 @@ func TestREADMETranscriptsMatch(t *testing.T) {
 		return strings.TrimRight(strings.Join(lines, "\n"), "\n")
 	}
 	lines := strings.Split(string(readme), "\n")
-	inShell := false
+	// inFence tracks any fenced block; inShell is true only inside a ```sh one,
+	// so commands quoted in ```go or ```yaml blocks are never run.
+	inFence, inShell := false, false
 	ran := 0
 	for i := 0; i < len(lines); i++ {
 		if strings.HasPrefix(lines[i], "```") {
-			inShell = !inShell && lines[i] == "```sh"
+			if inFence {
+				inFence, inShell = false, false
+			} else {
+				inFence, inShell = true, strings.TrimSpace(lines[i]) == "```sh"
+			}
 			continue
 		}
 		if !inShell || !strings.HasPrefix(lines[i], "$ edilint ") {
