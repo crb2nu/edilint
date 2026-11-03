@@ -19,9 +19,48 @@ codes. Nothing you paste leaves the page.
 
 ## Install
 
+With Go 1.23 or later:
+
 ```sh
-go install github.com/crb2nu/edilint/cmd/edilint@latest
+go install github.com/crb2nu/edilint/cmd/edilint@v0.5.0
 ```
+
+Replace `@v0.5.0` with `@latest` to take the newest release.
+
+With [Homebrew](https://brew.sh) on macOS:
+
+```sh
+brew install crb2nu/tap/edilint
+```
+
+Homebrew refuses `brew audit` and `brew info` on a third-party tap it has not
+been told to trust, so run `brew trust --cask crb2nu/tap/edilint` before either.
+
+Without a toolchain, download a prebuilt binary from the
+[v0.5.0 release](https://github.com/crb2nu/edilint/releases/tag/v0.5.0):
+`.tar.gz` archives for darwin and linux on amd64 and arm64, `.zip` archives for
+windows on amd64 and arm64, `edilint_0.5.0_wasm.tar.gz` with the WebAssembly
+build, and `checksums.txt` with the SHA-256 of each. For example, on linux
+amd64:
+
+```sh
+curl -fsSLO https://github.com/crb2nu/edilint/releases/download/v0.5.0/edilint_0.5.0_linux_amd64.tar.gz
+curl -fsSLO https://github.com/crb2nu/edilint/releases/download/v0.5.0/checksums.txt
+sha256sum --check --ignore-missing checksums.txt
+tar -xzf edilint_0.5.0_linux_amd64.tar.gz edilint
+```
+
+On macOS, check the archive with `shasum -a 256 --check --ignore-missing checksums.txt`.
+
+As a container (linux/amd64 and linux/arm64), mounting the current directory
+at `/work`:
+
+```sh
+docker run --rm -v "$PWD:/work" ghcr.io/crb2nu/edilint:0.5.0 /work/<file>
+```
+
+`@latest` and the `:latest` image tag track the newest release; the pinned
+`v0.5.0` and `0.5.0` stay put.
 
 ## 30-second example
 
@@ -168,13 +207,12 @@ Severities map onto each format's own vocabulary the same way: `error` and
 `warning` keep their names, and `info` becomes SARIF `note`, JUnit `skipped`,
 and Actions `notice` — rendered, never gating.
 
-As a [pre-commit](https://pre-commit.com) hook, once a tagged release exists
-to pin:
+As a [pre-commit](https://pre-commit.com) hook:
 
 ```yaml
 repos:
   - repo: https://github.com/crb2nu/edilint
-    rev: <a released tag>
+    rev: v0.5.0
     hooks:
       - id: edilint
 ```
