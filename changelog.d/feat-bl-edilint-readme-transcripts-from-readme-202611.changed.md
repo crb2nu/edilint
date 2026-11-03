@@ -1,1 +1,0 @@
-- Verify README shell transcripts against CLI output and exit statuses in `cmd/edilint/main_test.go`, replacing the exit-code-only README example test.
