@@ -14,6 +14,13 @@ The latest published release is `v0.5.0` (2026-11-01, America/New_York).
 Install with `go install github.com/crb2nu/edilint/cmd/edilint@v0.5.0`, or use
 its [release archives](https://github.com/crb2nu/edilint/releases/tag/v0.5.0).
 
+On 2026-11-03 `.gitlab-ci.yml` gained its first `workflow:` block (GitLab
+!38): push pipelines on Mills' `mills-mq/` train refs are refused, so a
+merge-train row here is proven by the one pipeline the queue mints through
+the API; !38 itself was the first edilint row to merge through the train
+(Mills posture below). The same day three `bl-edilint-*` rows were posted
+for the Now list and the first was in review within the hour.
+
 Version `v0.4.0` shipped the streaming APIs, browser build, rule references,
 acknowledgment guidance, and release gates described below. Version `v0.4.1`
 added the browser release archive. Version `v0.5.0` ships synthetic fixture
@@ -229,13 +236,36 @@ the recount caution and repairs never synthesize missing segments.
 
 ## Now
 
-Next slices as of 2026-10-31, ordered. Each fits one merge request and names
-the paths it owns, so a Mills run or a person can take it without widening
-scope. Open a GitHub issue when picking one up so the work is visible outside
-this file; to hand one to Mills, open the GitLab issue instead (Mills posture
-below).
+Next slices as of 2026-11-03, ordered. Each fits one merge request and names
+the paths it owns in its first line, so a Mills run or a person can take it
+without widening scope and the roadmap carder, if it is ever turned on for
+this repository, cards the action and its paths. Open a GitHub issue when
+picking one up by hand so the work is visible outside this file; to hand one
+to Mills, post a `bl-edilint-*` row with the files declared (Mills posture
+below). Items already in the lane name their row id.
 
-- [ ] **GoReleaser v2.20.0 for `zap :not_required`** — Homebrew master (7.0.11
+### Mills push (2026-11-03)
+
+The push through the Mills lane, in order: `bl-edilint-readme-transcripts-from-readme-202611`
+(the README transcript test; dispatched within a minute of posting, in
+review the same hour), `bl-edilint-install-channels-readme-202611` (every
+install channel documented, pre-commit pinned), and
+`bl-edilint-composite-action-root-action-yml-202611` (the Action as a root
+`action.yml` plus a smoke workflow; its `.github/**` touches are declared, so
+that merge request waits for the maintainer). The budget overlay (2 USD per
+run, 3 runs per day) paces them over two days. Gated behind other evidence,
+not posted: the X12 834 generator (Exploration) waits for the fi-fhir fixtures
+row to report whether structural fixtures served a real consumer; the
+GoReleaser v2.20.0 move waits for that release. Stays with the maintainer:
+v1.0 exit evidence, and cutting `v0.6.0` once the three rows have landed
+(Releasing, with the 2026-11-01 recipe). Kill-test for the lane itself: the
+first row merges through the train on an `api`-source proof; if it escalates
+on the devbox or the protected-path hold instead, the other two are held
+until the cause is known.
+
+- [ ] **Move `.github/workflows/ci.yml`, `.github/workflows/release.yml` and
+  `docs/releasing.md` to GoReleaser v2.20.0 once it ships, for `zap
+  :not_required`** — Homebrew master (7.0.11
   on 2026-11-01) adds `Cask/ZapNotRequired`, which rejects the `# No zap
   stanza required` comment GoReleaser v2.19.0 renders when no zap is
   configured; GoReleaser main already renders `zap :not_required`
@@ -279,20 +309,28 @@ below).
   mirrors. Both command lines, run with the v0.5.0 binary, report the
   seven-file corpus clean, so the bump changed no finding; growing the
   corpus stays with the fixtures item below.
-- [ ] **Generate fi-fhir's EDI fixtures** — fi-fhir's `testdata/edi/*.edi`
-  corpus is seven hand-written files; `edilint gen 837p` and `gen 835` with
+- [ ] **Generate fi-fhir's EDI fixtures with `edilint gen 837p` and `gen 835
+  --defect`** — in the fi-fhir lane as
+  `bl-fifhir-edi-fixtures-from-edilint-gen-202611` (posted 2026-11-03), whose
+  merge request reports back whether the fixtures sufficed. fi-fhir's
+  `testdata/edi/*.edi` corpus is seven hand-written files; `edilint gen 837p` and `gen 835` with
   `--defect` can supply deterministic pass and fail fixtures for its
   `internal/parser/edi` tests (fi-fhir issue #15). The first real consumer of
   the generator, and the evidence the v0.5 section's riskiest assumption asks
   for; it gates any further message type (see Exploration).
-- [ ] **Install channels documented** — the tap's own CI already installs the
+- [ ] **Document every install channel in `README.md` (pinned `go install`,
+  Homebrew, release archives, GHCR) and pin the pre-commit example** — in the
+  lane as `bl-edilint-install-channels-readme-202611` (posted 2026-11-03).
+  The tap's own CI already installs the
   cask on macOS 15 arm64 and Intel on every cask push, so the workstream D
   acceptance line is proven by machine; what is missing is the README
   (`README.md` Install): `brew install crb2nu/tap/edilint`, the release
   archives, `docker run --rm -v "$PWD:/work" ghcr.io/crb2nu/edilint:<version>
   /work/<file>`, and the pre-commit paragraph's "once a tagged release exists
   to pin", stale since v0.1.0. Owns `README.md` and a CHANGELOG line.
-- [ ] **README transcripts read from the README** —
+- [ ] **Add `TestREADMETranscriptsMatch` to `cmd/edilint/main_test.go` and delete
+  `TestREADMEExamplesRun`** — in the lane as
+  `bl-edilint-readme-transcripts-from-readme-202611` (dispatched 2026-11-03).
   `TestExamplesMatchTheirTranscripts` (`cmd/edilint/main_test.go`) pins
   output against literals in the test, so the README can drift from the test
   without failing anything, and a message change must be copied to three
@@ -303,13 +341,17 @@ below).
   theirs.x12` example through an explicit allowlist; delete the now-redundant
   `TestREADMEExamplesRun`. Owns `cmd/edilint/main_test.go` only. Accept:
   changing one character of a README transcript fails the test.
-- [ ] **Composite GitHub Action** (workstream D) — `crb2nu/edilint-action`
-  does not exist; the README's Actions snippet uses `go install`. Maintainer
-  decision between a separate repository and a root `action.yml` here
-  (`uses: crb2nu/edilint@v0.5.0`); either way, accept when a demo workflow
-  with `files`, `format` and `baseline` inputs goes red on
-  `examples/shortcount.x12` and green on `examples/remittance.x12`. Touches
-  `.github/**`, a Mills-protected path, so not lane work.
+- [ ] **Composite GitHub Action as a root `action.yml` with a smoke workflow
+  `.github/workflows/action-smoke.yml`** (workstream D) — decided 2026-11-03:
+  the Action lives in this repository, referenced as
+  `uses: crb2nu/edilint@v0.5.0` (the mirror already carries the tags; a
+  separate `crb2nu/edilint-action` would need its own release train), with
+  `files`, `format`, `baseline` and `version` inputs and `go install` inside
+  for v1. In the lane as `bl-edilint-composite-action-root-action-yml-202611`
+  with the `.github/**` touches declared, so its merge request is held for
+  the maintainer's review. Accept when the smoke workflow on the mirror goes
+  red on `examples/shortcount.x12` and green on `examples/remittance.x12`;
+  the README's Actions snippet switches to `uses:` in the same change.
 - [ ] **v1.0 exit evidence** — a listing on awesome-edi, one factual
   announcement (the field guide is a long-form post on flexinfer.ai; whether
   it counts is the maintainer's call), and one documented pre-send catch.
@@ -321,6 +363,20 @@ below).
   main's duration changes.
 
 ## Mills posture (2026-10-31)
+
+**2026-11-03 update.** GitLab !38 added the `workflow:` never-rule for push
+pipelines on `mills-mq/` refs and was itself the first edilint row through
+the merge train: enqueued at 16:50 UTC, train ref
+`mills-mq/train-libs-edilint-38-4ecef0a8`, no push pipeline, one
+`api`-source proof (pipeline 37257, nine jobs, all green), merged at 16:54 as
+`e9cb20cc`. Protected paths are now seven: platform/gitops !1049 added
+`scripts/mirror-github.sh` and `internal/releasecheck/**`. Three
+`bl-edilint-*` rows were posted the same day (Now, "Mills push"); the first
+was dispatched within a minute and in review within the hour. One trap for
+desktop-app sessions: the GitLab MCP merge tool there has no queue URL in its
+environment and merges directly, so a row is enqueued with
+`POST $MILLS_MERGE_QUEUE_URL/api/mills/merge-queue/enqueue` instead. The
+rest of this section is the 2026-10-31 reading and stays as the record.
 
 edilint has been in the Mills cross-repo lane since 2026-09-01 (platform/gitops
 `k3s/mills/configmap-policy.yaml`; loom-core's HUD `SPAWN_PROJECTS`). Intake
@@ -336,16 +392,16 @@ which runs with the GitHub mirror token on main, and the
 `internal/releasecheck` tag gate are not, and should be. The budget overlay is
 2 USD per run and 3 runs per day. Four items merged through the lane, all in
 September (the 837P fixture family, the roadmap status refresh, the generated
-rule pages, fi-fhir's dogfood job); nothing has been posted since, and no
-`mills-eligible` issue has ever existed here.
+rule pages, fi-fhir's dogfood job); nothing was posted between then and
+2026-11-03, and no `mills-eligible` issue has ever existed here.
 
 Since [platform/gitops MR !1005](https://gitlab.flexinfer.ai/platform/gitops/-/merge_requests/1005)
 (2026-10-27) the lane proves merge requests on the merged-result train
-(`proof_mode: merge_ref`, `train_window: 1`). No edilint row has used it: the
-project has no `mills-mq/train-*` ref, and
+(`proof_mode: merge_ref`, `train_window: 1`). Until 2026-11-03 no edilint
+row had used it:
 [MR !31](https://gitlab.flexinfer.ai/libs/edilint/-/merge_requests/31) and
 [MR !32](https://gitlab.flexinfer.ai/libs/edilint/-/merge_requests/32) were
-merged directly. Every job here runs on any ref, so a train ref's push
+merged directly; !38 was the first (update above). Every job here runs on any ref, so a train ref's push
 pipeline would run the full gating set, and the queue's habit of adopting a
 green push pipeline would have been a real proof in this repository, unlike
 in fi-fhir, whose four train merges were proven by a one-job pipeline
@@ -374,10 +430,10 @@ bullet's first line; the heading above is exactly `Now` for that reason, and
 the first line of each item should carry the action and its paths before
 carding is turned on. Two Now items are shaped for the lane and avoid every
 protected path: the idempotent BOM strip (`fix.go`, `fix_test.go`, a fuzz
-seed, CHANGELOG) and the README transcript guard (`cmd/edilint/main_test.go`
-only); post them as `bl-edilint-*` items with those files as slices. The
-install-channels README item is within budget but judgment-heavy, and the
-Action touches `.github/**`; both stay with the maintainer.
+seed, CHANGELOG), which landed as !34 by hand, and the README transcript
+guard (`cmd/edilint/main_test.go` only), posted on 2026-11-03 together with
+the install-channels README item and the Action (the latter with its
+`.github/**` touches declared, so it is held for review rather than refused).
 
 ---
 
