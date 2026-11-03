@@ -12,6 +12,23 @@ include:
   - project: 'services/tech-radar'
     file: '/ci/radar.yml'
 
+# Pipeline admission. The Mills merge queue proves a merge request on a
+# queue-owned mills-mq/train-* ref and pipelines that ref explicitly through
+# the API with MILLS_MERGE_QUEUE=1. The ref update must not mint a push
+# pipeline as well: the queue adopts any live pipeline it finds on the ref
+# before minting its own, which is how fi-fhir's first four train rows
+# (2026-10-29/30) were "proven" by a one-job push pipeline. Every job here
+# runs on any ref, so a push pipeline on a train ref would run the whole
+# gating set today; the rule still keeps one proof per train and matches
+# services/loom-core and libs/fi-fhir ahead of the queue requiring its own
+# api-source proof. Every other source keeps the pre-2026-11-03 behavior,
+# when this file had no workflow block and every source minted a pipeline.
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^mills-mq\//'
+      when: never
+    - when: always
+
 stages: [lint, test, build, mirror]
 
 variables:

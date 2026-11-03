@@ -272,11 +272,13 @@ below).
   above. The `chore(release): prepare v0.5.0` merge request did the CHANGELOG,
   `changelog.d/` and Current Status steps on 2026-11-01; the tag and the
   publication checks follow Releasing.
-- [ ] **Bump fi-fhir's pins** — `lint:edi` (v0.3.0, `ci/lint-edi.yml`) and
-  `lint:edi-fixtures` (v0.1.0, `ci/lint-edi-fixtures.yml`) in fi-fhir to
-  v0.5.0 once it exists. A `2f7f8c8` build already lints that corpus clean
-  with both command lines, so the bump should be a two-line, no-finding
-  change.
+- [x] **Bump fi-fhir's pins** — closed 2026-11-01 by fi-fhir
+  [MR !289](https://gitlab.flexinfer.ai/libs/fi-fhir/-/merge_requests/289):
+  `lint:edi` (`ci/lint-edi.yml`, from v0.3.0) and `lint:edi-fixtures`
+  (`ci/lint-edi-fixtures.yml`, from v0.1.0) pin v0.5.0, with the Makefile
+  mirrors. Both command lines, run with the v0.5.0 binary, report the
+  seven-file corpus clean, so the bump changed no finding; growing the
+  corpus stays with the fixtures item below.
 - [ ] **Generate fi-fhir's EDI fixtures** — fi-fhir's `testdata/edi/*.edi`
   corpus is seven hand-written files; `edilint gen 837p` and `gen 835` with
   `--defect` can supply deterministic pass and fail fixtures for its
@@ -344,12 +346,14 @@ project has no `mills-mq/train-*` ref, and
 [MR !31](https://gitlab.flexinfer.ai/libs/edilint/-/merge_requests/31) and
 [MR !32](https://gitlab.flexinfer.ai/libs/edilint/-/merge_requests/32) were
 merged directly. Every job here runs on any ref, so a train ref's push
-pipeline runs the full gating set, and the queue's current habit of adopting
-a green push pipeline is a real proof in this repository. It is not in
-fi-fhir, whose four train merges were proven by a one-job pipeline (fi-fhir
-ROADMAP, Mills posture). When the queue is changed to require its own API
-proof, add loom-core's never-rule for push pipelines on `mills-mq/` refs
-here, or each train runs the pipeline twice. The CI image matches
+pipeline would run the full gating set, and the queue's habit of adopting a
+green push pipeline would have been a real proof in this repository, unlike
+in fi-fhir, whose four train merges were proven by a one-job pipeline
+(fi-fhir ROADMAP, Mills posture). Since 2026-11-03 `.gitlab-ci.yml` carries
+loom-core's `workflow:` never-rule for push pipelines on `mills-mq/` refs,
+so a train here has exactly one proof, the pipeline the queue mints through
+the API with `MILLS_MERGE_QUEUE=1`, ahead of the queue requiring its own
+`api`-source proof (a loom-core item). The CI image matches
 `.go-version` (1.26.10) and main pipelines take 6 to 12 minutes, so
 main-pipeline dedup is not worth doing. Window 1 only: a wider window needs
 an operator checkout of this repository, which exists for loom-core alone.
