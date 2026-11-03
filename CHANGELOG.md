@@ -10,6 +10,8 @@ from its first tag.
 
 ### Changed
 
+- README documents the Homebrew, release-archive and container install
+  channels and pins the pre-commit example to `rev: v0.5.0`.
 - The release builds with GoReleaser v2.19.0 and the Homebrew cask's
   quarantine hook is declared as `hooks.post.install_steps`, so the generated
   cask carries Homebrew's declarative `postflight_steps` stanza (`on_macos`,
