@@ -7,6 +7,7 @@ import (
 	osexec "os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -517,35 +518,92 @@ func repoRoot(t *testing.T) string {
 	return root
 }
 
-func TestREADMEExamplesRun(t *testing.T) {
-	// Every example command in the README must behave as the README claims.
+func TestREADMETranscriptsMatch(t *testing.T) {
 	root := repoRoot(t)
-	example := func(name string) string { return filepath.Join(root, "examples", name) }
-
-	tests := []struct {
-		name string
-		args []string
-		want int
-	}{
-		{"clean remittance", []string{example("remittance.x12")}, exitClean},
-		{
-			"eligibility extract",
-			[]string{"--count-rule", "TRL:2:DTL", example("eligibility.psv")},
-			exitFindings,
-		},
-		{
-			"fixed-width remittance",
-			[]string{"--format", "fixed", "--layout", example("remit-layout.json"), example("remit.txt")},
-			exitFindings,
-		},
+	readme, err := os.ReadFile(filepath.Join(root, "README.md"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			code, _, stderr := exec(tc.args...)
-			if code != tc.want {
-				t.Errorf("exit = %d, want %d (stderr: %s)", code, tc.want, stderr)
+	chdir(t, root)
+
+	// These illustrative inputs are deliberately not shipped in examples/.
+	allowlist := map[string]bool{"edilint diff ours.x12 theirs.x12": false}
+	// Ignore trailing horizontal whitespace and the blank separator before a
+	// shell prompt, while preserving indentation and internal blank lines.
+	normalize := func(s string) string {
+		lines := strings.Split(s, "\n")
+		for i := range lines {
+			lines[i] = strings.TrimRight(lines[i], " \t\r")
+		}
+		return strings.TrimRight(strings.Join(lines, "\n"), "\n")
+	}
+	lines := strings.Split(string(readme), "\n")
+	inShell := false
+	ran := 0
+	for i := 0; i < len(lines); i++ {
+		if strings.HasPrefix(lines[i], "```") {
+			inShell = !inShell && lines[i] == "```sh"
+			continue
+		}
+		if !inShell || !strings.HasPrefix(lines[i], "$ edilint ") {
+			continue
+		}
+		command := strings.TrimPrefix(lines[i], "$ ")
+		start := i + 1
+		end := start
+		for end < len(lines) && !strings.HasPrefix(lines[end], "$ ") && !strings.HasPrefix(lines[end], "```") {
+			end++
+		}
+		if _, ok := allowlist[command]; ok {
+			allowlist[command] = true
+			continue
+		}
+		args := strings.Fields(command)[1:]
+		eligible, hasInput := true, false
+		for _, arg := range args {
+			// Options and values such as "fixed" or "TRL:2:DTL" aren't paths.
+			if strings.HasPrefix(arg, "-") || !strings.ContainsAny(arg, "/.\\") {
+				continue
+			}
+			hasInput = true
+			clean := filepath.ToSlash(filepath.Clean(arg))
+			info, err := os.Stat(arg)
+			if !strings.HasPrefix(clean, "examples/") || err != nil || info.IsDir() {
+				eligible = false
+			}
+		}
+		if !eligible || !hasInput {
+			t.Logf("skipping README command without existing example inputs: %s", command)
+			continue
+		}
+		ran++
+		t.Run(command, func(t *testing.T) {
+			code, stdout, stderr := exec(args...)
+			want := normalize(strings.Join(lines[start:end], "\n"))
+			if got := normalize(stdout + stderr); got != want {
+				t.Errorf("README line %d transcript mismatch:\ngot:\n%s\nwant:\n%s", start, got, want)
+			}
+			if end < len(lines) && lines[end] == "$ echo $?" {
+				if end+1 >= len(lines) {
+					t.Fatal("missing exit status after $ echo $?")
+				}
+				wantCode, err := strconv.Atoi(strings.TrimSpace(lines[end+1]))
+				if err != nil {
+					t.Fatalf("invalid README exit status %q: %v", lines[end+1], err)
+				}
+				if code != wantCode {
+					t.Errorf("exit = %d, want %d", code, wantCode)
+				}
 			}
 		})
+	}
+	if ran == 0 {
+		t.Error("no eligible README commands found")
+	}
+	for command, seen := range allowlist {
+		if !seen {
+			t.Errorf("allowlisted command no longer appears in README: %s", command)
+		}
 	}
 }
 
