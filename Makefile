@@ -42,7 +42,18 @@ FUZZ_TARGETS ?= FuzzParseYAML FuzzX12 FuzzHL7Batch FuzzEdifact FuzzDelimited Fuz
 
 fuzz: ## Fuzz every parser (10s each, two workers; override FUZZ_TIME/FUZZ_TARGETS)
 	@set -e; for target in $(FUZZ_TARGETS); do \
-		go test -run '^$$' -fuzz "^$$target$$" -fuzztime $(FUZZ_TIME) -parallel $(FUZZ_WORKERS) -timeout 2m .; \
+		attempt=1; \
+		while :; do \
+			log=$$(mktemp); \
+			if go test -run '^$$' -fuzz "^$$target$$" -fuzztime $(FUZZ_TIME) -parallel $(FUZZ_WORKERS) -timeout 2m . >$$log 2>&1; then cat $$log; rm -f $$log; break; fi; \
+			cat $$log; \
+			if [ $$attempt -lt 2 ] && grep -q 'context deadline exceeded' $$log && ! grep -q 'Failing input written to' $$log; then \
+				rm -f $$log; attempt=$$((attempt+1)); \
+				echo "fuzz $$target: the fuzzing engine hit its own deadline on a slow runner with no failing input; retrying once"; \
+				continue; \
+			fi; \
+			rm -f $$log; exit 1; \
+		done; \
 	done
 
 bench: ## Check allocation budgets and measure lint throughput and memory
