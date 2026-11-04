@@ -8,6 +8,19 @@ from its first tag.
 
 ## [Unreleased]
 
+### Changed
+
+- The composite Action accepts `version: source` and builds edilint from the
+  checkout it runs from (the repository under `uses: ./`, the pinned ref under
+  `uses: crb2nu/edilint@<ref>`), without consulting the module proxy. The
+  `action-smoke` workflow uses it on pushes and pull requests and proves the
+  released default only on tag pushes and on demand, so the commit that bumps
+  the default version no longer fails the smoke workflow before the tag exists.
+- `make fuzz` retries a target once when the fuzzing engine reports `context
+  deadline exceeded` without a failing input, which is what a starved CI
+  runner produces at the `-fuzztime` boundary; a real crasher still fails
+  the first time.
+
 ## [0.6.0] - 2026-11-04
 
 ### Added
