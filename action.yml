@@ -15,7 +15,7 @@ inputs:
     required: false
   version:
     description: Release tag of edilint to install.
-    default: v0.5.0
+    default: v0.6.0
 outputs:
   exit-code:
     description: Exit status of edilint (0 clean, 1 findings, 2 usage or read error).

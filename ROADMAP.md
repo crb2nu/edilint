@@ -1,6 +1,6 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
-> Last Updated: 2026-11-01
+> Last Updated: 2026-11-04
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
 > Tracking: [open issues](https://github.com/crb2nu/edilint/issues) — none on 2026-10-31; the Now list below is the backlog. Mills reads only GitLab issues on libs/edilint labeled `mills-eligible`, never GitHub.
 
@@ -10,9 +10,9 @@ and are non-negotiable.
 
 ## Current Status
 
-The latest published release is `v0.5.0` (2026-11-01, America/New_York).
-Install with `go install github.com/crb2nu/edilint/cmd/edilint@v0.5.0`, or use
-its [release archives](https://github.com/crb2nu/edilint/releases/tag/v0.5.0).
+The latest published release is `v0.6.0` (2026-11-04, America/New_York).
+Install with `go install github.com/crb2nu/edilint/cmd/edilint@v0.6.0`, or use
+its [release archives](https://github.com/crb2nu/edilint/releases/tag/v0.6.0).
 
 On 2026-11-03 `.gitlab-ci.yml` gained its first `workflow:` block (GitLab
 !38): push pipelines on Mills' `mills-mq/` train refs are refused, so a
@@ -38,6 +38,21 @@ which takes every consecutive leading UTF-8 mark in one EL1001 repair
 merge request dated the CHANGELOG section that `internal/releasecheck`
 requires and removed the stale `changelog.d/` fragment. Publication follows
 the exact-commit checks in [Releasing](docs/releasing.md).
+
+Version `v0.6.0` ships the composite GitHub Action as a root `action.yml`
+(`uses: crb2nu/edilint@v0.6.0`, with `files`, `format`, `baseline` and
+`version` inputs and an `exit-code` output) and its `action-smoke` workflow
+(GitLab !42, `8e40d965`, 2026-11-04); the README transcript test
+`TestREADMETranscriptsMatch` (GitLab !39, `591293c7`, 2026-11-03); the
+README's Homebrew, release-archive and container install channels with a
+pinned pre-commit example (GitLab !41, `d0a6defc`, 2026-11-03); the
+GoReleaser v2.19.0 move with the cask's declarative `postflight_steps`
+quarantine hook (GitLab !37, `e11e9bfb`, 2026-11-01); and the GitLab CI
+never-rule for push pipelines on `mills-mq/` merge-train refs (GitLab !38,
+`e9cb20cc`, 2026-11-03). The `chore(release): prepare v0.6.0` merge request
+dated the CHANGELOG section, moved every README version pin and the Action's
+default `version` input to `v0.6.0`, and updated this status; the tag and the
+publication checks follow [Releasing](docs/releasing.md).
 
 `git log` records merged workstreams B (rule system foundation), A (HL7v2 batch
 and EDIFACT envelope coverage), C (SARIF, JUnit, and GitHub annotation outputs),
@@ -74,13 +89,12 @@ the cask on macOS 15 (arm64 and Intel) on every cask push. The 0.5.0 cask push
 (tap commit `21e3f804`) failed that CI's arm64 `brew style` step: Homebrew's
 `Cask/InstallSteps` cop (brew PR 23366) rejects the legacy `postflight` block
 GoReleaser v2.18.2 emitted; the Intel runner's older Homebrew passed, the
-checksums match and `brew install` never runs the style check. A follow-up
-merge request moves GoReleaser to v2.19.0 and the hook to
-`hooks.post.install_steps`, which renders `postflight_steps`, so the next
-release's cask passes; the 0.5.0 cask file in the tap keeps the legacy stanza
-until it is regenerated or hand-edited. The README still
-offers only `go install` and never mentions the cask,
-the GHCR image or the release archives.
+checksums match and `brew install` never runs the style check. GitLab !37
+moved GoReleaser to v2.19.0 and the hook to `hooks.post.install_steps`,
+which renders `postflight_steps`, and the tap's 0.5.0 cask was hand-migrated
+to the same stanza (tap PR #2), so the next cask push renders the stanza the
+tap already carries. The README documents every install channel since
+GitLab !41.
 
 The release pipeline now rehearses six platform archives and a multi-platform
 container after merges, scans reachable vulnerabilities with a patched Go
@@ -258,10 +272,11 @@ not posted: the X12 834 generator (Exploration) waits for the fi-fhir fixtures
 row to report whether structural fixtures served a real consumer; the
 GoReleaser v2.20.0 move waits for that release. Stays with the maintainer:
 v1.0 exit evidence, and cutting `v0.6.0` once the three rows have landed
-(Releasing, with the 2026-11-01 recipe). Kill-test for the lane itself: the
-first row merges through the train on an `api`-source proof; if it escalates
-on the devbox or the protected-path hold instead, the other two are held
-until the cause is known.
+(Releasing, with the 2026-11-01 recipe; cut on 2026-11-04, see the Now
+item). Kill-test for the lane itself: the first row merges through the train
+on an `api`-source proof; if it escalates on the devbox or the
+protected-path hold instead, the other two are held until the cause is
+known.
 
 - [ ] **Move `.github/workflows/ci.yml`, `.github/workflows/release.yml` and
   `docs/releasing.md` to GoReleaser v2.20.0 once it ships, for `zap
@@ -318,7 +333,7 @@ until the cause is known.
   `internal/parser/edi` tests (fi-fhir issue #15). The first real consumer of
   the generator, and the evidence the v0.5 section's riskiest assumption asks
   for; it gates any further message type (see Exploration).
-- [ ] **Document every install channel in `README.md` (pinned `go install`,
+- [x] **Document every install channel in `README.md` (pinned `go install`,
   Homebrew, release archives, GHCR) and pin the pre-commit example** — in the
   lane as `bl-edilint-install-channels-readme-202611` (posted 2026-11-03).
   The tap's own CI already installs the
@@ -327,8 +342,9 @@ until the cause is known.
   (`README.md` Install): `brew install crb2nu/tap/edilint`, the release
   archives, `docker run --rm -v "$PWD:/work" ghcr.io/crb2nu/edilint:<version>
   /work/<file>`, and the pre-commit paragraph's "once a tagged release exists
-  to pin", stale since v0.1.0. Owns `README.md` and a CHANGELOG line.
-- [ ] **Add `TestREADMETranscriptsMatch` to `cmd/edilint/main_test.go` and delete
+  to pin", stale since v0.1.0. Owns `README.md` and a CHANGELOG line. Merged as
+  GitLab !41 (`d0a6defc`, 2026-11-03).
+- [x] **Add `TestREADMETranscriptsMatch` to `cmd/edilint/main_test.go` and delete
   `TestREADMEExamplesRun`** — in the lane as
   `bl-edilint-readme-transcripts-from-readme-202611` (dispatched 2026-11-03).
   `TestExamplesMatchTheirTranscripts` (`cmd/edilint/main_test.go`) pins
@@ -340,8 +356,9 @@ until the cause is known.
   compares the transcript lines that follow; skip the `diff ours.x12
   theirs.x12` example through an explicit allowlist; delete the now-redundant
   `TestREADMEExamplesRun`. Owns `cmd/edilint/main_test.go` only. Accept:
-  changing one character of a README transcript fails the test.
-- [ ] **Composite GitHub Action as a root `action.yml` with a smoke workflow
+  changing one character of a README transcript fails the test. Merged as
+  GitLab !39 (`591293c7`, 2026-11-03).
+- [x] **Composite GitHub Action as a root `action.yml` with a smoke workflow
   `.github/workflows/action-smoke.yml`** (workstream D) — decided 2026-11-03:
   the Action lives in this repository, referenced as
   `uses: crb2nu/edilint@v0.5.0` (the mirror already carries the tags; a
@@ -352,6 +369,34 @@ until the cause is known.
   the maintainer's review. Accept when the smoke workflow on the mirror goes
   red on `examples/shortcount.x12` and green on `examples/remittance.x12`;
   the README's Actions snippet switches to `uses:` in the same change.
+  Merged as GitLab !42 (`8e40d965`, 2026-11-04); the mirror's `action-smoke`
+  run 41767284590 on that commit was green, its `defect` job seeing exit 1
+  (EL3006) on `examples/shortcount.x12`.
+- [x] **Cut `v0.6.0`** — rename Unreleased to `## [0.6.0] - <date>`, add an
+  empty Unreleased, move the README's `go install`, archive, container,
+  Actions and pre-commit pins and the Action's default `version` input to
+  `v0.6.0`, merge through the Mills queue, wait for the GitLab main pipeline
+  and the GitHub `ci` run (with `release ready`) on that exact merge commit,
+  then push the annotated tag to `origin` only, per
+  [Releasing](docs/releasing.md). Afterwards confirm the release page (six
+  CLI archives, the wasm archive, checksums), `ghcr.io/crb2nu/edilint:0.6.0`,
+  the tap's cask commit with its install run, and the mirror's `action-smoke`
+  run on the tag; then update Current Status above. The `chore(release):
+  prepare v0.6.0` merge request did the CHANGELOG, README, `action.yml` and
+  Current Status steps on 2026-11-04; the tag and the publication checks
+  follow Releasing.
+- [ ] **Derive the Action's default `version` from its own ref in
+  `action.yml`** — `action.yml` pins `default: v0.6.0`, so every release must
+  bump it in the release-prep merge request, and the mirror's `action-smoke`
+  run on that prep merge commit is red until the tag exists (`go install` of
+  a tag that is not there yet; only `ci.yml` gates publication, so this is
+  noise, not a block). Use `github.action_ref` as the fallback when `version`
+  is empty, so `uses: crb2nu/edilint@v0.7.0` installs v0.7.0 with no input,
+  and give the smoke workflow (`uses: ./`, where that ref is empty) an
+  explicit `version`. Owns `action.yml`, `.github/workflows/action-smoke.yml`
+  and the README's Actions paragraph. Accept: a tag push's smoke run installs
+  the tagged version with no `version` input, and the prep merge request for
+  the following release touches no `action.yml` line.
 - [ ] **v1.0 exit evidence** — a listing on awesome-edi, one factual
   announcement (the field guide is a long-form post on flexinfer.ai; whether
   it counts is the maintainer's call), and one documented pre-send catch.
