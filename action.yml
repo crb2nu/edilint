@@ -14,7 +14,7 @@ inputs:
     description: Optional baseline file passed to --baseline.
     required: false
   version:
-    description: Release tag of edilint to install.
+    description: Release tag of edilint to install, or `source` to build edilint from this action's own checkout (the ref the workflow pinned).
     default: v0.6.0
 outputs:
   exit-code:
@@ -30,7 +30,20 @@ runs:
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
-      run: go install "github.com/crb2nu/edilint/cmd/edilint@${VERSION}"
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        if [[ "$VERSION" == "source" ]]; then
+          # Build from the checkout this action runs from: the repository itself
+          # under `uses: ./`, or the pinned ref under `uses: crb2nu/edilint@<ref>`.
+          # This never consults the module proxy, so it works before a release
+          # tag exists and for refs that are not releases.
+          bin="$RUNNER_TEMP/edilint-source-bin"
+          mkdir -p "$bin"
+          (cd "$ACTION_PATH" && go build -o "$bin/edilint" ./cmd/edilint)
+          echo "$bin" >> "$GITHUB_PATH"
+        else
+          go install "github.com/crb2nu/edilint/cmd/edilint@${VERSION}"
+        fi
     - name: Lint files
       id: lint
       shell: bash
