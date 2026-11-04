@@ -8,19 +8,32 @@ from its first tag.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-04
+
 ### Added
 
 - A composite GitHub Action at the repository root (`action.yml`), used as
-  `uses: crb2nu/edilint@<tag>` with `files`, `format` (passed as `--output`,
+  `uses: crb2nu/edilint@v0.6.0` with `files`, `format` (passed as `--output`,
   default `github`), optional `baseline` and `version` inputs and an
-  `exit-code` output. The `action-smoke` workflow runs it on every push and
-  pull request: green on `examples/remittance.x12`, red on
-  `examples/shortcount.x12`.
+  `exit-code` output. `version` is the release tag of the binary the Action
+  installs and defaults to `v0.6.0`, the release the Action ref names. The
+  `action-smoke` workflow runs it on every push and pull request: green on
+  `examples/remittance.x12`, red on `examples/shortcount.x12`.
+- `TestREADMETranscriptsMatch` reads every `$ edilint …` example whose input
+  lives under `examples/` straight from the README's `sh` blocks, runs it from
+  the repository root and compares the transcript that follows, so a README
+  transcript can no longer drift from the binary. It replaces
+  `TestREADMEExamplesRun`; the `diff ours.x12 theirs.x12` example, whose
+  inputs are illustrative, is skipped through a named allowlist.
 
 ### Changed
 
 - README documents the Homebrew, release-archive and container install
-  channels and pins the pre-commit example to `rev: v0.5.0`.
+  channels, and its `go install`, archive, container, GitHub Actions and
+  pre-commit examples pin the current release (`v0.6.0`).
+- GitLab CI refuses push pipelines on `mills-mq/` merge-train refs through a
+  `workflow:` never-rule, so a Mills train ref runs only the queue's own
+  `api`-source proof pipeline instead of a duplicate push pipeline.
 - The release builds with GoReleaser v2.19.0 and the Homebrew cask's
   quarantine hook is declared as `hooks.post.install_steps`, so the generated
   cask carries Homebrew's declarative `postflight_steps` stanza (`on_macos`,
