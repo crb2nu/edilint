@@ -138,12 +138,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: crb2nu/edilint@v0.5.0
         with:
-          go-version: stable
-      - run: go install github.com/crb2nu/edilint/cmd/edilint@latest
-      - run: edilint outbound/*.x12
+          files: outbound/*.x12
+          format: github
+          # baseline: .edilint-baseline.json
 ```
+
+The Action's `format` input selects the CLI's `--output` format. Its `exit-code`
+output reports 0 for clean files, 1 for findings, or 2 for usage or read errors.
 
 GitLab CI:
 

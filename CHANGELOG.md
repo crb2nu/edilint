@@ -8,6 +8,15 @@ from its first tag.
 
 ## [Unreleased]
 
+### Added
+
+- A composite GitHub Action at the repository root (`action.yml`), used as
+  `uses: crb2nu/edilint@<tag>` with `files`, `format` (passed as `--output`,
+  default `github`), optional `baseline` and `version` inputs and an
+  `exit-code` output. The `action-smoke` workflow runs it on every push and
+  pull request: green on `examples/remittance.x12`, red on
+  `examples/shortcount.x12`.
+
 ### Changed
 
 - README documents the Homebrew, release-archive and container install
