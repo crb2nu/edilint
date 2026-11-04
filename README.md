@@ -145,6 +145,9 @@ jobs:
           # baseline: .edilint-baseline.json
 ```
 
+The Action's `format` input selects the CLI's `--output` format. Its `exit-code`
+output reports 0 for clean files, 1 for findings, or 2 for usage or read errors.
+
 GitLab CI:
 
 ```yaml

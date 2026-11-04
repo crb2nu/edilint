@@ -24,7 +24,7 @@ jobs:
         with:
           files: examples/shortcount.x12
       - name: Require lint failure
-        if: steps.lint.outcome != 'failure'
+        if: steps.lint.outcome != 'failure' || steps.lint.outputs.exit-code != '1'
         run: |
-          echo "Expected edilint to fail on examples/shortcount.x12"
+          echo "Expected edilint to exit 1 on examples/shortcount.x12"
           exit 1
