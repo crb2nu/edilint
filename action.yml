@@ -1,0 +1,53 @@
+name: edilint
+description: Lint EDI files and report findings as GitHub workflow annotations.
+branding:
+  icon: check-circle
+  color: blue
+inputs:
+  files:
+    description: Space-separated file paths or globs to lint.
+    required: true
+  format:
+    description: Output format for findings.
+    default: github
+  baseline:
+    description: Optional baseline file passed to --baseline.
+    required: false
+  version:
+    description: Release tag of edilint to install.
+    default: v0.5.0
+outputs:
+  exit-code:
+    description: Exit status of edilint (0 clean, 1 findings, 2 usage or read error).
+    value: ${{ steps.lint.outputs.exit-code }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v6
+      with:
+        go-version: stable
+    - name: Install edilint
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: go install "github.com/crb2nu/edilint/cmd/edilint@${VERSION}"
+    - name: Lint files
+      id: lint
+      shell: bash
+      env:
+        FILES: ${{ inputs.files }}
+        FORMAT: ${{ inputs.format }}
+        BASELINE: ${{ inputs.baseline }}
+      run: |
+        args=(--output "$FORMAT")
+        if [[ -n "$BASELINE" ]]; then
+          args+=(--baseline "$BASELINE")
+        fi
+        # Split paths on whitespace and expand globs intentionally.
+        # shellcheck disable=SC2206
+        args+=($FILES)
+        set +e
+        edilint "${args[@]}"
+        rc=$?
+        echo "exit-code=$rc" >> "$GITHUB_OUTPUT"
+        exit "$rc"

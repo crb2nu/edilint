@@ -1,0 +1,30 @@
+name: action-smoke
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with:
+          files: examples/remittance.x12
+
+  defect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        id: lint
+        continue-on-error: true
+        with:
+          files: examples/shortcount.x12
+      - name: Require lint failure
+        if: steps.lint.outcome != 'failure'
+        run: |
+          echo "Expected edilint to fail on examples/shortcount.x12"
+          exit 1

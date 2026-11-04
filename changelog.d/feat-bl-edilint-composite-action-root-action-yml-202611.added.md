@@ -1,0 +1,1 @@
+- Added the root composite GitHub Action (`action.yml`) with files, output format, baseline, version and exit-code support, documented in `README.md`, and clean/defect smoke coverage in `.github/workflows/action-smoke.yml`.
