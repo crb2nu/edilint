@@ -1,0 +1,45 @@
+# .loom/climb.yaml — libs/edilint (Climbs, loom-core .loom/208 §5)
+#
+# Validated by pkg/mills/chronicle/climb.go in loom-core; the editor schema is
+# pkg/mills/chronicle/schema/climb.schema.json. Pointers are repository-relative
+# file#slug links to GitHub-style heading slugs in ROADMAP.md.
+version: 1
+problem:
+  text: >-
+    Invisible EDI defects (homoglyphs, short counts, mixed line endings, trailer miscounts) pass
+    through healthcare clearinghouses and fail downstream. edilint is a public Go linter and
+    fixer for X12, HL7v2 and EDIFACT that makes those defects visible in CI, climbing from
+    v0.6.0 toward the v1.0 "legitimately useful" exit criteria.
+  source: ROADMAP.md#current-status
+  since: 2026-08-01
+summit:
+  - id: gates
+    label: Roadmap gates met (Now list)
+    metric: { kind: roadmap-gates }
+    target: 1
+    direction: up
+    unit: ratio
+  - id: cadence
+    label: Merges per week
+    metric: { kind: git, expr: merges_per_week }
+    target: 3
+    direction: up
+    unit: merges
+  # Replaces the draft's gitlab open_issues: edilint's public backlog is GitHub
+  # issues (none open on 2026-10-31) and the Now list in ROADMAP.md, while the
+  # GitLab project carries only mills-eligible rows, so open_issues would sit at
+  # zero and read as a summit already reached. GitLab is where edilint's CI and
+  # Mills merge train actually run (.gitlab-ci.yml, train-minted API
+  # pipelines), so the pipeline success ratio is the GitLab series that moves.
+  - id: pipelines
+    label: GitLab pipeline success ratio
+    metric: { kind: gitlab, expr: pipeline_success_ratio }
+    target: 0.95
+    direction: up
+    unit: ratio
+constraints:
+  - ROADMAP.md#scope-guards-what-edilint-is-not
+  - ROADMAP.md#standing-constraints-every-agent-every-workstream
+  - ROADMAP.md#definition-of-legitimately-useful-v10-exit-criteria
+route: ROADMAP.md
+camps: { tags: 'v*' }

@@ -1,6 +1,6 @@
 # edilint Roadmap — swarm spec (2026-08-01)
 
-> Last Updated: 2026-11-04
+> Last Updated: 2026-11-05
 > Tier: 1 (see workspace AGENTS.md "Portfolio Tiers")
 > Tracking: [open issues](https://github.com/crb2nu/edilint/issues) — none on 2026-10-31; the Now list below is the backlog. Mills reads only GitLab issues on libs/edilint labeled `mills-eligible`, never GitHub.
 
@@ -20,6 +20,9 @@ merge-train row here is proven by the one pipeline the queue mints through
 the API; !38 itself was the first edilint row to merge through the train
 (Mills posture below). The same day three `bl-edilint-*` rows were posted
 for the Now list and the first was in review within the hour.
+
+On 2026-11-05 edilint declared its Mills climb in `.loom/climb.yaml` (loom-core
+`.loom/208` §5), and every Mills push bullet in this file names its `bl-` row id.
 
 Version `v0.4.0` shipped the streaming APIs, browser build, rule references,
 acknowledgment guidance, and release gates described below. Version `v0.4.1`
