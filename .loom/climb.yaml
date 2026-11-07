@@ -4,6 +4,7 @@
 # pkg/mills/chronicle/schema/climb.schema.json. Pointers are repository-relative
 # file#slug links to GitHub-style heading slugs in ROADMAP.md.
 version: 1
+tier: 1
 problem:
   text: >-
     Invisible EDI defects (homoglyphs, short counts, mixed line endings, trailer miscounts) pass
