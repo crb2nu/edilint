@@ -21,6 +21,15 @@ from its first tag.
   runner produces at the `-fuzztime` boundary; a real crasher still fails
   the first time.
 
+### Security
+
+- CI and release builds use Go 1.26.11 (`.go-version`, the `.go-base` image,
+  the GitHub workflows through `go-version-file`). govulncheck reports
+  GO-2026-6859 under 1.26.10 (`net/http` HTTP/1 server crash from a
+  `MaxBytesReader` header race; `net/http` symbols are reachable from
+  `Generate` through the writer flush path and from the release check). The
+  Go 1.23 compatibility job is unchanged.
+
 ## [0.6.0] - 2026-11-04
 
 ### Added
