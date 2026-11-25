@@ -47,8 +47,8 @@ func edifactDetails() map[string]ruleDetail {
 			example:  edifactExample("UNA:+/? '", unb, unh, bgm, unt, unz),
 		},
 		"EL7008": {
-			catches:  "A UNG or UNH outside the envelope that must enclose it, and a file forced to the edifact format with no UNB at all. As in X12, the nesting is what tells a receiver which interchange a message belongs to.",
-			fix:      "Wrap the messages in a UNB and UNZ. A file that starts at UNH is usually a payload that lost its envelope in an intermediate step.",
+			catches:  "A UNG or UNH outside the envelope that must enclose it, an interchange that mixes UNG functional groups with messages outside any group, and a file forced to the edifact format with no UNB at all. As in X12, the nesting is what tells a receiver which interchange a message belongs to. An interchange carries either messages or functional groups at its top level, not both; the first record that mixes them is reported once per interchange.",
+			fix:      "Wrap the messages in a UNB and UNZ. A file that starts at UNH is usually a payload that lost its envelope in an intermediate step. In a mixed interchange, move the ungrouped messages into a UNG..UNE group, or split them into their own interchange.",
 			suppress: "There is no safe case.",
 			example: example{
 				file: "order.edi",

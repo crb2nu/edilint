@@ -10,6 +10,11 @@ from its first tag.
 
 ### Changed
 
+- `EL7008` (`edifact.nesting`) reports an EDIFACT interchange that mixes UNG
+  functional groups with ungrouped UNH messages, once per interchange at the
+  first record that creates the mix, and cites CONTRL `UCI.0085` code 30.
+  `edilint fix` already withheld recounts for such interchanges; UNZ-1 counting
+  is unchanged.
 - The composite Action accepts `version: source` and builds edilint from the
   checkout it runs from (the repository under `uses: ./`, the pinned ref under
   `uses: crb2nu/edilint@<ref>`), without consulting the module proxy. The

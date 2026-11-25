@@ -50,5 +50,5 @@ One page per rule in the edilint catalog. The pages are generated from the catal
 | [EL7005](EL7005.md) | `edifact.interchange-count` | edifact | error | UNZ-1 does not match the recounted messages in the interchange, or the recounted functional groups when UNG groups are used. |
 | [EL7006](EL7006.md) | `edifact.control-reference` | edifact | error | Header and trailer control references differ (UNB-5/UNZ-2, UNG-5/UNE-2, UNH-1/UNT-2), or a header's reference is empty. |
 | [EL7007](EL7007.md) | `edifact.service-string` | edifact | error | UNA is not the fixed nine characters, its service characters collide or are alphanumeric, or its decimal mark is not a period or a comma. |
-| [EL7008](EL7008.md) | `edifact.nesting` | edifact | error | UNG or UNH appears outside the envelope that must enclose it, or no UNB is present in a file forced to the edifact format. |
+| [EL7008](EL7008.md) | `edifact.nesting` | edifact | error | UNG or UNH appears outside the envelope that must enclose it, an interchange mixes functional groups with ungrouped messages, or no UNB is present in a file forced to the edifact format. |
 | [EL7009](EL7009.md) | `edifact.trailing-data` | edifact | error | Segments appear outside any interchange; data after UNZ is not part of a valid EDIFACT file. |

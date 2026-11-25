@@ -213,8 +213,9 @@ func catalog() []ruleEntry {
 			"UNA is not the fixed nine characters, its service characters collide or are " +
 				"alphanumeric, or its decimal mark is not a period or a comma."},
 		{"EL7008", RuleEdifactNesting, ClassEdifact, SeverityError, "edifact",
-			"UNG or UNH appears outside the envelope that must enclose it, or no UNB is present " +
-				"in a file forced to the edifact format."},
+			"UNG or UNH appears outside the envelope that must enclose it, an interchange mixes " +
+				"functional groups with ungrouped messages, or no UNB is present in a file forced " +
+				"to the edifact format."},
 		{"EL7009", RuleEdifactTrailing, ClassEdifact, SeverityError, "edifact",
 			"Segments appear outside any interchange; data after UNZ is not part of a valid " +
 				"EDIFACT file."},
