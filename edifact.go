@@ -342,6 +342,14 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 			}
 			groups++
 			ung = envelopeLevel{open: true, rec: r, control: elem(f, 5)}
+			if strings.TrimSpace(ung.control) == "" {
+				rep.add(Finding{
+					Rule:     RuleEdifactControlRef,
+					Severity: SeverityError,
+					Message:  "UNG-5 group reference number is empty",
+					Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
+				})
+			}
 
 		case "UNE":
 			if !ung.open {
@@ -374,6 +382,14 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 				ung.children++
 			}
 			unh = envelopeLevel{open: true, rec: r, control: elem(f, 1), children: 1}
+			if strings.TrimSpace(unh.control) == "" {
+				rep.add(Finding{
+					Rule:     RuleEdifactControlRef,
+					Severity: SeverityError,
+					Message:  "UNH-1 message reference number is empty",
+					Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
+				})
+			}
 
 		case "UNT":
 			if !unh.open {

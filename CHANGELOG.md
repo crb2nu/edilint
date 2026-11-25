@@ -21,6 +21,14 @@ from its first tag.
   runner produces at the `-fuzztime` boundary; a real crasher still fails
   the first time.
 
+### Fixed
+
+- EL7006 (`edifact.control-reference`) now reports an empty UNG-5 group
+  reference and an empty UNH-1 message reference on the header segment, as
+  it already did for UNB-5. Before this, an empty header reference closed by
+  an equally empty UNE-2 or UNT-2 linted clean. An empty header with a
+  non-empty trailer now gets both the empty finding and the mismatch.
+
 ### Security
 
 - CI and release builds use Go 1.26.11 (`.go-version`, the `.go-base` image,

@@ -1,6 +1,8 @@
 package edilint
 
 import (
+	"bytes"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -60,6 +62,65 @@ func TestEdifactPairing(t *testing.T) {
 			if firstOf(rep, tc.rule) == nil {
 				t.Errorf("expected %s, got %v", tc.rule, ruleNames(rep))
 			}
+		})
+	}
+}
+
+func TestEdifactEmptyGroupAndMessageReference(t *testing.T) {
+	type at struct {
+		record string
+		line   int
+	}
+	tests := []struct {
+		name string
+		body string
+		want []at
+	}{
+		{"empty UNG-5 and UNE-2",
+			"UNB+UNOA:4+A+B+260115:1430+R1'\nUNG+ORDERS+A+B+260115:1430++UN+D:96A'\n" +
+				"UNH+M1+ORDERS:D:96A:UN'\nUNT+2+M1'\nUNE+1+'\nUNZ+1+R1'\n",
+			[]at{{"UNG", 2}}},
+		{"empty UNH-1 and UNT-2",
+			"UNB+UNOA:4+A+B+260115:1430+R1'\nUNH++ORDERS:D:96A:UN'\nUNT+2+'\nUNZ+1+R1'\n",
+			[]at{{"UNH", 2}}},
+		{"whitespace-only UNG-5 and UNE-2",
+			"UNB+UNOA:4+A+B+260115:1430+R1'\nUNG+ORDERS+A+B+260115:1430+  +UN+D:96A'\n" +
+				"UNH+M1+ORDERS:D:96A:UN'\nUNT+2+M1'\nUNE+1+  '\nUNZ+1+R1'\n",
+			[]at{{"UNG", 2}}},
+		{"whitespace-only UNH-1 and UNT-2",
+			"UNB+UNOA:4+A+B+260115:1430+R1'\nUNH+ +ORDERS:D:96A:UN'\nUNT+2+ '\nUNZ+1+R1'\n",
+			[]at{{"UNH", 2}}},
+		{"empty UNH-1 with non-empty UNT-2",
+			"UNB+UNOA:4+A+B+260115:1430+R1'\nUNH++ORDERS:D:96A:UN'\nUNT+2+M1'\nUNZ+1+R1'\n",
+			[]at{{"UNH", 2}, {"UNT", 3}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			data := []byte(tc.body)
+			mem := Lint("stream", data, Options{})
+			streamed, err := LintReader("stream", bytes.NewReader(data), Options{})
+			if err != nil {
+				t.Fatalf("LintReader: %v", err)
+			}
+			for api, rep := range map[string]*Report{"Lint": mem, "LintReader": streamed} {
+				if rep.Format != FormatEdifact {
+					t.Fatalf("%s: format = %s, want %s", api, rep.Format, FormatEdifact)
+				}
+				if rep.Summary.Total != len(tc.want) {
+					t.Errorf("%s: total = %d, want %d: %v", api, rep.Summary.Total, len(tc.want), ruleNames(rep))
+				}
+				var got []at
+				for _, f := range rep.Findings {
+					if f.Rule != RuleEdifactControlRef || f.Severity != SeverityError {
+						continue
+					}
+					got = append(got, at{f.Record, f.Line})
+				}
+				if !reflect.DeepEqual(got, tc.want) {
+					t.Errorf("%s: %s errors at %v, want %v", api, RuleEdifactControlRef, got, tc.want)
+				}
+			}
+			compareStreamReport(t, data, Options{}, streamed)
 		})
 	}
 }
