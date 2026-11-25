@@ -10,6 +10,12 @@ from its first tag.
 
 ### Changed
 
+- The composite Action's `version` input no longer pins a release. Left
+  empty, it installs the ref named in the `uses:` line (`github.action_ref`),
+  so `uses: crb2nu/edilint@v0.7.0` installs v0.7.0 and release prep no longer
+  edits `action.yml`. Under `uses: ./` the ref is empty, so `version` must be
+  set; the Action exits 2 with an error naming the input otherwise. The
+  `action-smoke` `released` job passes `version: ${{ github.ref_name }}`.
 - The composite Action accepts `version: source` and builds edilint from the
   checkout it runs from (the repository under `uses: ./`, the pinned ref under
   `uses: crb2nu/edilint@<ref>`), without consulting the module proxy. The

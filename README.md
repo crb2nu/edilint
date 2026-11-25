@@ -147,9 +147,11 @@ jobs:
 
 The Action's `format` input selects the CLI's `--output` format. Its `exit-code`
 output reports 0 for clean files, 1 for findings, or 2 for usage or read errors.
-`version` names the release tag to install and defaults to the tag the Action
-ref names; `version: source` builds edilint from the Action's own checkout
-instead, which needs no release and no module proxy.
+`version` names the release tag to install. Left empty, it falls back to the
+ref in the `uses:` line, so `uses: crb2nu/edilint@v0.6.0` installs v0.6.0.
+Under `uses: ./` that ref is empty, so set `version` explicitly there; the
+Action exits 2 with an error otherwise. `version: source` builds edilint from
+the Action's own checkout instead, which needs no release and no module proxy.
 
 GitLab CI:
 
