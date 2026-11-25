@@ -14,7 +14,11 @@ inputs:
     description: Optional baseline file passed to --baseline.
     required: false
   version:
-    description: Release tag of edilint to install, or `source` to build edilint from this action's own checkout (the ref the workflow pinned). When empty, installs the ref named in the `uses:` line (`crb2nu/edilint@v0.7.0` installs v0.7.0); under `uses: ./` that ref is empty, so set `version` explicitly.
+    description: >-
+      Release tag of edilint to install, or `source` to build edilint from this
+      action's own checkout (the ref the workflow pinned). When empty, installs
+      the ref named in the `uses:` line (`crb2nu/edilint@v0.7.0` installs
+      v0.7.0); under `uses: ./` that ref is empty, so set `version` explicitly.
     required: false
     default: ''
 outputs:
