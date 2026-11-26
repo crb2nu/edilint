@@ -238,5 +238,10 @@
     "example": "UNZ+1+EXAMPLE'FTX+AAI+++EXTRA'",
     "fix": "Remove an accidental transport suffix or place the segment inside its intended message. Keep all EDIFACT segments inside an interchange.",
     "false_positives": "Transport framing outside the interchange may be deliberate. Strip the wrapper and lint only the EDI payload."
+  },
+  "EL7010": {
+    "example": "UNH+1+ORDERS:D:96A:UN'...UNT+3+1'UNH+1+ORDERS:D:96A:UN'  (UNH-1 repeated in one interchange)",
+    "fix": "Assign a fresh UNB-5 per interchange in the file, UNG-5 per group in the interchange, and UNH-1 per message in the group or interchange.",
+    "false_positives": "Restarting UNH-1 per interchange or per group is valid and is not reported. Concatenating two copies of the same interchange into one file does repeat UNB-5; send them as separate files if that is intended."
   }
 }

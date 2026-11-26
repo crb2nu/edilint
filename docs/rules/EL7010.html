@@ -1,0 +1,41 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A UNB-5 interchange reference repeats within the file, a UNG-5 group reference repeats within its interchange, or a UNH-1 message reference repeats within its functional group, or within its interchange when no groups are used.">
+  <title>EL7010 · edifact.duplicate-control-reference · edilint</title>
+  <link rel="canonical" href="https://crb2nu.github.io/edilint/rules/EL7010.html">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a href="../index.html">edilint / rule reference</a></header>
+<main>
+  <p class="eyebrow">edifact / error</p>
+  <h1>EL7010</h1>
+  <p class="rule-name"><code>edifact.duplicate-control-reference</code></p>
+  <p class="formats">Applies to: edifact</p>
+  <h2>What it catches and why it matters</h2>
+  <p>A UNB-5 interchange reference repeats within the file, a UNG-5 group reference repeats within its interchange, or a UNH-1 message reference repeats within its functional group, or within its interchange when no groups are used.</p>
+  <h2>Failing example</h2>
+  <p>These synthetic fragments illustrate the defect; they are not complete interchange files. Backslash escapes name bytes such as <code>\r</code> (CR) and <code>\n</code> (LF).</p>
+  <pre>UNH&#43;1&#43;ORDERS:D:96A:UN&#39;...UNT&#43;3&#43;1&#39;UNH&#43;1&#43;ORDERS:D:96A:UN&#39;  (UNH-1 repeated in one interchange)</pre>
+  <h2>How to fix it</h2>
+  <p>Assign a fresh UNB-5 per interchange in the file, UNG-5 per group in the interchange, and UNH-1 per message in the group or interchange.</p>
+  <h2>False positives and limits</h2>
+  <p>Restarting UNH-1 per interchange or per group is valid and is not reported. Concatenating two copies of the same interchange into one file does repeat UNB-5; send them as separate files if that is intended.</p>
+  <h2>Acknowledgments and suppression</h2>
+  <pre class="prose">Related acknowledgment codes (apply only to the described defect):
+  CONTRL code 26 (UCI.0085): duplicate interchange reference detected
+  CONTRL code 26 (UCF.0085): duplicate group reference detected within the interchange
+  CONTRL code 26 (UCM.0085): duplicate message reference detected within the group or interchange
+CONTRL references use syntax-error element 0085, not action element 0083. UCI, UCF and UCM report interchange, group and message service-segment errors respectively. A missing or unreadable header can prevent a valid CONTRL response. Truncation, orphaned envelopes and data outside an interchange have no single mapping here.
+Sources: https://service.gefeg.com/jwg1/Archive/v3/mt/m01.htm https://service.gefeg.com/jwg1/Archive/cl/v3/21a/cl16.htm
+Suppress the rule with --disable EL7010, or list it under &#34;disable&#34; in .edilint.yml. To accept the occurrences a file already has without suppressing the rule, record them with --write-baseline and run with --baseline.
+Reference: https://crb2nu.github.io/edilint/rules/EL7010.html</pre>
+  <p><a href="../index.html#rules">All rules</a> · <a href="https://github.com/crb2nu/edilint#configuration-file">Configuration</a></p>
+</main>
+<footer>Envelope and file hygiene checks. No implementation-guide validation.</footer>
+</body>
+</html>

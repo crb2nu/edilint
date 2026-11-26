@@ -963,6 +963,7 @@ separate from action codes in `0083`.
 | `EL7006` | UCI/UCF/UCM 28: mismatched interchange/group/message references; 13: absent reference |
 | `EL7007` | UCI 19: invalid UNA decimal mark; 20: unusable UNA service character |
 | `EL7008` | UCI 30: functional groups and messages mixed in one interchange |
+| `EL7010` | UCI/UCF/UCM 26: duplicate interchange/group/message reference |
 
 A missing or unreadable header can prevent a valid CONTRL response. Truncation
 (`EL2006`), orphaned trailers (`EL7002`), and data outside an interchange
@@ -1041,6 +1042,7 @@ service string advice. Message content is out of scope.
 | `EL7007` | `edifact.service-string` | error | edifact | UNA is not the fixed nine characters, its service characters collide or are alphanumeric, or its decimal mark is not a period or a comma. |
 | `EL7008` | `edifact.nesting` | error | edifact | UNG or UNH appears outside the envelope that must enclose it, an interchange mixes functional groups with ungrouped messages, or no UNB is present in a file forced to the edifact format. |
 | `EL7009` | `edifact.trailing-data` | error | edifact | Segments appear outside any interchange; data after UNZ is not part of a valid EDIFACT file. |
+| `EL7010` | `edifact.duplicate-control-reference` | error | edifact | A UNB-5 interchange reference repeats within the file, a UNG-5 group reference repeats within its interchange, or a UNH-1 message reference repeats within its functional group, or within its interchange when no groups are used. |
 
 ## Scope
 
