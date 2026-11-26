@@ -480,7 +480,10 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 // repeat within its scope on the repeating header.
 func checkEdifactDuplicate(s *source, rep *Report, r record, element, value string, seen *controlIndex, scope string) {
 	value = strings.TrimSpace(value)
-	if prev, ok := seen.record(s, value, r.Ordinal); ok {
+	if value == "" || seen == nil {
+		return
+	}
+	if prev, ok := seen.values[value]; ok {
 		rep.add(Finding{
 			Rule:     RuleEdifactDupReference,
 			Severity: SeverityError,
@@ -490,7 +493,13 @@ func checkEdifactDuplicate(s *source, rep *Report, r record, element, value stri
 			Expected: fmt.Sprintf("unique %s within the %s", element, scope),
 			Actual:   value,
 		})
+		return
 	}
+	if !s.acceptState(len(seen.values)+1, seen.bytes+len(value)) {
+		return
+	}
+	seen.bytes += len(value)
+	seen.values[strings.Clone(value)] = r.Ordinal
 }
 
 // compareEdifactRef matches a trailer control reference against its header,
