@@ -231,7 +231,7 @@
   },
   "EL7008": {
     "example": "UNH+1+INVOIC:D:96A:UN'UNT+2+1'  (no enclosing UNB)",
-    "fix": "Place messages and groups inside the required interchange envelope, or lint the complete interchange instead of a standalone fragment.",
+    "fix": "Place messages and groups inside the required interchange envelope, or lint the complete interchange instead of a standalone fragment. Do not mix UNG functional groups with ungrouped UNH messages in one interchange; group every message or none.",
     "false_positives": "Forcing --type edifact on another format, or checking only an extracted message, can trigger missing-envelope findings. Confirm the input scope and format."
   },
   "EL7009": {

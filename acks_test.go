@@ -143,6 +143,7 @@ func TestCrossFormatAcknowledgmentReferences(t *testing.T) {
 		{"EL7006", "UCM.0085", "28", "UNH-1"},
 		{"EL7007", "UCI.0085", "19", "decimal"},
 		{"EL7007", "UCI.0085", "20", "does not cover every"},
+		{"EL7008", "UCI.0085", "30", "functional groups and messages mixed"},
 		{"EL6005", "ERR-3", "101", "only when this finding reports empty MSH-2"},
 	} {
 		t.Run(tc.id+"/"+tc.element+"/"+tc.code, func(t *testing.T) {
@@ -154,7 +155,7 @@ func TestCrossFormatAcknowledgmentReferences(t *testing.T) {
 			t.Fatalf("missing qualified reference: %+v", tc)
 		})
 	}
-	for _, id := range []string{"EL6001", "EL6002", "EL6003", "EL6004", "EL6006", "EL2006", "EL7002", "EL7008", "EL7009"} {
+	for _, id := range []string{"EL6001", "EL6002", "EL6003", "EL6004", "EL6006", "EL2006", "EL7002", "EL7009"} {
 		if len(RuleAcks(id)) != 0 {
 			t.Errorf("%s must not promise a universal acknowledgment", id)
 		}

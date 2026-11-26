@@ -160,6 +160,9 @@ var ruleAcks = map[string][]Ack{
 		{"UCF.0085", "13", "a group control reference is missing"},
 		{"UCM.0085", "13", "a message control reference is missing"},
 	},
+	RuleID(RuleEdifactNesting): {
+		{"UCI.0085", "30", "functional groups and messages mixed at the same level in the interchange"},
+	},
 	RuleID(RuleEdifactServiceString): {
 		{"UCI.0085", "19", "UNA declares an invalid decimal mark"},
 		{"UCI.0085", "20", "UNA declares an unusable service character; this reference does not cover every malformed or misplaced UNA"},

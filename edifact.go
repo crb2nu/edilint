@@ -258,6 +258,18 @@ func checkEdifactSegmentTerms(s *source, rep *Report) {
 	}
 }
 
+// reportEdifactMixed reports the record that first mixes ungrouped messages
+// with functional groups at the top level of one interchange.
+func reportEdifactMixed(rep *Report, r record, what string) {
+	rep.add(Finding{
+		Rule:     RuleEdifactNesting,
+		Severity: SeverityError,
+		Message: what + "; an interchange carries either messages or functional groups " +
+			"at its top level, not both",
+		Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
+	})
+}
+
 // checkEdifactEnvelope verifies UNB/UNZ, UNG/UNE and UNH/UNT pairing, recounts
 // the declared totals in every trailer, and matches header and trailer control
 // references.
@@ -271,6 +283,9 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 	// messages when it does not, so both are recounted.
 	messages, groups := 0, 0
 	trailingReported := false
+	// An interchange carries either messages or functional groups at its top
+	// level; the first record that mixes them is reported once.
+	mixedReported := false
 
 	for r := range s.records() {
 		if strings.TrimSpace(r.Text) == "" {
@@ -297,6 +312,7 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 			unb = envelopeLevel{open: true, rec: r, control: elem(f, 5)}
 			messages, groups = 0, 0
 			trailingReported = false
+			mixedReported = false
 			if strings.TrimSpace(unb.control) == "" {
 				rep.add(Finding{
 					Rule:     RuleEdifactControlRef,
@@ -340,6 +356,10 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 			if ung.open {
 				reportEdifactUnclosed(rep, ung.rec, "UNG", "UNE")
 			}
+			if unb.open && !mixedReported && groups == 0 && messages > 0 {
+				reportEdifactMixed(rep, r, "UNG follows a message outside any functional group")
+				mixedReported = true
+			}
 			groups++
 			ung = envelopeLevel{open: true, rec: r, control: elem(f, 5)}
 			if strings.TrimSpace(ung.control) == "" {
@@ -376,6 +396,10 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 			}
 			if unh.open {
 				reportEdifactUnclosed(rep, unh.rec, "UNH", "UNT")
+			}
+			if unb.open && !mixedReported && groups > 0 && !ung.open {
+				reportEdifactMixed(rep, r, "UNH appears outside a functional group in an interchange that uses UNG")
+				mixedReported = true
 			}
 			messages++
 			if ung.open {

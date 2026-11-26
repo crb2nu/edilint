@@ -125,6 +125,61 @@ func TestEdifactEmptyGroupAndMessageReference(t *testing.T) {
 	}
 }
 
+func TestEdifactMixedGroupsAndMessages(t *testing.T) {
+	type at struct {
+		record string
+		line   int
+	}
+	const (
+		unb   = "UNB+UNOA:4+A+B+260115:1430+R1'\n"
+		group = "UNG+ORDERS+A+B+260115:1430+G1+UN+D:96A'\nUNH+M1+ORDERS:D:96A:UN'\nUNT+2+M1'\nUNE+1+G1'\n"
+		bare  = "UNH+M2+ORDERS:D:96A:UN'\nUNT+2+M2'\n"
+		unz   = "UNZ+1+R1'\n"
+	)
+	tests := []struct {
+		name string
+		body string
+		want []at
+	}{
+		{"group then bare message", unb + group + bare + unz, []at{{"UNH", 6}}},
+		{"bare message then group", unb + bare + group + unz, []at{{"UNG", 4}}},
+		{"two mixed interchanges",
+			unb + group + bare + bare + unz + unb + bare + group + group + unz,
+			[]at{{"UNH", 6}, {"UNG", 14}}},
+		{"grouped only", unb + group + group + "UNZ+2+R1'\n", nil},
+		{"ungrouped only", unb + bare + bare + "UNZ+2+R1'\n", nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			data := []byte(tc.body)
+			mem := Lint("stream", data, Options{})
+			streamed, err := LintReader("stream", bytes.NewReader(data), Options{})
+			if err != nil {
+				t.Fatalf("LintReader: %v", err)
+			}
+			for api, rep := range map[string]*Report{"Lint": mem, "LintReader": streamed} {
+				if rep.Format != FormatEdifact {
+					t.Fatalf("%s: format = %s, want %s", api, rep.Format, FormatEdifact)
+				}
+				var got []at
+				for _, f := range rep.Findings {
+					if f.Rule != RuleEdifactNesting {
+						continue
+					}
+					if f.Severity != SeverityError || !strings.Contains(f.Message, "not both") {
+						t.Errorf("%s: unexpected finding %+v", api, f)
+					}
+					got = append(got, at{f.Record, f.Line})
+				}
+				if !reflect.DeepEqual(got, tc.want) {
+					t.Errorf("%s: %s errors at %v, want %v", api, RuleEdifactNesting, got, tc.want)
+				}
+			}
+			compareStreamReport(t, data, Options{}, streamed)
+		})
+	}
+}
+
 func TestEdifactFunctionalGroups(t *testing.T) {
 	clean := "UNB+UNOA:4+A+B+260115:1430+R1'" +
 		"UNG+ORDERS+A+B+260115:1430+G1+UN+D:96A'" +

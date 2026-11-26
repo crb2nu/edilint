@@ -962,11 +962,13 @@ separate from action codes in `0083`.
 | `EL7005` | UCI 29: wrong UNZ-1 message/group count; 13: absent count; 37: letters in the count |
 | `EL7006` | UCI/UCF/UCM 28: mismatched interchange/group/message references; 13: absent reference |
 | `EL7007` | UCI 19: invalid UNA decimal mark; 20: unusable UNA service character |
+| `EL7008` | UCI 30: functional groups and messages mixed in one interchange |
 
 A missing or unreadable header can prevent a valid CONTRL response. Truncation
-(`EL2006`), orphaned trailers (`EL7002`), missing enclosing interchanges
-(`EL7008`), and data outside an interchange (`EL7009`) have no single mapping
-here. The UNA references cover only the named defects. Sources: the Syntax
+(`EL2006`), orphaned trailers (`EL7002`), and data outside an interchange
+(`EL7009`) have no single mapping here. The `EL7008` reference covers only an
+interchange that mixes groups and messages, not a missing enclosing
+interchange. The UNA references cover only the named defects. Sources: the Syntax
 Development Group's [CONTRL definition](https://service.gefeg.com/jwg1/Archive/v3/mt/m01.htm)
 and [public 0085 code list](https://service.gefeg.com/jwg1/Archive/cl/v3/21a/cl16.htm).
 
@@ -1037,7 +1039,7 @@ service string advice. Message content is out of scope.
 | `EL7005` | `edifact.interchange-count` | error | edifact | UNZ-1 does not match the recounted messages in the interchange, or the recounted functional groups when UNG groups are used. |
 | `EL7006` | `edifact.control-reference` | error | edifact | Header and trailer control references differ (UNB-5/UNZ-2, UNG-5/UNE-2, UNH-1/UNT-2), or a header's reference is empty. A numerically-equal-but-not-identical pair is reported as a warning. |
 | `EL7007` | `edifact.service-string` | error | edifact | UNA is not the fixed nine characters, its service characters collide or are alphanumeric, or its decimal mark is not a period or a comma. |
-| `EL7008` | `edifact.nesting` | error | edifact | UNG or UNH appears outside the envelope that must enclose it, or no UNB is present in a file forced to the edifact format. |
+| `EL7008` | `edifact.nesting` | error | edifact | UNG or UNH appears outside the envelope that must enclose it, an interchange mixes functional groups with ungrouped messages, or no UNB is present in a file forced to the edifact format. |
 | `EL7009` | `edifact.trailing-data` | error | edifact | Segments appear outside any interchange; data after UNZ is not part of a valid EDIFACT file. |
 
 ## Scope

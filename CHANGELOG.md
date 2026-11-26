@@ -10,6 +10,11 @@ from its first tag.
 
 ### Changed
 
+- `EL7008` (`edifact.nesting`) reports an EDIFACT interchange that mixes UNG
+  functional groups with ungrouped UNH messages, once per interchange at the
+  first record that creates the mix, and cites CONTRL `UCI.0085` code 30.
+  `edilint fix` already withheld recounts for such interchanges; UNZ-1 counting
+  is unchanged.
 - The composite Action's `version` input no longer pins a release. Left
   empty, it installs the ref named in the `uses:` line (`github.action_ref`),
   so `uses: crb2nu/edilint@v0.7.0` installs v0.7.0 and release prep no longer
