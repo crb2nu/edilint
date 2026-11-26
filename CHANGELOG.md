@@ -10,6 +10,11 @@ from its first tag.
 
 ### Changed
 
+- `EL3011` (`envelope.missing-control-id`) also reports an empty or
+  whitespace-only GS06 group control number and ST02 transaction set control
+  number, on the GS or ST record. A blank header closed by a blank trailer
+  previously linted clean. The TA1 018 acknowledgment mapping now applies only
+  to an empty ISA13.
 - `EL7008` (`edifact.nesting`) reports an EDIFACT interchange that mixes UNG
   functional groups with ungrouped UNH messages, once per interchange at the
   first record that creates the mix, and cites CONTRL `UCI.0085` code 30.

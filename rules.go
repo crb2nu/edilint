@@ -155,7 +155,7 @@ func catalog() []ruleEntry {
 		{"EL3010", RuleDateTime, ClassEnvelope, SeverityError, "x12",
 			"ISA09/GS04 dates or ISA10/GS05 times are not valid YYMMDD, CCYYMMDD or HHMM[SS[DD]] values."},
 		{"EL3011", RuleEnvelopeMissingID, ClassEnvelope, SeverityError, "x12",
-			"ISA13 interchange control number is empty."},
+			"ISA13, GS06 or ST02 control number is empty."},
 		{"EL3012", RuleEnvelopeTrailing, ClassEnvelope, SeverityError, "x12",
 			"Segments appear outside any interchange."},
 

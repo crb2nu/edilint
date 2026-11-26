@@ -1,6 +1,8 @@
 package edilint
 
 import (
+	"bytes"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -251,6 +253,79 @@ func TestDeriveDelimsReadsISAPositions(t *testing.T) {
 	}
 	if d.Version != "00501" {
 		t.Errorf("version = %q, want 00501", d.Version)
+	}
+}
+
+func TestX12EmptyGroupAndTransactionControlNumbers(t *testing.T) {
+	type at struct {
+		rule   string
+		record string
+		line   int
+	}
+	head := isa("000000001", "260115", "1430") + "\n"
+	gsLine := func(ctl string) string {
+		return "GS*HP*NORTHGATEHEALTH*VALEMEDGROUP*20260115*1430*" + ctl + "*X*005010X221A1~\n"
+	}
+	tests := []struct {
+		name string
+		body string
+		want []at
+	}{
+		{"empty GS06 and GE02",
+			head + gsLine("") + "ST*835*0001~\nSE*2*0001~\nGE*1*~\nIEA*1*000000001~\n",
+			[]at{{RuleEnvelopeMissingID, "GS", 2}}},
+		{"empty ST02 and SE02",
+			head + gsLine("1") + "ST*835*~\nSE*2*~\nGE*1*1~\nIEA*1*000000001~\n",
+			[]at{{RuleEnvelopeMissingID, "ST", 3}}},
+		{"whitespace-only GS06 and GE02",
+			head + gsLine("   ") + "ST*835*0001~\nSE*2*0001~\nGE*1*   ~\nIEA*1*000000001~\n",
+			[]at{{RuleEnvelopeMissingID, "GS", 2}}},
+		{"whitespace-only ST02 and SE02",
+			head + gsLine("1") + "ST*835*  ~\nSE*2*  ~\nGE*1*1~\nIEA*1*000000001~\n",
+			[]at{{RuleEnvelopeMissingID, "ST", 3}}},
+		{"empty ST02 with non-empty SE02",
+			head + gsLine("1") + "ST*835*~\nSE*2*0001~\nGE*1*1~\nIEA*1*000000001~\n",
+			[]at{{RuleEnvelopeMissingID, "ST", 3}, {RuleControlNumber, "SE", 4}}},
+		{"two empty ST02 in one group",
+			head + gsLine("1") + "ST*835*~\nSE*2*~\nST*835*~\nSE*2*~\nGE*2*1~\nIEA*1*000000001~\n",
+			[]at{{RuleEnvelopeMissingID, "ST", 3}, {RuleEnvelopeMissingID, "ST", 5}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			data := []byte(tc.body)
+			mem := Lint("stream", data, Options{})
+			streamed, err := LintReader("stream", bytes.NewReader(data), Options{})
+			if err != nil {
+				t.Fatalf("LintReader: %v", err)
+			}
+			for api, rep := range map[string]*Report{"Lint": mem, "LintReader": streamed} {
+				if rep.Format != FormatX12 {
+					t.Fatalf("%s: format = %s, want %s", api, rep.Format, FormatX12)
+				}
+				var got []at
+				for _, f := range rep.Findings {
+					got = append(got, at{f.Rule, f.Record, f.Line})
+				}
+				if !reflect.DeepEqual(got, tc.want) {
+					t.Errorf("%s: findings %v, want %v", api, got, tc.want)
+				}
+				for _, f := range rep.Findings {
+					if f.Rule == RuleEnvelopeMissingID && f.Severity != SeverityError {
+						t.Errorf("%s: %s severity = %s, want error", api, f.Rule, f.Severity)
+					}
+				}
+			}
+			if f := firstOf(mem, RuleEnvelopeMissingID); f != nil {
+				want := "ST02 transaction set control number is empty"
+				if f.Record == "GS" {
+					want = "GS06 group control number is empty"
+				}
+				if f.Message != want {
+					t.Errorf("message = %q, want %q", f.Message, want)
+				}
+			}
+			compareStreamReport(t, data, Options{}, streamed)
+		})
 	}
 }
 
