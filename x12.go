@@ -220,10 +220,7 @@ func checkISA(s *source, opts Options, rep *Report, r record, f []string, contro
 // checkDuplicate records a control number and reports a repeat within scope.
 func checkDuplicate(s *source, rep *Report, r record, element, value string, seen *controlIndex, scope string) {
 	value = strings.TrimSpace(value)
-	if value == "" || seen == nil {
-		return
-	}
-	if prev, ok := seen.values[value]; ok {
+	if prev, ok := seen.record(s, value, r.Ordinal); ok {
 		rep.add(Finding{
 			Rule:     RuleDupControl,
 			Severity: SeverityError,
@@ -233,13 +230,7 @@ func checkDuplicate(s *source, rep *Report, r record, element, value string, see
 			Expected: fmt.Sprintf("unique %s within the %s", element, scope),
 			Actual:   value,
 		})
-		return
 	}
-	if !s.acceptState(len(seen.values)+1, seen.bytes+len(value)) {
-		return
-	}
-	seen.bytes += len(value)
-	seen.values[strings.Clone(value)] = r.Ordinal
 }
 
 // compareControl matches a trailer control number against its header.
@@ -468,3 +459,21 @@ type controlIndex struct {
 }
 
 func newControlIndex() *controlIndex { return &controlIndex{values: map[string]int{}} }
+
+// record notes the first record to use a control value and, on a repeat,
+// returns that record's ordinal. Empty values and a nil index are ignored; new
+// entries count against the streaming state limit.
+func (c *controlIndex) record(s *source, value string, ordinal int) (int, bool) {
+	if value == "" || c == nil {
+		return 0, false
+	}
+	if prev, ok := c.values[value]; ok {
+		return prev, true
+	}
+	if !s.acceptState(len(c.values)+1, c.bytes+len(value)) {
+		return 0, false
+	}
+	c.bytes += len(value)
+	c.values[strings.Clone(value)] = ordinal
+	return 0, false
+}

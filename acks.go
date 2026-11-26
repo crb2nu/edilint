@@ -160,6 +160,11 @@ var ruleAcks = map[string][]Ack{
 		{"UCF.0085", "13", "a group control reference is missing"},
 		{"UCM.0085", "13", "a message control reference is missing"},
 	},
+	RuleID(RuleEdifactDupReference): {
+		{"UCI.0085", "26", "duplicate interchange reference detected"},
+		{"UCF.0085", "26", "duplicate group reference detected within the interchange"},
+		{"UCM.0085", "26", "duplicate message reference detected within the group or interchange"},
+	},
 	RuleID(RuleEdifactNesting): {
 		{"UCI.0085", "30", "functional groups and messages mixed at the same level in the interchange"},
 	},

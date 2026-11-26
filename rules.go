@@ -219,6 +219,10 @@ func catalog() []ruleEntry {
 		{"EL7009", RuleEdifactTrailing, ClassEdifact, SeverityError, "edifact",
 			"Segments appear outside any interchange; data after UNZ is not part of a valid " +
 				"EDIFACT file."},
+		{"EL7010", RuleEdifactDupReference, ClassEdifact, SeverityError, "edifact",
+			"A UNB-5 interchange reference repeats within the file, a UNG-5 group reference " +
+				"repeats within its interchange, or a UNH-1 message reference repeats within its " +
+				"functional group, or within its interchange when no groups are used."},
 	}
 }
 
