@@ -14,8 +14,13 @@ inputs:
     description: Optional baseline file passed to --baseline.
     required: false
   version:
-    description: Release tag of edilint to install, or `source` to build edilint from this action's own checkout (the ref the workflow pinned).
-    default: v0.6.0
+    description: >-
+      Release tag of edilint to install, or `source` to build edilint from this
+      action's own checkout (the ref the workflow pinned). When empty, installs
+      the ref named in the `uses:` line (`crb2nu/edilint@v0.7.0` installs
+      v0.7.0); under `uses: ./` that ref is empty, so set `version` explicitly.
+    required: false
+    default: ''
 outputs:
   exit-code:
     description: Exit status of edilint (0 clean, 1 findings, 2 usage or read error).
@@ -31,7 +36,14 @@ runs:
       env:
         VERSION: ${{ inputs.version }}
         ACTION_PATH: ${{ github.action_path }}
+        ACTION_REF: ${{ github.action_ref }}
       run: |
+        # An empty version installs the ref this action was pinned to.
+        VERSION="${VERSION:-$ACTION_REF}"
+        if [[ -z "$VERSION" ]]; then
+          echo '::error::edilint: set the `version` input to a release tag or `source`; the action ref is empty (for example under `uses: ./`), so there is no tag to fall back to.'
+          exit 2
+        fi
         if [[ "$VERSION" == "source" ]]; then
           # Build from the checkout this action runs from: the repository itself
           # under `uses: ./`, or the pinned ref under `uses: crb2nu/edilint@<ref>`.

@@ -2,9 +2,10 @@ name: action-smoke
 
 # The two proof jobs build edilint from the checkout (`version: source`), so
 # they prove the composite steps and the current code on every push and pull
-# request. The `released` job uses the action's default version, which names
-# the latest release tag and can only resolve once that tag exists, so it runs
-# on tag pushes and on demand rather than on the commit that bumps the default.
+# request. The `released` job installs the release named by the pushed ref
+# (`github.ref_name`), because under `uses: ./` the action ref is empty and the
+# action has no default version to fall back to. That tag can only resolve once
+# it exists, so the job runs on tag pushes and on demand.
 
 on:
   push:
@@ -48,3 +49,4 @@ jobs:
       - uses: ./
         with:
           files: examples/remittance.x12
+          version: ${{ github.ref_name }}
