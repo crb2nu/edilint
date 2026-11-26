@@ -916,7 +916,7 @@ themselves by format, and a configuration file can override any of them.
 | `EL3008` | `envelope.interchange-count` | error | x12 | IEA01 does not match the recounted functional groups in the interchange. |
 | `EL3009` | `envelope.duplicate-control-number` | error | x12 | Duplicate ISA13 within the file or across the files in one run, duplicate GS06 within an interchange, or duplicate ST02 within a functional group. |
 | `EL3010` | `envelope.datetime` | error | x12 | ISA09/GS04 dates or ISA10/GS05 times are not valid YYMMDD, CCYYMMDD or HHMM[SS[DD]] values. |
-| `EL3011` | `envelope.missing-control-id` | error | x12 | ISA13 interchange control number is empty. |
+| `EL3011` | `envelope.missing-control-id` | error | x12 | ISA13, GS06 or ST02 control number is empty. |
 | `EL3012` | `envelope.trailing-data` | error | x12 | Segments appear outside any interchange. |
 
 ### What the trading partner would say
@@ -946,7 +946,7 @@ guarantee a receiver response or generate acknowledgment messages.
 | `EL3008` | TA1 021, invalid number of included groups value |
 | `EL3009` | TA1 025, duplicate interchange control number; 999 AK905 19 and IK502 23, control number not unique within its parent |
 | `EL3010` | TA1 014 and 015, invalid interchange date or time; 999 AK905 30 and 31, invalid group date or time |
-| `EL3011` | TA1 018, invalid interchange control number value |
+| `EL3011` | TA1 018, invalid interchange control number value, for an empty ISA13 |
 | `EL3012` | TA1 022, invalid control structure, for segments after the IEA |
 
 EDIFACT references use CONTRL syntax-error element `0085`, qualified by its

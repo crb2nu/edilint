@@ -123,7 +123,7 @@ var ruleAcks = map[string][]Ack{
 		{"AK905", "31", "invalid group time"},
 	},
 	RuleID(RuleEnvelopeMissingID): {
-		{"TA105", "018", "invalid interchange control number value"},
+		{"TA105", "018", "invalid interchange control number value, only when this finding reports an empty ISA13"},
 	},
 	RuleID(RuleEnvelopeTrailing): {
 		{"TA105", "022", "invalid control structure, for segments after the IEA"},

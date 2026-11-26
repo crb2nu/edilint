@@ -120,9 +120,9 @@
     "false_positives": "Partner-specific shorthand is still nonconforming to the checked envelope representation. Dates are checked structurally, not for business plausibility or freshness."
   },
   "EL3011": {
-    "example": "ISA13 is empty or contains only spaces.",
-    "fix": "Populate the interchange control number from the sender's control sequence and use the same value in IEA02.",
-    "false_positives": "A shifted or short ISA can make the control field appear empty. Repair ISA length and separators before assigning a new control value."
+    "example": "ISA13, GS06 or ST02 is empty or contains only spaces.",
+    "fix": "Populate the interchange, group or transaction set control number from the sender's control sequence and use the same value in IEA02, GE02 or SE02.",
+    "false_positives": "A shifted or short ISA, GS or ST can make the control field appear empty. Repair element positions and separators before assigning a new control value."
   },
   "EL3012": {
     "example": "IEA*1*000000001~NTE*ADD*EXTRA~",

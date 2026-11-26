@@ -92,6 +92,7 @@ func checkX12Envelope(s *source, opts Options, rep *Report) {
 			}
 			isa.children++
 			gs = envelopeLevel{open: true, rec: r, control: elem(f, 6), seen: newControlIndex()}
+			checkControlPresent(rep, r, "GS06 group control number", gs.control)
 			checkDuplicate(s, rep, r, "GS06", gs.control, seenGS06, "interchange")
 			checkDate(rep, r, "GS04", elem(f, 4), 8)
 			checkTime(rep, r, "GS05", elem(f, 5))
@@ -123,6 +124,7 @@ func checkX12Envelope(s *source, opts Options, rep *Report) {
 			}
 			gs.children++
 			st = envelopeLevel{open: true, rec: r, control: elem(f, 2), children: 1}
+			checkControlPresent(rep, r, "ST02 transaction set control number", st.control)
 			if gs.seen != nil {
 				checkDuplicate(s, rep, r, "ST02", st.control, gs.seen, "functional group")
 			}
@@ -160,6 +162,21 @@ func checkX12Envelope(s *source, opts Options, rep *Report) {
 	if isa.open {
 		reportUnclosed(rep, isa.rec, "ISA", "IEA")
 	}
+}
+
+// checkControlPresent reports an EL3011 error on a GS or ST header whose
+// control number is blank. A blank value is skipped by the duplicate check and
+// compares equal to a blank trailer, so this is the only finding it gets.
+func checkControlPresent(rep *Report, r record, what, control string) {
+	if strings.TrimSpace(control) != "" {
+		return
+	}
+	rep.add(Finding{
+		Rule:     RuleEnvelopeMissingID,
+		Severity: SeverityError,
+		Message:  what + " is empty",
+		Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
+	})
 }
 
 // checkISA validates the interchange header's control number, date and time.

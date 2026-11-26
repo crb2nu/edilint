@@ -64,8 +64,8 @@ func envelopeDetails() map[string]ruleDetail {
 			example:  x12Example("ISA*00*          *00*          *ZZ*NORTHGATEHEALTH*ZZ*VALEMEDGROUP   *261315*1430*^*00501*000000001*0*P*:~", gs, st, bpr, se, ge, iea),
 		},
 		"EL3011": {
-			catches:  "An ISA13 that is blank. The interchange control number is what a receiver acknowledges and what both sides use to trace a file after the fact; an empty one leaves the interchange unidentifiable.",
-			fix:      "Populate ISA13 from the sender's interchange counter and copy the same value into IEA02. The element is fixed-width, so the value is normally zero-padded to nine characters.",
+			catches:  "An ISA13, GS06 or ST02 that is blank. The interchange, group and transaction set control numbers are what a receiver acknowledges and what both sides use to trace a file after the fact; an empty one leaves that envelope unidentifiable. A blank header closed by a blank trailer compares equal, and blank values are not checked for duplicates, so this rule is the only finding such an envelope gets.",
+			fix:      "Populate ISA13, GS06 and ST02 from the sender's control counters and copy each value into its trailer: IEA02, GE02 and SE02. ISA13 is fixed-width, so its value is normally zero-padded to nine characters.",
 			suppress: "There is no safe case.",
 			example:  x12Example("ISA*00*          *00*          *ZZ*NORTHGATEHEALTH*ZZ*VALEMEDGROUP   *260115*1430*^*00501*         *0*P*:~", gs, st, bpr, se, ge, "IEA*1*         ~"),
 		},

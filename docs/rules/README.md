@@ -28,7 +28,7 @@ One page per rule in the edilint catalog. The pages are generated from the catal
 | [EL3008](EL3008.md) | `envelope.interchange-count` | envelope | error | IEA01 does not match the recounted functional groups in the interchange. |
 | [EL3009](EL3009.md) | `envelope.duplicate-control-number` | envelope | error | Duplicate ISA13 within the file or across the files in one run, duplicate GS06 within an interchange, or duplicate ST02 within a functional group. |
 | [EL3010](EL3010.md) | `envelope.datetime` | envelope | error | ISA09/GS04 dates or ISA10/GS05 times are not valid YYMMDD, CCYYMMDD or HHMM[SS[DD]] values. |
-| [EL3011](EL3011.md) | `envelope.missing-control-id` | envelope | error | ISA13 interchange control number is empty. |
+| [EL3011](EL3011.md) | `envelope.missing-control-id` | envelope | error | ISA13, GS06 or ST02 control number is empty. |
 | [EL3012](EL3012.md) | `envelope.trailing-data` | envelope | error | Segments appear outside any interchange. |
 | [EL4001](EL4001.md) | `counts.mismatch` | counts | error | A declared record count does not match the recounted total. |
 | [EL4002](EL4002.md) | `counts.unparsable` | counts | error | The field a count rule points at is not an integer. |
