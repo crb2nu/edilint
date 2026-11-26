@@ -8,6 +8,15 @@ from its first tag.
 
 ## [Unreleased]
 
+### Added
+
+- `EL7010` (`edifact.duplicate-control-reference`) reports a repeated EDIFACT
+  control reference within its scope: UNB-5 within the file, UNG-5 within its
+  interchange, and UNH-1 within its functional group, or within its interchange
+  when no groups are used. The finding is on the repeating header, names the
+  first record, and cites CONTRL `UCI.0085`, `UCF.0085` and `UCM.0085` code 26.
+  Empty references stay with `EL7006`.
+
 ### Changed
 
 - `EL3011` (`envelope.missing-control-id`) also reports an empty or

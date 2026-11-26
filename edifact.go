@@ -272,7 +272,7 @@ func reportEdifactMixed(rep *Report, r record, what string) {
 
 // checkEdifactEnvelope verifies UNB/UNZ, UNG/UNE and UNH/UNT pairing, recounts
 // the declared totals in every trailer, and matches header and trailer control
-// references.
+// references. Header references must also be unique within their scope.
 func checkEdifactEnvelope(s *source, rep *Report) {
 	if !s.Edifact.Declared {
 		return
@@ -286,6 +286,12 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 	// An interchange carries either messages or functional groups at its top
 	// level; the first record that mixes them is reported once.
 	mixedReported := false
+	// Each reference lives in its own scope: UNB-5 within the file, UNG-5
+	// within its interchange, and UNH-1 within its group, or within its
+	// interchange for ungrouped messages.
+	seenUNB := newControlIndex() // file scope
+	seenUNG := newControlIndex() // reset per interchange
+	seenUNH := newControlIndex() // reset per interchange, for ungrouped messages
 
 	for r := range s.records() {
 		if strings.TrimSpace(r.Text) == "" {
@@ -310,6 +316,7 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 				}
 			}
 			unb = envelopeLevel{open: true, rec: r, control: elem(f, 5)}
+			seenUNG, seenUNH = newControlIndex(), newControlIndex()
 			messages, groups = 0, 0
 			trailingReported = false
 			mixedReported = false
@@ -321,6 +328,7 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 					Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 				})
 			}
+			checkEdifactDuplicate(s, rep, r, "UNB-5", unb.control, seenUNB, "file")
 
 		case "UNZ":
 			if !unb.open {
@@ -361,7 +369,7 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 				mixedReported = true
 			}
 			groups++
-			ung = envelopeLevel{open: true, rec: r, control: elem(f, 5)}
+			ung = envelopeLevel{open: true, rec: r, control: elem(f, 5), seen: newControlIndex()}
 			if strings.TrimSpace(ung.control) == "" {
 				rep.add(Finding{
 					Rule:     RuleEdifactControlRef,
@@ -369,6 +377,9 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 					Message:  "UNG-5 group reference number is empty",
 					Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 				})
+			}
+			if unb.open {
+				checkEdifactDuplicate(s, rep, r, "UNG-5", ung.control, seenUNG, "interchange")
 			}
 
 		case "UNE":
@@ -414,6 +425,12 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 					Line:     r.Line, RecordNumber: r.Ordinal, Record: r.ID,
 				})
 			}
+			switch {
+			case ung.open:
+				checkEdifactDuplicate(s, rep, r, "UNH-1", unh.control, ung.seen, "functional group")
+			case unb.open:
+				checkEdifactDuplicate(s, rep, r, "UNH-1", unh.control, seenUNH, "interchange")
+			}
 
 		case "UNT":
 			if !unh.open {
@@ -457,6 +474,32 @@ func checkEdifactEnvelope(s *source, rep *Report) {
 	if unb.open {
 		reportEdifactUnclosed(rep, unb.rec, "UNB", "UNZ")
 	}
+}
+
+// checkEdifactDuplicate records a header control reference and reports a
+// repeat within its scope on the repeating header.
+func checkEdifactDuplicate(s *source, rep *Report, r record, element, value string, seen *controlIndex, scope string) {
+	value = strings.TrimSpace(value)
+	if value == "" || seen == nil {
+		return
+	}
+	if prev, ok := seen.values[value]; ok {
+		rep.add(Finding{
+			Rule:     RuleEdifactDupReference,
+			Severity: SeverityError,
+			Message: fmt.Sprintf("%s control reference %q is already used by record %d in this %s; "+
+				"control references must be unique within their scope", element, value, prev, scope),
+			Line: r.Line, RecordNumber: r.Ordinal, Record: r.ID,
+			Expected: fmt.Sprintf("unique %s within the %s", element, scope),
+			Actual:   value,
+		})
+		return
+	}
+	if !s.acceptState(len(seen.values)+1, seen.bytes+len(value)) {
+		return
+	}
+	seen.bytes += len(value)
+	seen.values[strings.Clone(value)] = r.Ordinal
 }
 
 // compareEdifactRef matches a trailer control reference against its header,

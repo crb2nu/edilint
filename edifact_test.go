@@ -294,3 +294,72 @@ func TestEdifactDetection(t *testing.T) {
 		})
 	}
 }
+
+func TestEdifactDuplicateControlReference(t *testing.T) {
+	type at struct {
+		record string
+		line   int
+	}
+	unb := func(ref string) string { return "UNB+UNOA:4+A+B+260115:1430+" + ref + "'\n" }
+	unz := func(n, ref string) string { return "UNZ+" + n + "+" + ref + "'\n" }
+	ung := func(ref string) string { return "UNG+ORDERS+A+B+260115:1430+" + ref + "+UN+D:96A'\n" }
+	une := func(n, ref string) string { return "UNE+" + n + "+" + ref + "'\n" }
+	msg := func(ref string) string { return "UNH+" + ref + "+ORDERS:D:96A:UN'\nUNT+2+" + ref + "'\n" }
+	tests := []struct {
+		name string
+		body string
+		want []at
+	}{
+		{"distinct references", unb("R1") + msg("M1") + msg("M2") + unz("2", "R1") +
+			unb("R2") + ung("G1") + msg("M1") + une("1", "G1") + ung("G2") + msg("M1") + une("1", "G2") +
+			unz("2", "R2"), nil},
+		{"interchange reference", unb("R1") + msg("M1") + unz("1", "R1") +
+			unb("R1") + msg("M1") + unz("1", "R1"), []at{{"UNB", 5}}},
+		{"group reference", unb("R1") + ung("G1") + msg("M1") + une("1", "G1") +
+			ung("G1") + msg("M2") + une("1", "G1") + unz("2", "R1"), []at{{"UNG", 6}}},
+		{"grouped message reference", unb("R1") + ung("G1") + msg("M1") + msg("M1") + une("2", "G1") +
+			unz("1", "R1"), []at{{"UNH", 5}}},
+		{"ungrouped message reference", unb("R1") + msg("M1") + msg("M2") + msg("M1") + unz("3", "R1"),
+			[]at{{"UNH", 6}}},
+		{"message reference in two interchanges", unb("R1") + msg("M1") + unz("1", "R1") +
+			unb("R2") + msg("M1") + unz("1", "R2"), nil},
+		{"message reference in two groups", unb("R1") + ung("G1") + msg("M1") + une("1", "G1") +
+			ung("G2") + msg("M1") + une("1", "G2") + unz("2", "R1"), nil},
+		{"group reference in two interchanges", unb("R1") + ung("G1") + msg("M1") + une("1", "G1") + unz("1", "R1") +
+			unb("R2") + ung("G1") + msg("M1") + une("1", "G1") + unz("1", "R2"), nil},
+		{"empty references", unb("") + ung("") + msg("") + msg("") + une("2", "") + ung("") + une("0", "") +
+			unz("2", "") + unb("") + unz("0", ""), nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			data := []byte(tc.body)
+			mem := Lint("stream", data, Options{})
+			streamed, err := LintReader("stream", bytes.NewReader(data), Options{})
+			if err != nil {
+				t.Fatalf("LintReader: %v", err)
+			}
+			for api, rep := range map[string]*Report{"Lint": mem, "LintReader": streamed} {
+				if rep.Format != FormatEdifact {
+					t.Fatalf("%s: format = %s, want %s", api, rep.Format, FormatEdifact)
+				}
+				var got []at
+				for _, f := range rep.Findings {
+					if f.Rule != RuleEdifactDupReference {
+						continue
+					}
+					if f.Severity != SeverityError || !strings.Contains(f.Message, "already used by record") {
+						t.Errorf("%s: unexpected finding %+v", api, f)
+					}
+					got = append(got, at{f.Record, f.Line})
+				}
+				if !reflect.DeepEqual(got, tc.want) {
+					t.Errorf("%s: %s errors at %v, want %v", api, RuleEdifactDupReference, got, tc.want)
+				}
+				if tc.want != nil && len(rep.Findings) != len(tc.want) {
+					t.Errorf("%s: want only %s, got %+v", api, RuleEdifactDupReference, rep.Findings)
+				}
+			}
+			compareStreamReport(t, data, Options{}, streamed)
+		})
+	}
+}

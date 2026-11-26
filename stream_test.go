@@ -167,6 +167,7 @@ func TestStreamLimitCoverage(t *testing.T) {
 		{"record", strings.Repeat("X", 33), Options{Format: FormatText, StreamLimits: StreamLimits{MaxRecordBytes: 32}}, "record bytes"},
 		{"padding", isa("000000001", "260101", "1200") + strings.Repeat(" ", 256), Options{StreamLimits: StreamLimits{MaxRecordBytes: 128}}, "record bytes"},
 		{"controls", interchange("ST*835*1~", "SE*2*1~", "ST*835*2~", "SE*2*2~"), Options{StreamLimits: StreamLimits{MaxStateEntries: 1}}, "state entries"},
+		{"edifact controls", "UNB+UNOA:4+A+B+260115:1430+R1'UNH+M1+ORDERS:D:96A:UN'UNT+2+M1'UNH+M2+ORDERS:D:96A:UN'UNT+2+M2'UNZ+2+R1'", Options{StreamLimits: StreamLimits{MaxStateEntries: 1}}, "state entries"},
 		{"findings", "A\x01\n", Options{Format: FormatText, StreamLimits: StreamLimits{MaxStateBytes: 128}}, "finding bytes"},
 	}
 	for _, tc := range tests {

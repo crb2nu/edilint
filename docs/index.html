@@ -17,7 +17,7 @@
   <pre>go install github.com/crb2nu/edilint/cmd/edilint@latest
 edilint your-file.x12</pre>
   <p>The CLI runs locally with no network calls or telemetry. A clean file produces no output. This reference describes the current main branch; older releases may contain fewer rules. See the <a href="https://github.com/crb2nu/edilint#scope">scope and limits</a>.</p>
-  <h2 id="rules">Rule catalog <span class="count">48 rules</span></h2>
+  <h2 id="rules">Rule catalog <span class="count">49 rules</span></h2>
   <p>Find the <code>EL####</code> identifier from your diagnostic. Use your browser's find command to search by identifier, name, or format.</p>
   <div class="table-wrap"><table>
   <thead><tr><th scope="col">Rule</th><th scope="col">Default</th><th scope="col">Applies to</th></tr></thead>
@@ -70,6 +70,7 @@ edilint your-file.x12</pre>
     <tr><td><a href="rules/EL7007.html">EL7007</a><br><code>edifact.service-string</code></td><td>error</td><td>edifact</td></tr>
     <tr><td><a href="rules/EL7008.html">EL7008</a><br><code>edifact.nesting</code></td><td>error</td><td>edifact</td></tr>
     <tr><td><a href="rules/EL7009.html">EL7009</a><br><code>edifact.trailing-data</code></td><td>error</td><td>edifact</td></tr>
+    <tr><td><a href="rules/EL7010.html">EL7010</a><br><code>edifact.duplicate-control-reference</code></td><td>error</td><td>edifact</td></tr>
   </tbody>
   </table></div>
   <h2>Adopt checks gradually</h2>

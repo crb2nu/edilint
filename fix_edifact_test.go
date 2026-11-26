@@ -10,6 +10,10 @@ import (
 func TestFixEdifactCounts(t *testing.T) {
 	unb := "UNB+UNOC:3+S+R+260101:1200+I'"
 	ung := "UNG+ORDERS+S+R+260101:1200+G+UN+D:96A'"
+	// The second interchange and group carry their own references so the
+	// repaired output does not repeat a control reference within its scope.
+	unb2 := "UNB+UNOC:3+S+R+260101:1200+J'"
+	ung2 := "UNG+ORDERS+S+R+260101:1200+H+UN+D:96A'"
 	msg := func(ref, count string) string {
 		return "UNH+" + ref + "+ORDERS:D:96A:UN'FTX+AAI+++KEEP?+THIS?'TOO??'UNT+" + count + "+" + ref + "'"
 	}
@@ -21,8 +25,8 @@ func TestFixEdifactCounts(t *testing.T) {
 		{"ungrouped", unb + msg("M", "9") + "UNZ+7+I'", unb + msg("M", "3") + "UNZ+1+I'", []string{"EL7003", "EL7005"}, nil},
 		{"empty records", unb + "'" + strings.ReplaceAll(msg("M", "9"), "'UNT", "''  'UNT") + "UNZ+1+I'", unb + "'" + strings.ReplaceAll(msg("M", "3"), "'UNT", "''  'UNT") + "UNZ+1+I'", []string{"EL7003"}, nil},
 		{"multiple messages", unb + msg("A", "") + msg("B", "abc") + "UNZ+0+I'", unb + msg("A", "3") + msg("B", "3") + "UNZ+2+I'", []string{"EL7003", "EL7003", "EL7005"}, nil},
-		{"groups", unb + ung + msg("A", "8") + msg("B", "3") + "UNE+9+G'" + ung + "UNE++G'UNZ+abc+I'", unb + ung + msg("A", "3") + msg("B", "3") + "UNE+2+G'" + ung + "UNE+0+G'UNZ+2+I'", []string{"EL7003", "EL7004", "EL7004", "EL7005"}, nil},
-		{"multiple interchanges", unb + msg("A", "3") + "UNZ+9+I'" + unb + ung + msg("B", "0") + "UNE+0+G'UNZ+9+I'", unb + msg("A", "3") + "UNZ+1+I'" + unb + ung + msg("B", "3") + "UNE+1+G'UNZ+1+I'", []string{"EL7005", "EL7003", "EL7004", "EL7005"}, nil},
+		{"groups", unb + ung + msg("A", "8") + msg("B", "3") + "UNE+9+G'" + ung2 + "UNE++H'UNZ+abc+I'", unb + ung + msg("A", "3") + msg("B", "3") + "UNE+2+G'" + ung2 + "UNE+0+H'UNZ+2+I'", []string{"EL7003", "EL7004", "EL7004", "EL7005"}, nil},
+		{"multiple interchanges", unb + msg("A", "3") + "UNZ+9+I'" + unb2 + ung + msg("B", "0") + "UNE+0+G'UNZ+9+J'", unb + msg("A", "3") + "UNZ+1+I'" + unb2 + ung + msg("B", "3") + "UNE+1+G'UNZ+1+J'", []string{"EL7005", "EL7003", "EL7004", "EL7005"}, nil},
 		{"escaped count and reference", unb + msg("M?+1", "9?+9") + "UNZ+1+I'", unb + msg("M?+1", "3") + "UNZ+1+I'", []string{"EL7003"}, nil},
 		{"custom service characters", custom.Replace("UNA:+.? '" + unb + msg("M?+1", "bad?+count") + "UNZ+2+I'"), custom.Replace("UNA:+.? '" + unb + msg("M?+1", "3") + "UNZ+1+I'"), []string{"EL7003", "EL7005"}, nil},
 		{"padding", " \nUNA:+.? '\r\n" + unb + " \r\n" + msg("M", "9") + "\t\nUNZ+1+I'\r\n", " \nUNA:+.? '\r\n" + unb + " \r\n" + msg("M", "3") + "\t\nUNZ+1+I'\r\n", []string{"EL7003"}, []string{"EL1003"}},
@@ -81,9 +85,9 @@ func TestFixEdifactDeclinesAmbiguousStructure(t *testing.T) {
 		"unclosed interchange":    unb + msg,
 		"unopened message":        unb + "UNT+9+M'UNZ+9+I'",
 		"unopened group":          unb + msg + "UNE+9+G'UNZ+9+I'",
-		"nested message":          unb + unh + msg + "UNZ+9+I'",
-		"nested group":            unb + ung + ung + msg + "UNE+9+G'UNZ+9+I'",
-		"nested interchange":      unb + unb + msg + "UNZ+9+I'",
+		"nested message":          unb + "UNH+N+ORDERS:D:96A:UN'" + msg + "UNZ+9+I'",
+		"nested group":            unb + "UNG+ORDERS+S+R+260101:1200+H+UN+D:96A'" + ung + msg + "UNE+9+G'UNZ+9+I'",
+		"nested interchange":      "UNB+UNOC:3+S+R+260101:1200+J'" + unb + msg + "UNZ+9+I'",
 		"group in message":        unb + unh + ung + "UNT+9+M'UNE+9+G'UNZ+9+I'",
 		"mixed before group":      unb + msg + ung + msg + "UNE+9+G'UNZ+9+I'",
 		"mixed after group":       unb + ung + msg + "UNE+9+G'" + msg + "UNZ+9+I'",

@@ -121,6 +121,7 @@ const (
 	RuleEdifactServiceString    = "edifact.service-string"
 	RuleEdifactNesting          = "edifact.nesting"
 	RuleEdifactTrailing         = "edifact.trailing-data"
+	RuleEdifactDupReference     = "edifact.duplicate-control-reference"
 )
 
 // Finding is a single defect located in an input file.

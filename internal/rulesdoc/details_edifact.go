@@ -1,6 +1,6 @@
 package rulesdoc
 
-// edifactDetails covers EL7001-EL7009.
+// edifactDetails covers EL7001-EL7010.
 func edifactDetails() map[string]ruleDetail {
 	return map[string]ruleDetail{
 		"EL7001": {
@@ -62,6 +62,12 @@ func edifactDetails() map[string]ruleDetail {
 			fix:      "Remove whatever follows UNZ, or give it its own UNB and UNZ if it is real content.",
 			suppress: "There is no safe case.",
 			example:  edifactExample(una, unb, unh, bgm, unt, unz, "FTX+AAI+++THANK YOU'"),
+		},
+		"EL7010": {
+			catches:  "A control reference repeated within its scope: a UNB-5 interchange reference used twice in one file, a UNG-5 group reference used twice in one interchange, or a UNH-1 message reference used twice in one functional group, or in one interchange when it has no groups. Receivers use these references to detect resent data, so a repeat is rejected as a duplicate (CONTRL code 26) or silently dropped. The finding is on the repeating header and names the record that first used the reference.",
+			fix:      "Have the sending system assign a fresh reference to every interchange, group and message, and keep the trailer reference matched to its header.",
+			suppress: "A sender that restarts UNH-1 at 1 in every interchange or group is valid and is not reported, because the scope ends at the enclosing interchange or group. Within one scope there is no safe case.",
+			example:  edifactExample(una, unb, unh, bgm, unt, unh, "BGM+220+NG77002+9'", unt, "UNZ+2+NG260002'"),
 		},
 	}
 }
